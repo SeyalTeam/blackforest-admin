@@ -147,7 +147,8 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
     final fmt = DateFormat("MMM d");
     final fromLabel = fmt.format(fromDate!);
     final toLabel = fmt.format(toDate!);
-    final label = fromDate == toDate ? fromLabel : "$fromLabel - $toLabel";
+    final bool sameDay = fromDate!.year == toDate!.year && fromDate!.month == toDate!.month && fromDate!.day == toDate!.day;
+    final label = sameDay ? fromLabel : "$fromLabel - $toLabel";
     return InkWell(
       onTap: _pickDate,
       child: Container(
@@ -509,10 +510,12 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              final now = DateTime.now();
               setState(() {
-                fromDate = now;
-                toDate = now;
+                selectedBranchId = "ALL";
+                _combinedView = true;
+                _branchFilterEnabled = true;
+                fromDate = DateTime.now();
+                toDate = DateTime.now();
               });
               _fetchEntries();
             },
