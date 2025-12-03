@@ -35,6 +35,12 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
   double totalNet = 0;
   double totalReturns = 0;
   double totalStockOrders = 0;
+  double totalCash = 0;
+  double totalUpi = 0;
+  double totalCard = 0;
+  double totalPayments = 0;
+  double totalProductDif = 0;
+  double totalSalesDif = 0;
   bool _combinedView = true;
   bool _branchFilterEnabled = true;
 
@@ -118,13 +124,17 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
           headers: {"Authorization": "Bearer $token"});
       final data = jsonDecode(res.body);
       final docs = data["docs"] ?? [];
-      double tSales = 0, tExp = 0, tNet = 0, tReturn = 0, tStock = 0;
+      double tSales = 0, tExp = 0, tNet = 0, tReturn = 0, tStock = 0, tCash = 0, tUpi = 0, tCard = 0, tPayments = 0;
       for (var d in docs) {
         tSales += (d["totalSales"] ?? 0).toDouble();
         tExp += (d["expenses"] ?? 0).toDouble();
         tNet += (d["net"] ?? 0).toDouble();
         tReturn += (d["returnTotal"] ?? 0).toDouble();
         tStock += (d["stockOrders"] ?? 0).toDouble();
+        tPayments += (d["totalPayments"] ?? 0).toDouble();
+        tCash += (d["cash"] ?? 0).toDouble();
+        tUpi += (d["upi"] ?? 0).toDouble();
+        tCard += (d["creditCard"] ?? 0).toDouble();
       }
       setState(() {
         entries = docs.cast<Map<String, dynamic>>();
@@ -135,6 +145,12 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
         totalNet = tNet;
         totalReturns = tReturn;
         totalStockOrders = tStock;
+        totalCash = tCash;
+        totalUpi = tUpi;
+        totalCard = tCard;
+        totalPayments = tPayments;
+        totalProductDif = totalStockOrders - totalReturns;
+        totalSalesDif = totalExpenses + totalPayments - totalSales;
       });
     } catch (e) {
       debugPrint("Fetch error: $e");
@@ -554,6 +570,8 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
                           Text(
                               "Total Sales: ₹${_formatAmount(totalSales)}"),
                           Text(
+                              "Total Payments: ₹${_formatAmount(totalPayments)}"),
+                          Text(
                               "Returns: ₹${_formatAmount(totalReturns)}"),
                           Text(
                               "Stock Orders: ₹${_formatAmount(totalStockOrders)}"),
@@ -564,6 +582,20 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Colors.green)),
+                          Text(
+                              "CASH: ₹${_formatAmount(totalCash)}"),
+                          Text(
+                              "UPI: ₹${_formatAmount(totalUpi)}"),
+                          Text(
+                              "CARD: ₹${_formatAmount(totalCard)}"),
+                          Text(
+                            "Product Dif: ₹${_formatAmount(totalProductDif)}",
+                            style: totalProductDif < 0 ? const TextStyle(color: Colors.red) : null,
+                          ),
+                          Text(
+                            "Sales Dif: ₹${_formatAmount(totalSalesDif)}",
+                            style: totalSalesDif < 0 ? const TextStyle(color: Colors.red) : null,
+                          ),
                         ],
                       ),
                     )
