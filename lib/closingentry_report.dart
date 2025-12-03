@@ -400,10 +400,13 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.attach_money, size: 16),
-                      const SizedBox(width: 12),
+                      const Text(
+                        "₹",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 6),
                       Text(
-                        "${_formatAmount(e["cash"] ?? 0)}",
+                        _formatAmount(e["cash"] ?? 0),
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ],
@@ -514,6 +517,140 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
     }
   }
 
+  Widget _compactSummaryCard() {
+    return Card(
+      color: Colors.green.shade100,
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            // Row 1: Total Sales & Total Payments
+            Row(
+              children: [
+                Expanded(
+                  child: _summaryItem("Total Sales", totalSales, isBoldValue: true),
+                ),
+                Expanded(
+                  child: _summaryItem("Total Payments", totalPayments, isBoldValue: true),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            // Row 2: Expenses, Returns, Stock (all 3 in one row)
+            Row(
+              children: [
+                Expanded(
+                  child: _summaryItem("Expenses", totalExpenses, isBoldValue: true),
+                ),
+                Expanded(
+                  child: _summaryItem("Returns", totalReturns, isBoldValue: true),
+                ),
+                Expanded(
+                  child: _summaryItem("Stock", totalStockOrders, isBoldValue: true),
+                ),
+              ],
+            ),
+            const Divider(height: 16, thickness: 1.5, color: Colors.green),
+            // Row 3: Net Amount (full width, bold, larger)
+            _summaryItem("Net Amount", totalNet, isBold: true, isLarge: true),
+            const Divider(height: 16, thickness: 1.5, color: Colors.green),
+            // Row 4: Cash, UPI, Card (all 3 in one row) - Cash shows ₹ instead of $
+            Row(
+              children: [
+                Expanded(
+                  child: _summaryItem("₹ Cash", totalCash, isBoldValue: true),
+                ),
+                Expanded(
+                  child: _summaryItem("UPI", totalUpi, icon: Icons.qr_code_scanner, isBoldValue: true),
+                ),
+                Expanded(
+                  child: _summaryItem("Card", totalCard, icon: Icons.credit_card, isBoldValue: true),
+                ),
+              ],
+            ),
+            const Divider(height: 16, thickness: 1.5, color: Colors.green),
+            // Row 5: Product Dif & Sales Dif
+            Row(
+              children: [
+                Expanded(
+                  child: _summaryItem(
+                    "Product Dif",
+                    totalProductDif,
+                    showArrow: true,
+                    isBoldValue: true,
+                  ),
+                ),
+                Expanded(
+                  child: _summaryItem(
+                    "Sales Dif",
+                    totalSalesDif,
+                    showArrow: true,
+                    isBoldValue: true,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _summaryItem(String label, double value, {
+    bool isBold = false,
+    bool isLarge = false,
+    bool isBoldValue = false,
+    IconData? icon,
+    bool showArrow = false,
+  }) {
+    Color valueColor = Colors.black87;
+    Widget? arrowWidget;
+
+    if (showArrow) {
+      if (value > 0) {
+        arrowWidget = const Icon(Icons.arrow_upward, color: Colors.green, size: 14);
+        valueColor = Colors.green;
+      } else if (value < 0) {
+        arrowWidget = const Icon(Icons.arrow_downward, color: Colors.red, size: 14);
+        valueColor = Colors.red;
+      }
+    } else if (isBold) {
+      valueColor = Colors.green.shade900;
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 14, color: Colors.black54),
+          const SizedBox(width: 4),
+        ],
+        Text(
+          "$label:",
+          style: TextStyle(
+            fontSize: isLarge ? 15 : 12,
+            fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
+            color: Colors.black54,
+          ),
+        ),
+        const SizedBox(width: 4),
+        if (arrowWidget != null) ...[
+          arrowWidget,
+          const SizedBox(width: 2),
+        ],
+        Text(
+          _formatAmount(value),
+          style: TextStyle(
+            fontSize: isLarge ? 18 : 13,
+            fontWeight: (isBold || isBoldValue) ? FontWeight.bold : FontWeight.w600,
+            color: valueColor,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final displayedEntries = _getDisplayedEntries();
@@ -538,89 +675,86 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
           )
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _headerButton(),
-                    _toggleIcon(),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _branchFilter(),
-              ],
+      body: CustomScrollView(
+        slivers: [
+          // Scrollable Header: Calendar and Branch Filter
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _headerButton(),
+                      _toggleIcon(),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _branchFilter(),
+                  const SizedBox(height: 12),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            Card(
-              color: Colors.green.shade100,
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                              "Total Sales: ₹${_formatAmount(totalSales)}"),
-                          Text(
-                              "Total Payments: ₹${_formatAmount(totalPayments)}"),
-                          Text(
-                              "Returns: ₹${_formatAmount(totalReturns)}"),
-                          Text(
-                              "Stock Orders: ₹${_formatAmount(totalStockOrders)}"),
-                          Text(
-                              "Expenses: ₹${_formatAmount(totalExpenses)}"),
-                          Text(
-                              "Net: ₹${_formatAmount(totalNet)}",
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green)),
-                          Text(
-                              "CASH: ₹${_formatAmount(totalCash)}"),
-                          Text(
-                              "UPI: ₹${_formatAmount(totalUpi)}"),
-                          Text(
-                              "CARD: ₹${_formatAmount(totalCard)}"),
-                          Text(
-                            "Product Dif: ₹${_formatAmount(totalProductDif)}",
-                            style: totalProductDif < 0 ? const TextStyle(color: Colors.red) : null,
-                          ),
-                          Text(
-                            "Sales Dif: ₹${_formatAmount(totalSalesDif)}",
-                            style: totalSalesDif < 0 ? const TextStyle(color: Colors.red) : null,
-                          ),
-                        ],
-                      ),
+          ),
+          // Sticky Summary Card
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _SummaryCardDelegate(
+              child: Container(
+                color: Colors.grey[100],
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: _compactSummaryCard(),
+              ),
+            ),
+          ),
+          // Scrollable Entries List
+          _loading
+              ? const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              : displayedEntries.isEmpty
+                  ? const SliverFillRemaining(
+                      child: Center(child: Text("No closing entries")),
                     )
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : displayedEntries.isEmpty
-                  ? const Center(child: Text("No closing entries"))
-                  : ListView.builder(
-                physics: const BouncingScrollPhysics(),
-                itemCount: displayedEntries.length,
-                itemBuilder: (_, i) => _entryCard(
-                  displayedEntries[i],
-                  isCombined: _combinedView,
-                ),
-              ),
-            ),
-          ],
-        ),
+                  : SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => _entryCard(
+                            displayedEntries[index],
+                            isCombined: _combinedView,
+                          ),
+                          childCount: displayedEntries.length,
+                        ),
+                      ),
+                    ),
+        ],
       ),
     );
+  }
+}
+
+// Delegate for sticky summary card
+class _SummaryCardDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+
+  _SummaryCardDelegate({required this.child});
+
+  @override
+  double get minExtent => 175; // Minimum height when scrolled - tightly fit to content
+
+  @override
+  double get maxExtent => 175; // Maximum height
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return child;
+  }
+
+  @override
+  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) {
+    return true;
   }
 }
