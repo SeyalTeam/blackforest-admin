@@ -23,16 +23,21 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
   List<String> sources = [];
   String selectedSource = 'ALL';
 
+  // Grouped by branch: branchName -> list of details
   Map<String, List<Map<String, dynamic>>> expenseDetails = {};
 
+  // all expenses for fetching
   List<dynamic> allExpenses = [];
 
+  // to detect new expenses (smart refresh)
   String? _latestExpenseId;
   Timer? _smartTimer;
 
+  // grand totals
   double grandTotal = 0.0;
   int grandCount = 0;
 
+  // Keys for source buttons
   final Map<String, GlobalKey> _sourceKeys = {};
 
   @override
@@ -51,6 +56,7 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
   Future<void> _bootstrap() async {
     await _fetchBranches();
     await _fetchAndGroup(initial: true);
+    // start smart live refresh
     _startSmartRefresh();
   }
 
@@ -87,6 +93,7 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
     }
   }
 
+  // Smart timer that only triggers full fetch when new expense id changes
   void _startSmartRefresh() {
     _smartTimer?.cancel();
     _smartTimer = Timer.periodic(const Duration(seconds: 8), (_) async {
@@ -94,6 +101,7 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
         final newId = await _checkLatestExpenseId();
         if (newId != null && newId != _latestExpenseId) {
           _latestExpenseId = newId;
+          // update (smart) - this function will refetch fully
           await _fetchAndGroup();
         }
       } catch (e) {
@@ -123,7 +131,7 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
         final docs = data['docs'] ?? [];
         if (docs.isNotEmpty) {
           final expense = docs.first;
-          final id = expense['id'] ?? expense['_id'] ?? (expense['_id']?['\$oid']);
+          final id = expense['id'] ?? expense['_id'] ?? (expense['_id'] is Map ? expense['_id']['\$oid'] : null);
           return id?.toString();
         }
       }
@@ -133,6 +141,9 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
     return null;
   }
 
+  // Main fetch & grouping function — groups details by branch
+  // When initial==true we populate the whole list and set initial loading.
+  // On subsequent calls we refetch fully since partial update for groups might be complex.
   Future<void> _fetchAndGroup({bool initial = false}) async {
     if (fromDate == null) return;
     if (initial) {
@@ -144,42 +155,37 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
       final end = toDate != null
           ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59)
           : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
-
       var baseUrl =
-          'https://admin.theblackforestcakes.com/api/expenses?limit=1000&where[createdAt][greater_than]='
-          '${start.toUtc().toIso8601String()}&where[createdAt][less_than]='
-          '${end.toUtc().toIso8601String()}&sort=createdAt';
-
+          'https://admin.theblackforestcakes.com/api/expenses?limit=1000&where[createdAt][greater_than]=${start.toUtc().toIso8601String()}&where[createdAt][less_than]=${end.toUtc().toIso8601String()}&sort=createdAt';
       if (selectedBranchId != 'ALL') {
         baseUrl += '&where[branch][equals]=$selectedBranchId';
       }
-
       List<dynamic> allDocs = [];
       int page = 1;
-
       while (true) {
         final url = '$baseUrl&page=$page';
         final res = await http.get(Uri.parse(url), headers: {'Authorization': 'Bearer $token'});
-        if (res.statusCode != 200) break;
-
+        if (res.statusCode != 200) {
+          debugPrint('expenses fetch failed: ${res.statusCode}');
+          break;
+        }
         final data = jsonDecode(res.body);
         final docs = data['docs'] ?? [];
         if (docs.isEmpty) break;
-
         allDocs.addAll(docs);
         if (!(data['hasNextPage'] ?? false)) break;
         page++;
       }
-
       allExpenses = allDocs;
 
+      // Collect unique sources
       final Set<String> uniqueSources = {};
-      final Map<String, List<Map<String, dynamic>>> branchDetails = {};
 
+      // Group by branch
+      final Map<String, List<Map<String, dynamic>>> branchDetails = {};
       for (var expense in allDocs) {
         String branchName = 'Unknown';
         final branch = expense['branch'];
-
         if (branch != null) {
           if (branch is Map) {
             branchName = (branch['name'] ?? 'Unknown').toString();
@@ -194,7 +200,6 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
 
         DateTime? expDate;
         final dateRaw = expense['createdAt'] ?? expense['date'];
-
         if (dateRaw != null) {
           if (dateRaw is Map && dateRaw[r'$date'] != null) {
             expDate = DateTime.tryParse(dateRaw[r'$date']);
@@ -202,32 +207,37 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
             expDate = DateTime.tryParse(dateRaw);
           }
         }
-
         final istDate = expDate != null ? expDate.add(const Duration(hours: 5, minutes: 30)) : null;
         final formattedDate = istDate != null
             ? DateFormat('MMM d, yyyy h:mm a').format(istDate)
             : 'Unknown';
+        final formattedTime = istDate != null ? _formatTime(istDate) : 'Unknown';
+
+        final expenseId = expense['id'] ?? expense['_id'] ?? (expense['_id'] is Map ? expense['_id']['\$oid'] : null);
 
         final details = expense['details'] ?? [];
-
-        for (var detail in details) {
+        for (int i = 0; i < details.length; i++) {
+          var detail = details[i];
           final source = (detail['source'] ?? 'UNKNOWN').toString();
           uniqueSources.add(source);
-
           final amount = (detail['amount'] ?? 0.0).toDouble();
-          final reason = (detail['reason'] ?? 'No reason').toString();
+          final reason = (detail['reason'] ?? 'No reason').toString().toUpperCase();
 
           branchDetails.putIfAbsent(branchName, () => []);
           branchDetails[branchName]!.add({
             'date': expDate,
             'formattedDate': formattedDate,
+            'formattedTime': formattedTime,
             'source': source,
-            'reason': reason.toUpperCase(),   // ← FULLY CAPS ADDED HERE
+            'reason': reason,
             'amount': amount,
+            'expenseId': expenseId,
+            'detailIndex': i,
           });
         }
       }
 
+      // Filter by selectedSource if not ALL
       if (selectedSource != 'ALL') {
         for (var entry in branchDetails.entries.toList()) {
           final filtered = entry.value.where((d) => d['source'] == selectedSource).toList();
@@ -239,9 +249,9 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
         }
       }
 
+      // Calculate grand totals
       double totalSum = 0.0;
       int totalCount = 0;
-
       for (var list in branchDetails.values) {
         for (var d in list) {
           totalSum += d['amount'] as double;
@@ -249,6 +259,7 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
         }
       }
 
+      // Update sources list
       List<String> sourceList = ['ALL', ...uniqueSources.toList()..sort()];
 
       setState(() {
@@ -258,15 +269,29 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
         sources = sourceList;
       });
 
+      // set latest expense id for smart refresh baseline
       if (allDocs.isNotEmpty) {
         final latest = allDocs.last;
-        final id = latest['id'] ?? latest['_id'] ?? (latest['_id']?['\$oid']);
+        final id = latest['id'] ?? latest['_id'] ?? (latest['_id'] is Map ? latest['_id']['\$oid'] : null);
         _latestExpenseId = id?.toString();
       }
     } catch (e) {
       debugPrint('fetchAndGroup error: $e');
     } finally {
       if (mounted) setState(() => _initialLoading = false);
+    }
+  }
+
+  String _formatTime(DateTime date) {
+    int hour = date.hour % 12;
+    if (hour == 0) hour = 12;
+    int minute = date.minute;
+    String ampm = date.hour < 12 ? 'AM' : 'PM';
+    if (minute == 0) {
+      return '$hour $ampm';
+    } else {
+      String minStr = minute.toString().padLeft(2, '0');
+      return '$hour.$minStr $ampm';
     }
   }
 
@@ -279,7 +304,6 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
     }
     setState(() {});
     await _fetchAndGroup();
-
     if (selectedSource != oldSource) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _sourceKeys[selectedSource]?.currentContext != null) {
@@ -321,6 +345,7 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
     );
   }
 
+  // UI helpers
   Future<void> _pickDateRange() async {
     final now = DateTime.now();
     final picked = await showDateRangePicker(
@@ -341,6 +366,7 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
   }
 
   Future<void> _onRefreshPressed() async {
+    // reset to today by user's request
     setState(() {
       fromDate = DateTime.now();
       toDate = null;
@@ -352,11 +378,10 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
 
   Widget _buildDateSelector() {
     final safeFrom = fromDate ?? DateTime.now();
-    final dateFmt = DateFormat('MMM d');
+    final dateFmt = DateFormat('MMM d'); // e.g., Nov 14
     final label = toDate == null
         ? dateFmt.format(safeFrom)
         : '${dateFmt.format(safeFrom)} - ${dateFmt.format(toDate!)}';
-
     return InkWell(
       onTap: _pickDateRange,
       child: Container(
@@ -379,8 +404,7 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
       items: branches
           .map((b) {
         final name = b['name'] ?? 'Unnamed';
-        final abbr =
-        b['id'] == 'ALL' ? 'All Branches' : name.substring(0, min(3, name.length)).toUpperCase();
+        final abbr = b['id'] == 'ALL' ? 'All Branches' : name.substring(0, min(3, name.length)).toUpperCase();
         return DropdownMenuItem<String>(
           value: b['id'],
           child: Text(abbr, overflow: TextOverflow.ellipsis),
@@ -389,7 +413,9 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
           .toList(),
       onChanged: (v) async {
         if (v == null) return;
-        setState(() => selectedBranchId = v);
+        setState(() {
+          selectedBranchId = v;
+        });
         await _fetchAndGroup();
       },
       decoration: InputDecoration(
@@ -408,48 +434,119 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
     }
   }
 
-  void _showExpenseDetailsPopup(
-      String category, String reason, double amount, String formattedDate) {
+  void _showExpenseDetailsPopup(Map<String, dynamic> d) {
+    String editedSource = d['source'] as String;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        backgroundColor: Colors.white,
-        contentPadding: const EdgeInsets.all(24),
-        title: Text(
-          formattedDate,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildDetailRow('Category:', category),
-            const SizedBox(height: 8),
-            _buildDetailRow('Reason:', reason.toUpperCase()), // UPDATED → CAPS
-            const SizedBox(height: 8),
-            _buildDetailRow('Amount:', _formatAmount(amount)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close', style: TextStyle(color: Colors.black)),
-          ),
-        ],
-      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              backgroundColor: Colors.white,
+              contentPadding: const EdgeInsets.all(24),
+              title: Text(
+                d['formattedDate'] as String,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: editedSource,
+                    items: sources
+                        .map((s) => DropdownMenuItem<String>(
+                      value: s,
+                      child: Text(s),
+                    ))
+                        .toList(),
+                    onChanged: (newValue) {
+                      if (newValue != null) {
+                        setDialogState(() {
+                          editedSource = newValue;
+                        });
+                      }
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDetailRow('Reason:', d['reason'] as String),
+                  const SizedBox(height: 8),
+                  _buildDetailRow('Amount:', _formatAmount(d['amount'] as double)),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel', style: TextStyle(color: Colors.black)),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    if (editedSource != d['source']) {
+                      // Update locally
+                      d['source'] = editedSource;
+                      // Update via API
+                      await _updateExpenseCategory(d);
+                    }
+                    Navigator.pop(context);
+                    setState(() {}); // Refresh UI
+                  },
+                  child: const Text('Save', style: TextStyle(color: Colors.black)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
+  }
+
+  Future<void> _updateExpenseCategory(Map<String, dynamic> d) async {
+    try {
+      final token = await _getToken();
+      final expenseId = d['expenseId'];
+      final detailIndex = d['detailIndex'] as int;
+      final expense = allExpenses.firstWhere((e) => (e['id'] ?? e['_id']) == expenseId);
+      final updatedDetails = List.from(expense['details']);
+      updatedDetails[detailIndex]['source'] = d['source'];
+
+      final res = await http.patch(
+        Uri.parse('https://admin.theblackforestcakes.com/api/expenses/$expenseId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'details': updatedDetails}),
+      );
+      if (res.statusCode == 200) {
+        // Success, optionally refresh data
+        await _fetchAndGroup();
+      } else {
+        debugPrint('Update failed: ${res.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Update error: $e');
+    }
   }
 
   Widget _buildDetailRow(String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
+        ),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(value, style: const TextStyle(fontSize: 14, color: Colors.black54)),
+          child: Text(
+            value,
+            style: const TextStyle(fontSize: 14, color: Colors.black54),
+          ),
         ),
       ],
     );
@@ -457,7 +554,7 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
 
   Widget _buildBranchCard(String branchName) {
     List<Map<String, dynamic>> details = expenseDetails[branchName] ?? [];
-
+    // Sort by date descending
     details.sort((a, b) {
       final dateA = a['date'] as DateTime?;
       final dateB = b['date'] as DateTime?;
@@ -477,18 +574,17 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 2, offset: Offset(0, 1))
-        ],
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 2, offset: Offset(0, 1))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(branchName,
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+              Text(
+                branchName,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+              ),
               const Spacer(),
               Text(
                 _formatAmount(branchTotal),
@@ -497,25 +593,20 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
             ],
           ),
           const SizedBox(height: 2),
-          Text('$branchCount items',
-              style: const TextStyle(fontSize: 12, color: Colors.black54)),
+          Text(
+            '$branchCount items',
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
+          ),
           const SizedBox(height: 8),
           if (details.isEmpty)
             const Center(child: Text('No expenses'))
           else ...[
             Row(
               children: const [
-                Expanded(
-                    child: Text('Category',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                Expanded(
-                    child: Text('Reason',
-                        style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12))),
-                Expanded(
-                    child: Align(
-                        alignment: Alignment.centerRight,
-                        child: Text('Amount',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
+                Expanded(child: Text('Category', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                Expanded(child: Text('Reason', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12))),
+                Expanded(child: Align(alignment: Alignment.centerRight, child: Text('Amount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
+                Expanded(child: Align(alignment: Alignment.centerRight, child: Text('Time', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12)))),
               ],
             ),
             const Divider(height: 8),
@@ -523,39 +614,17 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
               int idx = entry.key;
               Map<String, dynamic> d = entry.value;
               final bgColor = idx % 2 == 0 ? Colors.white : Colors.grey.shade100;
-
               return GestureDetector(
-                onTap: () => _showExpenseDetailsPopup(
-                  d['source'] as String,
-                  d['reason'] as String,
-                  d['amount'] as double,
-                  d['formattedDate'] as String,
-                ),
+                onTap: () => _showExpenseDetailsPopup(d),
                 child: Container(
                   color: bgColor,
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Row(
                     children: [
-                      Expanded(
-                          child: Text(d['source'] as String,
-                              style: const TextStyle(
-                                  fontSize: 12, fontWeight: FontWeight.bold),
-                              overflow: TextOverflow.ellipsis)),
-                      Expanded(
-                          child: Text(
-                            (d['reason'] as String).toUpperCase(), // UPDATED → CAPS
-                            style: const TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.w500),
-                            overflow: TextOverflow.ellipsis,
-                          )),
-                      Expanded(
-                          child: Align(
-                              alignment: Alignment.centerRight,
-                              child: Text(
-                                _formatAmount(d['amount'] as double),
-                                style: const TextStyle(
-                                    fontSize: 12, fontWeight: FontWeight.bold),
-                              ))),
+                      Expanded(child: Text(d['source'] as String, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+                      Expanded(child: Text(d['reason'] as String, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+                      Expanded(child: Align(alignment: Alignment.centerRight, child: Text(_formatAmount(d['amount'] as double), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)))),
+                      Expanded(child: Align(alignment: Alignment.centerRight, child: Text(d['formattedTime'] as String, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)))),
                     ],
                   ),
                 ),
@@ -572,12 +641,10 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
       color: Colors.black,
       padding: const EdgeInsets.all(12),
       child: Row(children: [
-        Text('Total Items: $grandCount',
-            style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
+        Text('Total Items: $grandCount', style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
         const Spacer(),
         Text(_formatAmount(grandTotal),
-            style:
-            const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 20)),
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 20)),
       ]),
     );
   }
@@ -585,11 +652,12 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
   @override
   Widget build(BuildContext context) {
     final safeFrom = fromDate ?? DateTime.now();
-    final dateFmt = DateFormat('MMM d');
+    final dateFmt = DateFormat('MMM d'); // e.g., Nov 14
     final dateLabel = toDate == null
         ? dateFmt.format(safeFrom)
         : '${dateFmt.format(safeFrom)} - ${dateFmt.format(toDate!)}';
 
+    // Sort branch names by total expense descending
     List<String> branchNames = expenseDetails.keys.toList();
     branchNames.sort((a, b) {
       double totalA = expenseDetails[a]!.fold(0.0, (sum, d) => sum + (d['amount'] as double));
@@ -628,19 +696,20 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
               onHorizontalDragEnd: (details) async {
                 final int index = sources.indexOf(selectedSource);
                 String? newSource;
-
-                if (details.primaryVelocity! < 0) {
-                  if (index < sources.length - 1) newSource = sources[index + 1];
-                } else if (details.primaryVelocity! > 0) {
-                  if (index > 0) newSource = sources[index - 1];
+                if (details.primaryVelocity! < 0) { // swipe left - next
+                  if (index < sources.length - 1) {
+                    newSource = sources[index + 1];
+                  }
+                } else if (details.primaryVelocity! > 0) { // swipe right - previous
+                  if (index > 0) {
+                    newSource = sources[index - 1];
+                  }
                 }
-
                 if (newSource != null) {
                   String oldSource = selectedSource;
                   selectedSource = newSource;
                   setState(() {});
                   await _fetchAndGroup();
-
                   if (selectedSource != oldSource) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (mounted && _sourceKeys[selectedSource]?.currentContext != null) {
@@ -658,8 +727,7 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
                   : ListView.builder(
                 physics: const BouncingScrollPhysics(),
                 itemCount: branchNames.length,
-                itemBuilder: (context, index) =>
-                    _buildBranchCard(branchNames[index]),
+                itemBuilder: (context, index) => _buildBranchCard(branchNames[index]),
               ),
             ),
           ),

@@ -45,12 +45,13 @@ android {
     }
 
     signingConfigs {
-        register("release") {
-            keyAlias = keystoreProperties["keyAlias"] as? String
-            keyPassword = keystoreProperties["keyPassword"] as? String
-            storeFile = keystoreProperties["storeFile"]?.let { file(it) }
-            storePassword = keystoreProperties["storePassword"] as? String
-        }
+        // Commented out release signing - uncomment when you have a keystore
+        // register("release") {
+        //     keyAlias = keystoreProperties["keyAlias"] as? String
+        //     keyPassword = keystoreProperties["keyPassword"] as? String
+        //     storeFile = keystoreProperties["storeFile"]?.let { file(it) }
+        //     storePassword = keystoreProperties["storePassword"] as? String
+        // }
     }
 
     buildTypes {
@@ -60,7 +61,8 @@ android {
         }
 
         getByName("release") {
-            signingConfig = signingConfigs.getByName("release")  // Use "debug" if no key.properties yet
+            // Using debug signing for now - create keystore for production
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

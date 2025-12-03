@@ -5,7 +5,18 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ClosingEntryReportPage extends StatefulWidget {
-  const ClosingEntryReportPage({super.key});
+  final String? initialBranchId;
+  final bool? initialCombinedView;
+  final DateTime? initialFromDate;
+  final DateTime? initialToDate;
+
+  const ClosingEntryReportPage({
+    super.key,
+    this.initialBranchId,
+    this.initialCombinedView,
+    this.initialFromDate,
+    this.initialToDate,
+  });
 
   @override
   State<ClosingEntryReportPage> createState() => _ClosingEntryReportPageState();
@@ -25,13 +36,21 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
   double totalReturns = 0;
   double totalStockOrders = 0;
   bool _combinedView = true;
+  bool _branchFilterEnabled = true;
 
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
-    fromDate = now;
-    toDate = now;
+    fromDate = widget.initialFromDate ?? now;
+    toDate = widget.initialToDate ?? now;
+    if (widget.initialBranchId != null) {
+      selectedBranchId = widget.initialBranchId!;
+      _branchFilterEnabled = false;
+    }
+    if (widget.initialCombinedView != null) {
+      _combinedView = widget.initialCombinedView!;
+    }
     _fetchBranches().then((_) => _fetchEntries());
   }
 
@@ -178,10 +197,10 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
       items: branches
           .map((b) => DropdownMenuItem(value: b["id"], child: Text(b["name"]!)))
           .toList(),
-      onChanged: (v) {
+      onChanged: _branchFilterEnabled ? (v) {
         setState(() => selectedBranchId = v!);
         _fetchEntries();
-      },
+      } : null,
     );
   }
 
@@ -255,12 +274,16 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
     final dateFmt = DateFormat("MMM-d");
     final timeFmt = DateFormat("h:mm a");
     final entryDate = isCombined ? e["date"] : DateTime.tryParse(e["createdAt"] ?? "");
-    final dateStr = entryDate != null ? dateFmt.format(entryDate) : "";
+    final istOffset = Duration(hours: 5, minutes: 30);
+    final istDate = entryDate != null ? entryDate.add(istOffset) : null;
+    final dateStr = istDate != null ? dateFmt.format(istDate) : "";
     final timeStr = isCombined
-        ? (e["lastUpdated"] != null ? timeFmt.format(e["lastUpdated"]) : "")
-        : (entryDate != null ? timeFmt.format(entryDate) : "");
+        ? (e["lastUpdated"] != null ? timeFmt.format(e["lastUpdated"].add(istOffset)) : "")
+        : (istDate != null ? timeFmt.format(istDate) : "");
     final count = isCombined ? e["count"] ?? 1 : 1;
     final branchHeader = isCombined ? "$branchName  #CLO-$count" : branchName;
+    final productDif = (e["stockOrders"] ?? 0).toDouble() - (e["returnTotal"] ?? 0).toDouble();
+    final salesDif = (e["expenses"] ?? 0).toDouble() + (e["totalPayments"] ?? 0).toDouble() - (e["totalSales"] ?? 0).toDouble();
 
     final detailRows = [
       _infoRow("System Sales", e["systemSales"], 0),
@@ -272,128 +295,194 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
       _infoRow("Total Sales", e["totalSales"], 6),
       _infoRow("Total Payments", e["totalPayments"], 7),
       _infoRow("Net Amount", e["net"], 8, isBold: true),
+      _infoRow("Product Dif", productDif, 9),
+      _infoRow("Sales Dif", salesDif, 10),
     ];
 
-    return Card(
-      color: Colors.green.shade100,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            color: Colors.green.shade800,
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (isCombined)
+    return GestureDetector(
+      onTap: isCombined ? () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ClosingEntryReportPage(
+              initialBranchId: e["branch"]["id"],
+              initialCombinedView: false,
+              initialFromDate: fromDate,
+              initialToDate: toDate,
+            ),
+          ),
+        );
+      } : null,
+      child: Card(
+        color: Colors.green.shade100,
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              color: Colors.green.shade800,
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (isCombined)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          branchHeader,
+                          style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white),
+                        ),
+                        Text(
+                          timeStr,
+                          style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white70),
+                        ),
+                      ],
+                    )
+                  else ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          e["closingNumber"] ?? "",
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                        ),
+                        Text(
+                          "$dateStr $timeStr",
+                          style: const TextStyle(fontSize: 14, color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      branchName,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const Divider(height: 1, thickness: 1),
+            Column(
+              children: detailRows,
+            ),
+            const Divider(height: 1, thickness: 1),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      const Icon(Icons.attach_money, size: 16),
+                      const SizedBox(width: 12),
                       Text(
-                        branchHeader,
-                        style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white),
-                      ),
-                      Text(
-                        timeStr,
-                        style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white70),
+                        "${_formatAmount(e["cash"] ?? 0)}",
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ],
-                  )
-                else ...[
-                  Text(
-                    e["closingNumber"] ?? "",
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    "$branchName $dateStr $timeStr",
-                    style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+                  Row(
+                    children: [
+                      const Icon(Icons.qr_code_scanner, size: 16),
+                      const SizedBox(width: 12),
+                      Text(
+                        "${_formatAmount(e["upi"] ?? 0)}",
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      const Icon(Icons.credit_card, size: 16),
+                      const SizedBox(width: 12),
+                      Text(
+                        "${_formatAmount(e["creditCard"] ?? 0)}",
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
                   ),
                 ],
-              ],
-            ),
-          ),
-          const Divider(height: 1, thickness: 1),
-          Column(
-            children: detailRows,
-          ),
-          const Divider(height: 1, thickness: 1),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.attach_money, size: 16),
-                    const SizedBox(width: 8),
-                    Text(
-                      "${_formatAmount(e["cash"] ?? 0)}",
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    const Icon(Icons.qr_code_scanner, size: 16),
-                    const SizedBox(width: 8),
-                    Text(
-                      "${_formatAmount(e["upi"] ?? 0)}",
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    const Icon(Icons.credit_card, size: 16),
-                    const SizedBox(width: 8),
-                    Text(
-                      "${_formatAmount(e["creditCard"] ?? 0)}",
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _infoRow(String label, dynamic value, int index, {bool isBold = false}) {
-    final backgroundColor = index % 2 == 0 ? Colors.white : Colors.green.shade50;
-    return Container(
-      color: backgroundColor,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 14),
-        child: Row(
-          children: [
-            Expanded(
-                child: Text(label,
-                    style: const TextStyle(fontSize: 13, color: Colors.black54, fontWeight: FontWeight.bold))),
-            Text(
-              "₹${_formatAmount(value)}",
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
-                color: isBold ? Colors.green : Colors.black87,
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _infoRow(String label, dynamic value, int index, {bool isBold = false}) {
+    final backgroundColor = index % 2 == 0 ? Colors.white : Colors.green.shade50;
+    Color? valueColor;
+    Icon? arrowIcon;
+    if (label == "Product Dif" || label == "Sales Dif") {
+      if (value is double) {
+        if (value > 0) {
+          arrowIcon = const Icon(Icons.arrow_upward, color: Colors.green, size: 18);
+          valueColor = Colors.green;
+        } else if (value < 0) {
+          arrowIcon = const Icon(Icons.arrow_downward, color: Colors.red, size: 18);
+          valueColor = Colors.red;
+        } else {
+          valueColor = Colors.black87;
+        }
+      } else {
+        valueColor = Colors.black87;
+      }
+      return Container(
+        color: backgroundColor,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 14),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(label,
+                  style: const TextStyle(fontSize: 13, color: Colors.black54, fontWeight: FontWeight.bold)),
+              if (arrowIcon != null) arrowIcon else const SizedBox(width: 24),
+              Text(
+                "${_formatAmount(value)}",
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: valueColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      return Container(
+        color: backgroundColor,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 14),
+          child: Row(
+            children: [
+              Expanded(
+                  child: Text(label,
+                      style: const TextStyle(fontSize: 13, color: Colors.black54, fontWeight: FontWeight.bold))),
+              Text(
+                "₹${_formatAmount(value)}",
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+                  color: isBold ? Colors.green : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   }
 
   @override
