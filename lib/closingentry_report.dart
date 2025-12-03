@@ -445,15 +445,27 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label,
-                  style: const TextStyle(fontSize: 13, color: Colors.black54, fontWeight: FontWeight.bold)),
-              if (arrowIcon != null) arrowIcon else const SizedBox(width: 24),
-              Text(
-                "${_formatAmount(value)}",
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: valueColor,
+              Expanded(
+                flex: 1,
+                child: Text(label,
+                    style: const TextStyle(fontSize: 13, color: Colors.black54, fontWeight: FontWeight.bold)),
+              ),
+              Expanded(
+                flex: 1,
+                child: Center(child: arrowIcon ?? const SizedBox.shrink()),
+              ),
+              Expanded(
+                flex: 1,
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    "${_formatAmount(value)}",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: valueColor,
+                    ),
+                  ),
                 ),
               ),
             ],
