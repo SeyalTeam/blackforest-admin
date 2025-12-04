@@ -8,6 +8,7 @@ import 'waiterwise_report.dart';
 import 'closingentry_report.dart'; // Import for Closing Entries
 import 'expensewise_report.dart'; // Import for Expense List
 import 'return_orders.dart'; // Import for Return Orders
+import 'stockorder_report.dart'; // Import for Stock Orders
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -192,6 +193,17 @@ class HomePage extends StatelessWidget {
                   );
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.inventory, color: Colors.black87),
+                title: const Text('Stock Orders'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const StockOrderReportPage()),
+                  );
+                },
+              ),
               const Spacer(),
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.black87),
@@ -305,6 +317,19 @@ class HomePage extends StatelessWidget {
                     },
                     Colors.red[700]!,
                     Colors.red[400]!,
+                  ),
+                  _gridItem(
+                    context,
+                    'Stock Order',
+                    Icons.inventory,
+                        () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const StockOrderReportPage()),
+                      );
+                    },
+                    Colors.brown[700]!,
+                    Colors.brown[400]!,
                   ),
                 ],
               ),
