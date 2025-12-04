@@ -430,7 +430,7 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
               Text(
                 "$label: ",
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 18,
                   color: Colors.black87,
                   fontWeight: FontWeight.bold,
                 ),
@@ -442,7 +442,7 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
               Text(
                 _formatAmount(value),
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: Colors.black87,
                 ),

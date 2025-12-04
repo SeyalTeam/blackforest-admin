@@ -7,6 +7,7 @@ import 'timewise_report.dart';
 import 'waiterwise_report.dart';
 import 'closingentry_report.dart'; // Import for Closing Entries
 import 'expensewise_report.dart'; // Import for Expense List
+import 'return_orders.dart'; // Import for Return Orders
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -180,6 +181,17 @@ class HomePage extends StatelessWidget {
                   );
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.assignment_return, color: Colors.black87),
+                title: const Text('Return Orders'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ReturnOrdersPage()),
+                  );
+                },
+              ),
               const Spacer(),
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.black87),
@@ -280,6 +292,19 @@ class HomePage extends StatelessWidget {
                     },
                     Colors.deepPurple[700]!,
                     Colors.deepPurple[400]!,
+                  ),
+                  _gridItem(
+                    context,
+                    'Return',
+                    Icons.assignment_return,
+                        () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ReturnOrdersPage()),
+                      );
+                    },
+                    Colors.red[700]!,
+                    Colors.red[400]!,
                   ),
                 ],
               ),
