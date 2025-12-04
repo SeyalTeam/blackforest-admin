@@ -148,9 +148,9 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
         totalCash = tCash;
         totalUpi = tUpi;
         totalCard = tCard;
-        totalPayments = tPayments;
+        totalPayments = tExp + tPayments; // Total Payments = Expenses + Total Payments
         totalProductDif = totalStockOrders - totalReturns;
-        totalSalesDif = totalExpenses + totalPayments - totalSales;
+        totalSalesDif = totalPayments - totalSales; // Sales Dif = Total Payments - Total Sales (expenses already included in totalPayments)
       });
     } catch (e) {
       debugPrint("Fetch error: $e");
@@ -299,21 +299,28 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
         : (istDate != null ? timeFmt.format(istDate) : "");
     final count = isCombined ? e["count"] ?? 1 : 1;
     final branchHeader = isCombined ? "$branchName  #CLO-$count" : branchName;
-    final productDif = (e["stockOrders"] ?? 0).toDouble() - (e["returnTotal"] ?? 0).toDouble();
-    final salesDif = (e["expenses"] ?? 0).toDouble() + (e["totalPayments"] ?? 0).toDouble() - (e["totalSales"] ?? 0).toDouble();
+    final productTotal = (e["stockOrders"] ?? 0).toDouble() - (e["returnTotal"] ?? 0).toDouble();
+    final originalTotalPayments = (e["totalPayments"] ?? 0).toDouble(); // cash+upi+card only
+    final totalPaymentsWithExpenses = (e["expenses"] ?? 0).toDouble() + originalTotalPayments;
+    final productDif = originalTotalPayments - productTotal; // Total Sales (cash+upi+card) - Product Total
+    final salesDif = totalPaymentsWithExpenses - (e["totalSales"] ?? 0).toDouble();
 
     final detailRows = [
-      _infoRow("System Sales", e["systemSales"], 0),
-      _infoRow("Manual Sales", e["manualSales"], 1),
-      _infoRow("Online Sales", e["onlineSales"], 2),
-      _infoRow("Expenses", e["expenses"], 3),
-      _infoRow("Return Total", e["returnTotal"], 4),
-      _infoRow("Stock Orders", e["stockOrders"], 5),
-      _infoRow("Total Sales", e["totalSales"], 6),
-      _infoRow("Total Payments", e["totalPayments"], 7),
-      _infoRow("Net Amount", e["net"], 8, isBold: true),
-      _infoRow("Product Dif", productDif, 9),
-      _infoRow("Sales Dif", salesDif, 10),
+      _infoRow("System Bills", e["systemSales"], 0),
+      _infoRow("Manual Bills", e["manualSales"], 1),
+      _infoRow("Online Bills", e["onlineSales"], 2),
+      _infoRow("Total Bills", e["totalSales"], 3),
+      _infoRow("Expenses", e["expenses"], 4),
+      _infoRow("Cash", e["cash"], 5),
+      _infoRow("UPI", e["upi"], 6),
+      _infoRow("Card", e["creditCard"], 7),
+      _infoRow("Total Sales", totalPaymentsWithExpenses, 8),
+      _infoRow("Sales Dif", salesDif, 9),
+      _infoRow("Stock Orders", e["stockOrders"], 10),
+      _infoRow("Return Total", e["returnTotal"], 11),
+      _infoRow("Product Total", productTotal, 12),
+      _infoRow("Product Dif", productDif, 13),
+      _infoRow("Net Amount", e["net"], 14, isBold: true),
     ];
 
     return GestureDetector(
@@ -392,48 +399,6 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
             Column(
               children: detailRows,
             ),
-            const Divider(height: 1, thickness: 1),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  Row(
-                    children: [
-                      const Text(
-                        "₹",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _formatAmount(e["cash"] ?? 0),
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      const Icon(Icons.qr_code_scanner, size: 16),
-                      const SizedBox(width: 12),
-                      Text(
-                        "${_formatAmount(e["upi"] ?? 0)}",
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      const Icon(Icons.credit_card, size: 16),
-                      const SizedBox(width: 12),
-                      Text(
-                        "${_formatAmount(e["creditCard"] ?? 0)}",
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
@@ -442,21 +407,61 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
 
   Widget _infoRow(String label, dynamic value, int index, {bool isBold = false}) {
     final backgroundColor = index % 2 == 0 ? Colors.white : Colors.green.shade50;
-    Color? valueColor;
+    
+    // Special styling for Total Bills, Total Sales, and Product Dif - centered and larger
+    if (label == "Total Bills" || label == "Total Sales" || label == "Product Dif") {
+      Icon? arrowIcon;
+      
+      if (label == "Product Dif" && value is double) {
+        if (value > 0) {
+          arrowIcon = const Icon(Icons.arrow_upward, color: Colors.green, size: 18);
+        } else if (value < 0) {
+          arrowIcon = const Icon(Icons.arrow_downward, color: Colors.red, size: 18);
+        }
+      }
+      
+      return Container(
+        color: backgroundColor,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                "$label: ",
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Colors.black87,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (arrowIcon != null) ...[
+                arrowIcon,
+                const SizedBox(width: 4),
+              ],
+              Text(
+                _formatAmount(value),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    // Special handling for Sales Dif (not Total Bills/Total Sales/Product Dif)
     Icon? arrowIcon;
-    if (label == "Product Dif" || label == "Sales Dif") {
+    if (label == "Sales Dif") {
       if (value is double) {
         if (value > 0) {
           arrowIcon = const Icon(Icons.arrow_upward, color: Colors.green, size: 18);
-          valueColor = Colors.green;
         } else if (value < 0) {
           arrowIcon = const Icon(Icons.arrow_downward, color: Colors.red, size: 18);
-          valueColor = Colors.red;
-        } else {
-          valueColor = Colors.black87;
         }
-      } else {
-        valueColor = Colors.black87;
       }
       return Container(
         color: backgroundColor,
@@ -480,10 +485,10 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
                   alignment: Alignment.centerRight,
                   child: Text(
                     "${_formatAmount(value)}",
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: valueColor,
+                      color: Colors.black87,
                     ),
                   ),
                 ),
@@ -493,6 +498,7 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
         ),
       );
     } else {
+      // Regular rows
       return Container(
         color: backgroundColor,
         child: Padding(
@@ -504,10 +510,10 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
                       style: const TextStyle(fontSize: 13, color: Colors.black54, fontWeight: FontWeight.bold))),
               Text(
                 "₹${_formatAmount(value)}",
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 14,
-                  fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
-                  color: isBold ? Colors.green : Colors.black87,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
                 ),
               ),
             ],
@@ -525,14 +531,14 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [
-            // Row 1: Total Sales & Total Payments
+            // Row 1: Total Bills & Total Sales
             Row(
               children: [
                 Expanded(
-                  child: _summaryItem("Total Sales", totalSales, isBoldValue: true),
+                  child: _summaryItem("Total Bills", totalSales, isBoldValue: true, isLarge: true),
                 ),
                 Expanded(
-                  child: _summaryItem("Total Payments", totalPayments, isBoldValue: true),
+                  child: _summaryItem("Total Sales", totalPayments, isBoldValue: true, isLarge: true),
                 ),
               ],
             ),
@@ -579,6 +585,7 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
                     totalProductDif,
                     showArrow: true,
                     isBoldValue: true,
+                    isLarge: true,
                   ),
                 ),
                 Expanded(
@@ -587,6 +594,7 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
                     totalSalesDif,
                     showArrow: true,
                     isBoldValue: true,
+                    isLarge: true,
                   ),
                 ),
               ],
@@ -604,19 +612,14 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
     IconData? icon,
     bool showArrow = false,
   }) {
-    Color valueColor = Colors.black87;
     Widget? arrowWidget;
 
     if (showArrow) {
       if (value > 0) {
         arrowWidget = const Icon(Icons.arrow_upward, color: Colors.green, size: 14);
-        valueColor = Colors.green;
       } else if (value < 0) {
         arrowWidget = const Icon(Icons.arrow_downward, color: Colors.red, size: 14);
-        valueColor = Colors.red;
       }
-    } else if (isBold) {
-      valueColor = Colors.green.shade900;
     }
 
     return Row(
@@ -644,7 +647,7 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
           style: TextStyle(
             fontSize: isLarge ? 18 : 13,
             fontWeight: (isBold || isBoldValue) ? FontWeight.bold : FontWeight.w600,
-            color: valueColor,
+            color: Colors.black87,
           ),
         ),
       ],
@@ -675,86 +678,54 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
           )
         ],
       ),
-      body: CustomScrollView(
-        slivers: [
-          // Scrollable Header: Calendar and Branch Filter
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _headerButton(),
-                      _toggleIcon(),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _branchFilter(),
-                  const SizedBox(height: 12),
-                ],
-              ),
+      body: Column(
+        children: [
+          // Fixed Header: Calendar and Branch Filter
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _headerButton(),
+                    _toggleIcon(),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _branchFilter(),
+              ],
             ),
           ),
-          // Sticky Summary Card
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _SummaryCardDelegate(
-              child: Container(
-                color: Colors.grey[100],
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: _compactSummaryCard(),
-              ),
-            ),
-          ),
-          // Scrollable Entries List
-          _loading
-              ? const SliverFillRemaining(
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              : displayedEntries.isEmpty
-                  ? const SliverFillRemaining(
-                      child: Center(child: Text("No closing entries")),
-                    )
-                  : SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) => _entryCard(
-                            displayedEntries[index],
+          // Scrollable: Summary Card and Entries
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : displayedEntries.isEmpty
+                    ? const Center(child: Text("No closing entries"))
+                    : ListView.builder(
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                        itemCount: displayedEntries.length + 1, // +1 for summary card
+                        itemBuilder: (_, i) {
+                          if (i == 0) {
+                            // First item is the summary card
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _compactSummaryCard(),
+                            );
+                          }
+                          // Rest are entry cards
+                          return _entryCard(
+                            displayedEntries[i - 1],
                             isCombined: _combinedView,
-                          ),
-                          childCount: displayedEntries.length,
-                        ),
+                          );
+                        },
                       ),
-                    ),
+          ),
         ],
       ),
     );
-  }
-}
-
-// Delegate for sticky summary card
-class _SummaryCardDelegate extends SliverPersistentHeaderDelegate {
-  final Widget child;
-
-  _SummaryCardDelegate({required this.child});
-
-  @override
-  double get minExtent => 175; // Minimum height when scrolled - tightly fit to content
-
-  @override
-  double get maxExtent => 175; // Maximum height
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return child;
-  }
-
-  @override
-  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) {
-    return true;
   }
 }
