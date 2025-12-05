@@ -23,9 +23,8 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.example.bs_admin"  // Replace with your actual app namespace (from AndroidManifest.xml or existing file)
-    compileSdk = 36  // Updated to meet plugin requirements
-    ndkVersion = "27.0.12077973"  // Updated to meet plugin requirements
+    namespace = "com.vseyal.bsadmin"
+    compileSdk = 36
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
@@ -37,9 +36,9 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.my_app"  // Replace with your actual applicationId
+        applicationId = "com.vseyal.bsadmin"
         minSdk = flutter.minSdkVersion  // Updated to meet Flutter's minimum requirement
-        targetSdk = 36  // Updated for compatibility with compileSdk
+        targetSdk = 36
         versionCode = flutterVersionCode.toInt()
         versionName = flutterVersionName
     }

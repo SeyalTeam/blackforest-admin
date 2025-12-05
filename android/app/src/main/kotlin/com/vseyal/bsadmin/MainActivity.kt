@@ -1,4 +1,4 @@
-package com.example.bs_admin
+package com.vseyal.bsadmin
 
 import io.flutter.embedding.android.FlutterActivity
 
