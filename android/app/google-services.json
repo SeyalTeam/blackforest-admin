@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "616342270136",
+    "project_id": "blackforest-admin-fe212",
+    "storage_bucket": "blackforest-admin-fe212.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:616342270136:android:fe60985b3391f147d2044d",
+        "android_client_info": {
+          "package_name": "com.vseyal.bsadmin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA8y-zX5KPmN7orR63tzcyndftEDvMxee4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'responsive_layout.dart';
 
 class ExpensewiseReportPage extends StatefulWidget {
   const ExpensewiseReportPage({super.key});
@@ -724,11 +725,35 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
                   ? const Center(child: CircularProgressIndicator())
                   : branchNames.isEmpty
                   ? const Center(child: Text('No data for selected range'))
-                  : ListView.builder(
-                physics: const BouncingScrollPhysics(),
-                itemCount: branchNames.length,
-                itemBuilder: (context, index) => _buildBranchCard(branchNames[index]),
-              ),
+                  : ResponsiveLayout(
+                      mobileBody: ListView.builder(
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: branchNames.length,
+                        itemBuilder: (context, index) => _buildBranchCard(branchNames[index]),
+                      ),
+                      tabletBody: GridView.builder(
+                        physics: const BouncingScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 1.0, // Adjust based on card content
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
+                        itemCount: branchNames.length,
+                        itemBuilder: (context, index) => _buildBranchCard(branchNames[index]),
+                      ),
+                      desktopBody: GridView.builder(
+                        physics: const BouncingScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          childAspectRatio: 1.1, // Adjust based on card content
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                        ),
+                        itemCount: branchNames.length,
+                        itemBuilder: (context, index) => _buildBranchCard(branchNames[index]),
+                      ),
+                    ),
             ),
           ),
           const SizedBox(height: 12),

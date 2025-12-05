@@ -9,6 +9,7 @@ import 'closingentry_report.dart'; // Import for Closing Entries
 import 'expensewise_report.dart'; // Import for Expense List
 import 'return_orders.dart'; // Import for Return Orders
 import 'stockorder_report.dart'; // Import for Stock Orders
+import 'responsive_layout.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -215,140 +216,148 @@ class HomePage extends StatelessWidget {
         ),
       ),
       // ================= MAIN BODY ==================
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 18.0),
-        child: Column(
-          children: [
-            // Grid view for premium layout
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 3,
-                mainAxisSpacing: 20,
-                crossAxisSpacing: 20,
-                childAspectRatio: 1.0,
-                children: [
-                  _gridItem(
-                    context,
-                    'Branch',
-                    Icons.location_on,
-                        () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const BranchwiseBillsPage()),
-                      );
-                    },
-                    Colors.blueGrey[700]!,
-                    Colors.blueGrey[400]!,
-                  ),
-                  _gridItem(
-                    context,
-                    'Time',
-                    Icons.access_time,
-                        () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const TimewiseReportPage()),
-                      );
-                    },
-                    Colors.teal[700]!,
-                    Colors.teal[400]!,
-                  ),
-                  _gridItem(
-                    context,
-                    'Waiter',
-                    Icons.person_search,
-                        () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const WaiterwiseReportPage()),
-                      );
-                    },
-                    Colors.indigo[700]!,
-                    Colors.indigo[400]!,
-                  ),
-                  _gridItem(
-                    context,
-                    'Live',
-                    Icons.schedule,
-                        () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const BillsDateTimePage()),
-                      );
-                    },
-                    Colors.green[700]!,
-                    Colors.green[400]!,
-                  ),
-                  _gridItem(
-                    context,
-                    'Expense',
-                    Icons.receipt,
-                        () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const ExpensewiseReportPage()),
-                      );
-                    },
-                    Colors.orange[700]!,
-                    Colors.orange[400]!,
-                  ),
-                  _gridItem(
-                    context,
-                    'Closing',
-                    Icons.account_balance_wallet,
-                        () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const ClosingEntryReportPage()),
-                      );
-                    },
-                    Colors.deepPurple[700]!,
-                    Colors.deepPurple[400]!,
-                  ),
-                  _gridItem(
-                    context,
-                    'Return',
-                    Icons.assignment_return,
-                        () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const ReturnOrdersPage()),
-                      );
-                    },
-                    Colors.red[700]!,
-                    Colors.red[400]!,
-                  ),
-                  _gridItem(
-                    context,
-                    'Stock Order',
-                    Icons.inventory,
-                        () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const StockOrderReportPage()),
-                      );
-                    },
-                    Colors.brown[700]!,
-                    Colors.brown[400]!,
-                  ),
-                ],
-              ),
+      body: ResponsiveLayout(
+        mobileBody: _buildDashboard(context, 2),
+        tabletBody: _buildDashboard(context, 3),
+        desktopBody: _buildDashboard(context, 4),
+      ),
+    );
+  }
+
+  Widget _buildDashboard(BuildContext context, int crossAxisCount) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 18.0),
+      child: Column(
+        children: [
+          // Grid view for premium layout
+          Expanded(
+            child: GridView.count(
+              crossAxisCount: crossAxisCount,
+              mainAxisSpacing: 20,
+              crossAxisSpacing: 20,
+              childAspectRatio: 1.0,
+              children: [
+                _gridItem(
+                  context,
+                  'Branch',
+                  Icons.location_on,
+                      () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const BranchwiseBillsPage()),
+                    );
+                  },
+                  Colors.blueGrey[700]!,
+                  Colors.blueGrey[400]!,
+                ),
+                _gridItem(
+                  context,
+                  'Time',
+                  Icons.access_time,
+                      () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const TimewiseReportPage()),
+                    );
+                  },
+                  Colors.teal[700]!,
+                  Colors.teal[400]!,
+                ),
+                _gridItem(
+                  context,
+                  'Waiter',
+                  Icons.person_search,
+                      () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const WaiterwiseReportPage()),
+                    );
+                  },
+                  Colors.indigo[700]!,
+                  Colors.indigo[400]!,
+                ),
+                _gridItem(
+                  context,
+                  'Live',
+                  Icons.schedule,
+                      () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const BillsDateTimePage()),
+                    );
+                  },
+                  Colors.green[700]!,
+                  Colors.green[400]!,
+                ),
+                _gridItem(
+                  context,
+                  'Expense',
+                  Icons.receipt,
+                      () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ExpensewiseReportPage()),
+                    );
+                  },
+                  Colors.orange[700]!,
+                  Colors.orange[400]!,
+                ),
+                _gridItem(
+                  context,
+                  'Closing',
+                  Icons.account_balance_wallet,
+                      () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ClosingEntryReportPage()),
+                    );
+                  },
+                  Colors.deepPurple[700]!,
+                  Colors.deepPurple[400]!,
+                ),
+                _gridItem(
+                  context,
+                  'Return',
+                  Icons.assignment_return,
+                      () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ReturnOrdersPage()),
+                    );
+                  },
+                  Colors.red[700]!,
+                  Colors.red[400]!,
+                ),
+                _gridItem(
+                  context,
+                  'Stock Order',
+                  Icons.inventory,
+                      () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const StockOrderReportPage()),
+                    );
+                  },
+                  Colors.brown[700]!,
+                  Colors.brown[400]!,
+                ),
+              ],
             ),
-            const SizedBox(height: 24),
-            Card(
-              elevation: 6,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              color: Colors.white,
-              shadowColor: Colors.black.withOpacity(0.3),
-              child: ListTile(
-                leading: const Icon(Icons.settings, color: Colors.black87),
-                title: const Text('Settings / Config', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
-                trailing: const Icon(Icons.chevron_right, color: Colors.black87),
-                onTap: () => _notImplemented(context, 'Settings'),
-              ),
+          ),
+          const SizedBox(height: 24),
+          Card(
+            elevation: 6,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            color: Colors.white,
+            shadowColor: Colors.black.withOpacity(0.3),
+            child: ListTile(
+              leading: const Icon(Icons.settings, color: Colors.black87),
+              title: const Text('Settings / Config', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+              trailing: const Icon(Icons.chevron_right, color: Colors.black87),
+              onTap: () => _notImplemented(context, 'Settings'),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

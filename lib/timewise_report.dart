@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'responsive_layout.dart';
 
 class TimewiseReportPage extends StatefulWidget {
   const TimewiseReportPage({super.key});
@@ -840,15 +841,47 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
                   ? const Center(child: CircularProgressIndicator())
                   : timeSummaries.isEmpty
                   ? const Center(child: Text('No data for selected range'))
-                  : ListView.builder(
-                physics: const BouncingScrollPhysics(),
-                itemCount: timeSummaries.length,
-                itemBuilder: (context, index) {
-                  final r = timeSummaries[index];
-                  final isPeak = (_peakTimeLabel != null && _peakTimeLabel == r['time']);
-                  return _buildRow(context, r, isPeak, index);
-                },
-              ),
+                  : ResponsiveLayout(
+                      mobileBody: ListView.builder(
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: timeSummaries.length,
+                        itemBuilder: (context, index) {
+                          final r = timeSummaries[index];
+                          final isPeak = (_peakTimeLabel != null && _peakTimeLabel == r['time']);
+                          return _buildRow(context, r, isPeak, index);
+                        },
+                      ),
+                      tabletBody: GridView.builder(
+                        physics: const BouncingScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 2.0, // Adjust based on card content
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
+                        itemCount: timeSummaries.length,
+                        itemBuilder: (context, index) {
+                          final r = timeSummaries[index];
+                          final isPeak = (_peakTimeLabel != null && _peakTimeLabel == r['time']);
+                          return _buildRow(context, r, isPeak, index);
+                        },
+                      ),
+                      desktopBody: GridView.builder(
+                        physics: const BouncingScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          childAspectRatio: 2.2, // Adjust based on card content
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                        ),
+                        itemCount: timeSummaries.length,
+                        itemBuilder: (context, index) {
+                          final r = timeSummaries[index];
+                          final isPeak = (_peakTimeLabel != null && _peakTimeLabel == r['time']);
+                          return _buildRow(context, r, isPeak, index);
+                        },
+                      ),
+                    ),
             ),
             const SizedBox(height: 10),
             Card(

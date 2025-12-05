@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'responsive_layout.dart';
 
 class BillsDateTimePage extends StatefulWidget {
   const BillsDateTimePage({super.key});
@@ -533,6 +534,78 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
     );
   }
 
+  Widget _buildBillItem(int index) {
+    final bill = _displayedBills[index];
+    final branch = bill['branch']?['name'] ?? 'Unknown';
+    final amount = _extractAmount(bill);
+    final paymentMethod = (bill['paymentMethod'] ?? 'unknown').toString();
+    String waiterName = 'Unknown';
+    final createdBy = bill['createdBy'];
+    if (createdBy != null) {
+      if (createdBy is Map) {
+        waiterName = (createdBy['employee']?['name'] ?? createdBy['email'] ?? '')
+                .toString()
+                .trim()
+                .isNotEmpty
+            ? (createdBy['employee']?['name'] ?? createdBy['email'])
+            : waiterName;
+      } else if (createdBy is String && userMap.containsKey(createdBy)) {
+        waiterName = userMap[createdBy]!;
+      }
+    }
+
+    final createdAt = bill['createdAt'];
+    String timeText = '';
+    if (createdAt != null) {
+      final dt = DateTime.tryParse(createdAt);
+      if (dt != null) {
+        if (toDate != null) {
+          timeText = DateFormat('dd.MM.yy - hh:mm a').format(dt.toLocal());
+        } else {
+          timeText = DateFormat('hh:mm a').format(dt.toLocal());
+        }
+      }
+    }
+
+    final bgColor = index % 2 == 0 ? Colors.white : Colors.grey.shade50;
+
+    return GestureDetector(
+      onTap: () => _showBillPopup(bill),
+      child: Container(
+        color: bgColor,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Expanded(
+                child: Text(branch,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                        fontSize: 15),
+                    overflow: TextOverflow.ellipsis),
+              ),
+              Text('₹${amount.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                      fontSize: 15)),
+            ]),
+            const SizedBox(height: 4),
+            Text(
+              '$timeText - $waiterName - ${paymentMethod.toUpperCase()}',
+              style: const TextStyle(
+                  fontSize: 13,
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final safeFromDate = fromDate ?? DateTime.now();
@@ -690,103 +763,41 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
             Expanded(
               child: _displayedBills.isEmpty
                   ? const Center(child: Text('No bills found'))
-                  : ListView.builder(
-                controller: _scrollController,
-                itemCount: _displayedBills.length,
-                itemBuilder: (context, index) {
-                  final bill = _displayedBills[index];
-                  final branch =
-                      bill['branch']?['name'] ?? 'Unknown';
-                  final amount = _extractAmount(bill);
-                  final paymentMethod =
-                  (bill['paymentMethod'] ?? 'unknown')
-                      .toString();
-                  String waiterName = 'Unknown';
-                  final createdBy = bill['createdBy'];
-                  if (createdBy != null) {
-                    if (createdBy is Map) {
-                      waiterName = (createdBy['employee']
-                      ?['name'] ??
-                          createdBy['email'] ??
-                          '')
-                          .toString()
-                          .trim()
-                          .isNotEmpty
-                          ? (createdBy['employee']?['name'] ??
-                          createdBy['email'])
-                          : waiterName;
-                    } else if (createdBy is String &&
-                        userMap.containsKey(createdBy)) {
-                      waiterName = userMap[createdBy]!;
-                    }
-                  }
-
-                  final createdAt = bill['createdAt'];
-                  String timeText = '';
-                  if (createdAt != null) {
-                    final dt = DateTime.tryParse(createdAt);
-                    if (dt != null) {
-                      if (toDate != null) {
-                        timeText = DateFormat('dd.MM.yy - hh:mm a')
-                            .format(dt.toLocal());
-                      } else {
-                        timeText = DateFormat('hh:mm a')
-                            .format(dt.toLocal());
-                      }
-                    }
-                  }
-
-                  final bgColor = index % 2 == 0
-                      ? Colors.white  // UPDATED: Changed to white / grey.shade50 for consistency with waiter/time wise
-                      : Colors.grey.shade50;
-
-                  return GestureDetector(
-                    onTap: () => _showBillPopup(bill),
-                    child: Container(
-                      color: bgColor,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
-                      child: Column(
-                        crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                              mainAxisAlignment:
-                              MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(branch,
-                                      style: const TextStyle(
-                                          fontWeight:
-                                          FontWeight.bold,
-                                          color: Colors.black,
-                                          fontSize: 15),
-                                      overflow:
-                                      TextOverflow.ellipsis),
-                                ),
-                                Text(
-                                    '₹${amount.toStringAsFixed(2)}',
-                                    style: const TextStyle(
-                                        fontWeight:
-                                        FontWeight.bold,
-                                        color: Colors.green,
-                                        fontSize: 15)),
-                              ]),
-                          const SizedBox(height: 4),
-                          Text(
-                            '$timeText - $waiterName - ${paymentMethod.toUpperCase()}',
-                            style: const TextStyle(
-                                fontSize: 13,
-                                color: Colors.black54,
-                                fontWeight:
-                                FontWeight.w500),
-                          ),
-                        ],
+                  : ResponsiveLayout(
+                      mobileBody: ListView.builder(
+                        controller: _scrollController,
+                        itemCount: _displayedBills.length,
+                        itemBuilder: (context, index) {
+                          return _buildBillItem(index);
+                        },
+                      ),
+                      tabletBody: GridView.builder(
+                        controller: _scrollController,
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 2.0,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
+                        itemCount: _displayedBills.length,
+                        itemBuilder: (context, index) {
+                          return _buildBillItem(index);
+                        },
+                      ),
+                      desktopBody: GridView.builder(
+                        controller: _scrollController,
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          childAspectRatio: 2.2,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                        ),
+                        itemCount: _displayedBills.length,
+                        itemBuilder: (context, index) {
+                          return _buildBillItem(index);
+                        },
                       ),
                     ),
-                  );
-                },
-              ),
             ),
             if (_isLoadingMore)
               const Padding(

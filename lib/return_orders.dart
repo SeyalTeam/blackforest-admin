@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'responsive_layout.dart';
 
 class ReturnOrdersPage extends StatefulWidget {
   final String? initialBranchId;
@@ -1117,12 +1118,42 @@ class _ReturnOrdersPageState extends State<ReturnOrdersPage> {
                 ? const Center(child: CircularProgressIndicator())
                 : displayedReturns.isEmpty
                     ? const Center(child: Text('No return orders for selected range'))
-                    : ListView.builder(
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: displayedReturns.length,
-                        itemBuilder: (context, index) => _buildReturnCard(
-                          displayedReturns[index],
-                          isCombined: _combinedView,
+                    : ResponsiveLayout(
+                        mobileBody: ListView.builder(
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: displayedReturns.length,
+                          itemBuilder: (context, index) => _buildReturnCard(
+                            displayedReturns[index],
+                            isCombined: _combinedView,
+                          ),
+                        ),
+                        tabletBody: GridView.builder(
+                          physics: const BouncingScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            childAspectRatio: 0.8, // Adjust based on card content
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                          ),
+                          itemCount: displayedReturns.length,
+                          itemBuilder: (context, index) => _buildReturnCard(
+                            displayedReturns[index],
+                            isCombined: _combinedView,
+                          ),
+                        ),
+                        desktopBody: GridView.builder(
+                          physics: const BouncingScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            childAspectRatio: 0.85, // Adjust based on card content
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                          ),
+                          itemCount: displayedReturns.length,
+                          itemBuilder: (context, index) => _buildReturnCard(
+                            displayedReturns[index],
+                            isCombined: _combinedView,
+                          ),
                         ),
                       ),
           ),

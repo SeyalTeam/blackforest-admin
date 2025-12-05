@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'responsive_layout.dart';
 
 class ClosingEntryReportPage extends StatefulWidget {
   final String? initialBranchId;
@@ -704,25 +705,77 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
                 ? const Center(child: CircularProgressIndicator())
                 : displayedEntries.isEmpty
                     ? const Center(child: Text("No closing entries"))
-                    : ListView.builder(
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                        itemCount: displayedEntries.length + 1, // +1 for summary card
-                        itemBuilder: (_, i) {
-                          if (i == 0) {
-                            // First item is the summary card
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _compactSummaryCard(),
-                            );
-                          }
-                          // Rest are entry cards
-                          return _entryCard(
-                            displayedEntries[i - 1],
-                            isCombined: _combinedView,
+                : ResponsiveLayout(
+                    mobileBody: ListView.builder(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      itemCount: displayedEntries.length + 1, // +1 for summary card
+                      itemBuilder: (_, i) {
+                        if (i == 0) {
+                          // First item is the summary card
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _compactSummaryCard(),
                           );
-                        },
-                      ),
+                        }
+                        // Rest are entry cards
+                        return _entryCard(
+                          displayedEntries[i - 1],
+                          isCombined: _combinedView,
+                        );
+                      },
+                    ),
+                    tabletBody: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                          child: _compactSummaryCard(),
+                        ),
+                        Expanded(
+                          child: GridView.builder(
+                            physics: const BouncingScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              childAspectRatio: 0.8, // Adjust based on card content
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                            ),
+                            itemCount: displayedEntries.length,
+                            itemBuilder: (_, i) => _entryCard(
+                              displayedEntries[i],
+                              isCombined: _combinedView,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    desktopBody: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                          child: _compactSummaryCard(),
+                        ),
+                        Expanded(
+                          child: GridView.builder(
+                            physics: const BouncingScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              childAspectRatio: 0.85, // Adjust based on card content
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                            ),
+                            itemCount: displayedEntries.length,
+                            itemBuilder: (_, i) => _entryCard(
+                              displayedEntries[i],
+                              isCombined: _combinedView,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
           ),
         ],
       ),
