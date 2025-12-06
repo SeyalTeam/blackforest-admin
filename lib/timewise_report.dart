@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'responsive_layout.dart';
+import 'widgets/app_drawer.dart';
 
 class TimewiseReportPage extends StatefulWidget {
   const TimewiseReportPage({super.key});
@@ -745,9 +745,139 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isDesktop = width >= 1024;
     final safeFrom = fromDate ?? DateTime.now();
     final dateFmt = DateFormat('MMM d');
     final dateLabel = toDate == null ? '${dateFmt.format(safeFrom)}' : '${dateFmt.format(safeFrom)} - ${dateFmt.format(toDate!)}';
+
+    Widget mainContent = Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        children: [
+          // Date selector
+          InkWell(
+            onTap: _pickRangeAndRefresh,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+              decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(6)),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_today, color: Colors.white, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      dateLabel,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Employee filter
+          Row(
+            children: [
+              Expanded(
+                child: _loadingUsers
+                    ? const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()))
+                    : DropdownButtonFormField<String>(
+                  value: selectedEmployeeId,
+                  items: employees.map((e) => DropdownMenuItem<String>(
+                    value: e['id'],
+                    child: Text(e['name'] ?? '', overflow: TextOverflow.ellipsis),
+                  )).toList(),
+                  onChanged: _onEmployeeChanged,
+                  decoration: InputDecoration(
+                    labelText: 'Waiter',
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Branch filter
+          Row(children: [
+            Expanded(
+              child: _loadingBranches
+                  ? const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()))
+                  : DropdownButtonFormField<String>(
+                value: selectedBranchId,
+                items: branches.map((b) => DropdownMenuItem<String>(value: b['id'], child: Text(b['name'] ?? 'Unnamed', overflow: TextOverflow.ellipsis))).toList(),
+                onChanged: _onBranchChanged,
+                decoration: InputDecoration(
+                  labelText: 'Branch',
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          // list
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : timeSummaries.isEmpty
+                ? const Center(child: Text('No data for selected range'))
+                : ListView.builder(
+              physics: const BouncingScrollPhysics(),
+              itemCount: timeSummaries.length,
+              itemBuilder: (context, index) {
+                final r = timeSummaries[index];
+                final isPeak = (_peakTimeLabel != null && _peakTimeLabel == r['time']);
+                return _buildRow(context, r, isPeak, index);
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
+          Card(
+            color: Colors.black,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Total Bills: $grandBills', style: const TextStyle(color: Colors.white, fontSize: 15)),
+                      Text('₹${grandTotal.toStringAsFixed(2)}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 26)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.money, color: Colors.white70, size: 20),
+                      const SizedBox(width: 6),
+                      Text('₹${grandCash.toStringAsFixed(0)}', style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 14),
+                      const Icon(Icons.qr_code, color: Colors.white70, size: 20),
+                      const SizedBox(width: 6),
+                      Text('₹${grandUpi.toStringAsFixed(0)}', style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 14),
+                      const Icon(Icons.credit_card, color: Colors.white70, size: 20),
+                      const SizedBox(width: 6),
+                      Text('₹${grandCard.toStringAsFixed(0)}', style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  if (_lastUpdatedTime.isNotEmpty) Text('Last updated: $_lastUpdatedTime', style: const TextStyle(fontSize: 12, color: Colors.white54)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Time wise Report'),
@@ -768,164 +898,24 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            // Date selector
-            InkWell(
-              onTap: _pickRangeAndRefresh,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(6)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.calendar_today, color: Colors.white, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        dateLabel,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Employee filter
-            Row(
-              children: [
-                Expanded(
-                  child: _loadingUsers
-                      ? const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()))
-                      : DropdownButtonFormField<String>(
-                    value: selectedEmployeeId,
-                    items: employees.map((e) => DropdownMenuItem<String>(
-                      value: e['id'],
-                      child: Text(e['name'] ?? '', overflow: TextOverflow.ellipsis),
-                    )).toList(),
-                    onChanged: _onEmployeeChanged,
-                    decoration: InputDecoration(
-                      labelText: 'Waiter',
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // Branch filter
-            Row(children: [
-              Expanded(
-                child: _loadingBranches
-                    ? const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()))
-                    : DropdownButtonFormField<String>(
-                  value: selectedBranchId,
-                  items: branches.map((b) => DropdownMenuItem<String>(value: b['id'], child: Text(b['name'] ?? 'Unnamed', overflow: TextOverflow.ellipsis))).toList(),
-                  onChanged: _onBranchChanged,
-                  decoration: InputDecoration(
-                    labelText: 'Branch',
-                    contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                  ),
-                ),
-              ),
-            ]),
-            const SizedBox(height: 12),
-            // list
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : timeSummaries.isEmpty
-                  ? const Center(child: Text('No data for selected range'))
-                  : ResponsiveLayout(
-                      mobileBody: ListView.builder(
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: timeSummaries.length,
-                        itemBuilder: (context, index) {
-                          final r = timeSummaries[index];
-                          final isPeak = (_peakTimeLabel != null && _peakTimeLabel == r['time']);
-                          return _buildRow(context, r, isPeak, index);
-                        },
-                      ),
-                      tabletBody: GridView.builder(
-                        physics: const BouncingScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: 2.0, // Adjust based on card content
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                        ),
-                        itemCount: timeSummaries.length,
-                        itemBuilder: (context, index) {
-                          final r = timeSummaries[index];
-                          final isPeak = (_peakTimeLabel != null && _peakTimeLabel == r['time']);
-                          return _buildRow(context, r, isPeak, index);
-                        },
-                      ),
-                      desktopBody: GridView.builder(
-                        physics: const BouncingScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          childAspectRatio: 2.2, // Adjust based on card content
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                        ),
-                        itemCount: timeSummaries.length,
-                        itemBuilder: (context, index) {
-                          final r = timeSummaries[index];
-                          final isPeak = (_peakTimeLabel != null && _peakTimeLabel == r['time']);
-                          return _buildRow(context, r, isPeak, index);
-                        },
-                      ),
-                    ),
-            ),
-            const SizedBox(height: 10),
-            Card(
-              color: Colors.black,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Total Bills: $grandBills', style: const TextStyle(color: Colors.white, fontSize: 15)),
-                        Text('₹${grandTotal.toStringAsFixed(2)}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 26)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.money, color: Colors.white70, size: 20),
-                        const SizedBox(width: 6),
-                        Text('₹${grandCash.toStringAsFixed(0)}', style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 14),
-                        const Icon(Icons.qr_code, color: Colors.white70, size: 20),
-                        const SizedBox(width: 6),
-                        Text('₹${grandUpi.toStringAsFixed(0)}', style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 14),
-                        const Icon(Icons.credit_card, color: Colors.white70, size: 20),
-                        const SizedBox(width: 6),
-                        Text('₹${grandCard.toStringAsFixed(0)}', style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    if (_lastUpdatedTime.isNotEmpty) Text('Last updated: $_lastUpdatedTime', style: const TextStyle(fontSize: 12, color: Colors.white54)),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+      drawer: isDesktop
+          ? null
+          : const Drawer(
+        backgroundColor: Colors.white,
+        child: SafeArea(child: AppDrawer()),
       ),
+      body: isDesktop
+          ? Row(
+        children: [
+          Container(
+            width: 250,
+            color: Colors.white,
+            child: const AppDrawer(),
+          ),
+          Expanded(child: mainContent),
+        ],
+      )
+          : mainContent,
     );
   }
 }

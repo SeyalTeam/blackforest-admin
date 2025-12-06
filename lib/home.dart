@@ -9,7 +9,8 @@ import 'closingentry_report.dart'; // Import for Closing Entries
 import 'expensewise_report.dart'; // Import for Expense List
 import 'return_orders.dart'; // Import for Return Orders
 import 'stockorder_report.dart'; // Import for Stock Orders
-import 'responsive_layout.dart';
+
+import 'widgets/app_drawer.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -31,6 +32,27 @@ class HomePage extends StatelessWidget {
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  void _navigateTo(BuildContext context, Widget page) {
+    if (MediaQuery.of(context).size.width >= 1024) {
+      Navigator.push(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => page,
+          transitionDuration: const Duration(milliseconds: 300),
+          reverseTransitionDuration: const Duration(milliseconds: 300),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        ),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => page),
+      );
+    }
   }
 
   Widget _gridItem(BuildContext context, String title, IconData icon, VoidCallback onTap, Color gradientStart, Color gradientEnd) {
@@ -75,157 +97,24 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Row(
-          children: [
-            Icon(Icons.admin_panel_settings, color: Colors.white),
-            SizedBox(width: 8),
-            Text(
-              'SuperAdmin Home',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Logout',
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () => _logout(context),
-          ),
-        ],
-        elevation: 4,
-        shadowColor: Colors.black.withOpacity(0.5),
-      ),
-      // ================= DRAWER ==================
-      drawer: Drawer(
-        backgroundColor: Colors.white,
-        child: SafeArea(
-          child: Column(
-            children: [
-              DrawerHeader(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.black, Colors.grey],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.admin_panel_settings, size: 40, color: Colors.white),
-                    SizedBox(width: 12),
-                    Text('SuperAdmin', style: TextStyle(color: Colors.white, fontSize: 20)),
-                  ],
-                ),
-              ),
-              // --------- Drawer Items ----------
-              ListTile(
-                leading: const Icon(Icons.receipt_long, color: Colors.black87),
-                title: const Text('Branch-wise Bills'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const BranchwiseBillsPage()),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.access_time, color: Colors.black87),
-                title: const Text('Time-wise Report'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const TimewiseReportPage()),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.account_balance_wallet, color: Colors.black87),
-                title: const Text('Closing Entries'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ClosingEntryReportPage()),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.person, color: Colors.black87),
-                title: const Text('Waiter-wise Reports'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const WaiterwiseReportPage()),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.money_off, color: Colors.black87),
-                title: const Text('Expense List & Details'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ExpensewiseReportPage()),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.assignment_return, color: Colors.black87),
-                title: const Text('Return Orders'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ReturnOrdersPage()),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.inventory, color: Colors.black87),
-                title: const Text('Stock Orders'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const StockOrderReportPage()),
-                  );
-                },
-              ),
-              const Spacer(),
-              ListTile(
-                leading: const Icon(Icons.logout, color: Colors.black87),
-                title: const Text('Logout'),
-                onTap: () => _logout(context),
-              ),
-            ],
-          ),
-        ),
-      ),
-      // ================= MAIN BODY ==================
-      body: ResponsiveLayout(
-        mobileBody: _buildDashboard(context, 2),
-        tabletBody: _buildDashboard(context, 3),
-        desktopBody: _buildDashboard(context, 4),
-      ),
-    );
-  }
+    double width = MediaQuery.of(context).size.width;
+    bool isDesktop = width >= 1024;
+    int crossAxisCount;
 
-  Widget _buildDashboard(BuildContext context, int crossAxisCount) {
-    return Padding(
+    if (width < 1024) {
+      crossAxisCount = 3; // Mobile & Tablet
+    } else {
+      // Desktop: Calculate columns based on available space
+      // Sidebar = 250, Padding = 32 (16 left + 16 right)
+      double availableWidth = width - 250 - 32;
+      // Target card width ~200px for a comfortable UI
+      crossAxisCount = (availableWidth / 200).floor();
+      // Clamp to reasonable limits to avoid items being too huge or too tiny
+      if (crossAxisCount < 4) crossAxisCount = 4;
+      if (crossAxisCount > 8) crossAxisCount = 8;
+    }
+
+    Widget mainContent = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 18.0),
       child: Column(
         children: [
@@ -241,12 +130,7 @@ class HomePage extends StatelessWidget {
                   context,
                   'Branch',
                   Icons.location_on,
-                      () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const BranchwiseBillsPage()),
-                    );
-                  },
+                  () => _navigateTo(context, const BranchwiseBillsPage()),
                   Colors.blueGrey[700]!,
                   Colors.blueGrey[400]!,
                 ),
@@ -254,12 +138,7 @@ class HomePage extends StatelessWidget {
                   context,
                   'Time',
                   Icons.access_time,
-                      () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const TimewiseReportPage()),
-                    );
-                  },
+                  () => _navigateTo(context, const TimewiseReportPage()),
                   Colors.teal[700]!,
                   Colors.teal[400]!,
                 ),
@@ -267,12 +146,7 @@ class HomePage extends StatelessWidget {
                   context,
                   'Waiter',
                   Icons.person_search,
-                      () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const WaiterwiseReportPage()),
-                    );
-                  },
+                  () => _navigateTo(context, const WaiterwiseReportPage()),
                   Colors.indigo[700]!,
                   Colors.indigo[400]!,
                 ),
@@ -280,12 +154,7 @@ class HomePage extends StatelessWidget {
                   context,
                   'Live',
                   Icons.schedule,
-                      () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const BillsDateTimePage()),
-                    );
-                  },
+                  () => _navigateTo(context, const BillsDateTimePage()),
                   Colors.green[700]!,
                   Colors.green[400]!,
                 ),
@@ -293,12 +162,7 @@ class HomePage extends StatelessWidget {
                   context,
                   'Expense',
                   Icons.receipt,
-                      () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ExpensewiseReportPage()),
-                    );
-                  },
+                  () => _navigateTo(context, const ExpensewiseReportPage()),
                   Colors.orange[700]!,
                   Colors.orange[400]!,
                 ),
@@ -306,12 +170,7 @@ class HomePage extends StatelessWidget {
                   context,
                   'Closing',
                   Icons.account_balance_wallet,
-                      () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ClosingEntryReportPage()),
-                    );
-                  },
+                  () => _navigateTo(context, const ClosingEntryReportPage()),
                   Colors.deepPurple[700]!,
                   Colors.deepPurple[400]!,
                 ),
@@ -319,12 +178,7 @@ class HomePage extends StatelessWidget {
                   context,
                   'Return',
                   Icons.assignment_return,
-                      () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ReturnOrdersPage()),
-                    );
-                  },
+                  () => _navigateTo(context, const ReturnOrdersPage()),
                   Colors.red[700]!,
                   Colors.red[400]!,
                 ),
@@ -332,12 +186,7 @@ class HomePage extends StatelessWidget {
                   context,
                   'Stock Order',
                   Icons.inventory,
-                      () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const StockOrderReportPage()),
-                    );
-                  },
+                  () => _navigateTo(context, const StockOrderReportPage()),
                   Colors.brown[700]!,
                   Colors.brown[400]!,
                 ),
@@ -359,6 +208,63 @@ class HomePage extends StatelessWidget {
           ),
         ],
       ),
+    );
+
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Row(
+          children: [
+            Icon(Icons.admin_panel_settings, color: Colors.white),
+            SizedBox(width: 8),
+            Text(
+              'SuperAdmin Home',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (!isDesktop) // Only show logout in AppBar on mobile
+            IconButton(
+              tooltip: 'Logout',
+              icon: const Icon(Icons.logout, color: Colors.white),
+              onPressed: () => _logout(context),
+            ),
+        ],
+        elevation: 4,
+        shadowColor: Colors.black.withOpacity(0.5),
+      ),
+      // ================= DRAWER (Mobile Only) ==================
+      drawer: isDesktop
+          ? null
+          : const Drawer(
+        backgroundColor: Colors.white,
+        child: SafeArea(
+          child: AppDrawer(),
+        ),
+      ),
+      // ================= MAIN BODY ==================
+      body: isDesktop
+          ? Row(
+        children: [
+          // Fixed Sidebar
+          Container(
+            width: 250,
+            color: Colors.white,
+            child: const AppDrawer(),
+          ),
+          // Main Content
+          Expanded(child: mainContent),
+        ],
+      )
+          : mainContent,
     );
   }
 }

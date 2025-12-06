@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'responsive_layout.dart';
+
+import 'widgets/app_drawer.dart';
 
 class BranchwiseBillsPage extends StatefulWidget {
   const BranchwiseBillsPage({super.key});
@@ -240,11 +241,215 @@ class _BranchwiseBillsPageState extends State<BranchwiseBillsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isDesktop = width >= 1024;
     final safeFromDate = fromDate ?? DateTime.now();
     final dateFormat = DateFormat('MMM d');
     final dateLabel = toDate == null
         ? 'From: ${dateFormat.format(safeFromDate)}'
         : 'From: ${dateFormat.format(safeFromDate)}  To: ${dateFormat.format(toDate!)}';
+
+    Widget mainContent = _loading
+        ? const Center(child: CircularProgressIndicator())
+        : Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: InkWell(
+              onTap: () async {
+                final picked = await showDateRangePicker(
+                  context: context,
+                  firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                  lastDate: DateTime.now(),
+                );
+                if (picked != null) {
+                  setState(() {
+                    fromDate = picked.start;
+                    toDate = picked.end;
+                  });
+                  await _fetchBranchSummaries();
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    vertical: 10, horizontal: 12),
+                decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(6)),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.calendar_today,
+                        color: Colors.white, size: 18),
+                    const SizedBox(width: 8),
+                    Text(dateLabel,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: ListView.builder(
+              physics: const BouncingScrollPhysics(),
+              itemCount: branchSummaries.length,
+              itemBuilder: (context, index) {
+                final s = branchSummaries[index];
+                final bg = index % 2 == 0
+                    ? Colors.grey.shade100
+                    : Colors.pink.shade50;
+                final shortBranch = _shortenBranchName(s['branch']);
+                final pct = grandTotal == 0
+                    ? '0%'
+                    : '${((s['total'] / grandTotal) * 100).toStringAsFixed(1)}%';
+
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeInOut,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: s['branch'] == _justUpdatedBranch
+                        ? Colors.green.withOpacity(0.1)
+                        : bg,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: const [
+                      BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 4,
+                          offset: Offset(0, 2))
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Text(shortBranch,
+                                style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87)),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text('Bills: ${s['bills']}',
+                                style: const TextStyle(
+                                    fontSize: 15,
+                                    color: Colors.black54)),
+                          ),
+                          Expanded(
+                              flex: 2,
+                              child: _buildAnimatedTotal(
+                                  s['branch'], s['total'])),
+                          Text(' ($pct)',
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.black45)),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          const Icon(Icons.money,
+                              color: Colors.black45, size: 20),
+                          const SizedBox(width: 6),
+                          Text('₹${s['cash'].toStringAsFixed(0)}',
+                              style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 20),
+                          const Icon(Icons.qr_code,
+                              color: Colors.black45, size: 20),
+                          const SizedBox(width: 6),
+                          Text('₹${s['upi'].toStringAsFixed(0)}',
+                              style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 20),
+                          const Icon(Icons.credit_card,
+                              color: Colors.black45, size: 20),
+                          const SizedBox(width: 6),
+                          Text('₹${s['card'].toStringAsFixed(0)}',
+                              style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
+          Card(
+            color: Colors.black,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                      mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Total Bills: $grandBills',
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 15)),
+                        Text('₹${grandTotal.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 26))
+                      ]),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    const Icon(Icons.money,
+                        color: Colors.white70, size: 20),
+                    const SizedBox(width: 6),
+                    Text('₹${grandCash.toStringAsFixed(0)}',
+                        style: TextStyle(
+                            color: Colors.grey[400],
+                            fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 14),
+                    const Icon(Icons.qr_code,
+                        color: Colors.white70, size: 20),
+                    const SizedBox(width: 6),
+                    Text('₹${grandUpi.toStringAsFixed(0)}',
+                        style: TextStyle(
+                            color: Colors.grey[400],
+                            fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 14),
+                    const Icon(Icons.credit_card,
+                        color: Colors.white70, size: 20),
+                    const SizedBox(width: 6),
+                    Text('₹${grandCard.toStringAsFixed(0)}',
+                        style: TextStyle(
+                            color: Colors.grey[400],
+                            fontWeight: FontWeight.bold))
+                  ]),
+                  const SizedBox(height: 8),
+                  if (_lastUpdatedTime.isNotEmpty)
+                    Text('Last updated: $_lastUpdatedTime',
+                        style: const TextStyle(
+                            fontSize: 12, color: Colors.white54)),
+                ],
+              ),
+            ),
+          )
+        ],
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -258,427 +463,24 @@ class _BranchwiseBillsPageState extends State<BranchwiseBillsPage> {
               icon: const Icon(Icons.refresh, color: Colors.white))
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: InkWell(
-                onTap: () async {
-                  final picked = await showDateRangePicker(
-                    context: context,
-                    firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                    lastDate: DateTime.now(),
-                  );
-                  if (picked != null) {
-                    setState(() {
-                      fromDate = picked.start;
-                      toDate = picked.end;
-                    });
-                    await _fetchBranchSummaries();
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      vertical: 10, horizontal: 12),
-                  decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(6)),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.calendar_today,
-                          color: Colors.white, size: 18),
-                      const SizedBox(width: 8),
-                      Text(dateLabel,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ResponsiveLayout(
-                mobileBody: ListView.builder(
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: branchSummaries.length,
-                  itemBuilder: (context, index) {
-                    final s = branchSummaries[index];
-                    final bg = index % 2 == 0
-                        ? Colors.grey.shade100
-                        : Colors.pink.shade50;
-                    final shortBranch = _shortenBranchName(s['branch']);
-                    final pct = grandTotal == 0
-                        ? '0%'
-                        : '${((s['total'] / grandTotal) * 100).toStringAsFixed(1)}%';
-
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 400),
-                      curve: Curves.easeInOut,
-                      margin: const EdgeInsets.only(bottom: 20),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: s['branch'] == _justUpdatedBranch
-                            ? Colors.green.withOpacity(0.1)
-                            : bg,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: const [
-                          BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 4,
-                              offset: Offset(0, 2))
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: Text(shortBranch,
-                                    style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87)),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text('Bills: ${s['bills']}',
-                                    style: const TextStyle(
-                                        fontSize: 15,
-                                        color: Colors.black54)),
-                              ),
-                              Expanded(
-                                  flex: 2,
-                                  child: _buildAnimatedTotal(
-                                      s['branch'], s['total'])),
-                              Text(' ($pct)',
-                                  style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.black45)),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          Row(
-                            children: [
-                              const Icon(Icons.money,
-                                  color: Colors.black45, size: 20),
-                              const SizedBox(width: 6),
-                              Text('₹${s['cash'].toStringAsFixed(0)}',
-                                  style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontWeight: FontWeight.bold)),
-                              const SizedBox(width: 20),
-                              const Icon(Icons.qr_code,
-                                  color: Colors.black45, size: 20),
-                              const SizedBox(width: 6),
-                              Text('₹${s['upi'].toStringAsFixed(0)}',
-                                  style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontWeight: FontWeight.bold)),
-                              const SizedBox(width: 20),
-                              const Icon(Icons.credit_card,
-                                  color: Colors.black45, size: 20),
-                              const SizedBox(width: 6),
-                              Text('₹${s['card'].toStringAsFixed(0)}',
-                                  style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                tabletBody: GridView.builder(
-                  physics: const BouncingScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 1.5,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                  ),
-                  itemCount: branchSummaries.length,
-                  itemBuilder: (context, index) {
-                    final s = branchSummaries[index];
-                    final bg = index % 2 == 0
-                        ? Colors.grey.shade100
-                        : Colors.pink.shade50;
-                    final shortBranch = _shortenBranchName(s['branch']);
-                    final pct = grandTotal == 0
-                        ? '0%'
-                        : '${((s['total'] / grandTotal) * 100).toStringAsFixed(1)}%';
-
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 400),
-                      curve: Curves.easeInOut,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: s['branch'] == _justUpdatedBranch
-                            ? Colors.green.withOpacity(0.1)
-                            : bg,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: const [
-                          BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 4,
-                              offset: Offset(0, 2))
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: Text(shortBranch,
-                                    style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87)),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text('Bills: ${s['bills']}',
-                                    style: const TextStyle(
-                                        fontSize: 15,
-                                        color: Colors.black54)),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                  flex: 2,
-                                  child: _buildAnimatedTotal(
-                                      s['branch'], s['total'])),
-                              Text(' ($pct)',
-                                  style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.black45)),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(children: [
-                                const Icon(Icons.money,
-                                    color: Colors.black45, size: 20),
-                                const SizedBox(width: 6),
-                                Text('₹${s['cash'].toStringAsFixed(0)}',
-                                    style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontWeight: FontWeight.bold)),
-                              ]),
-                              Row(children: [
-                                const Icon(Icons.qr_code,
-                                    color: Colors.black45, size: 20),
-                                const SizedBox(width: 6),
-                                Text('₹${s['upi'].toStringAsFixed(0)}',
-                                    style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontWeight: FontWeight.bold)),
-                              ]),
-                              Row(children: [
-                                const Icon(Icons.credit_card,
-                                    color: Colors.black45, size: 20),
-                                const SizedBox(width: 6),
-                                Text('₹${s['card'].toStringAsFixed(0)}',
-                                    style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontWeight: FontWeight.bold)),
-                              ]),
-                            ],
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                desktopBody: GridView.builder(
-                  physics: const BouncingScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    childAspectRatio: 1.6,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                  ),
-                  itemCount: branchSummaries.length,
-                  itemBuilder: (context, index) {
-                    final s = branchSummaries[index];
-                    final bg = index % 2 == 0
-                        ? Colors.grey.shade100
-                        : Colors.pink.shade50;
-                    final shortBranch = _shortenBranchName(s['branch']);
-                    final pct = grandTotal == 0
-                        ? '0%'
-                        : '${((s['total'] / grandTotal) * 100).toStringAsFixed(1)}%';
-
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 400),
-                      curve: Curves.easeInOut,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: s['branch'] == _justUpdatedBranch
-                            ? Colors.green.withOpacity(0.1)
-                            : bg,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: const [
-                          BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 4,
-                              offset: Offset(0, 2))
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: Text(shortBranch,
-                                    style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87)),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text('Bills: ${s['bills']}',
-                                    style: const TextStyle(
-                                        fontSize: 15,
-                                        color: Colors.black54)),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                  flex: 2,
-                                  child: _buildAnimatedTotal(
-                                      s['branch'], s['total'])),
-                              Text(' ($pct)',
-                                  style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.black45)),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(children: [
-                                const Icon(Icons.money,
-                                    color: Colors.black45, size: 20),
-                                const SizedBox(width: 6),
-                                Text('₹${s['cash'].toStringAsFixed(0)}',
-                                    style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontWeight: FontWeight.bold)),
-                              ]),
-                              Row(children: [
-                                const Icon(Icons.qr_code,
-                                    color: Colors.black45, size: 20),
-                                const SizedBox(width: 6),
-                                Text('₹${s['upi'].toStringAsFixed(0)}',
-                                    style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontWeight: FontWeight.bold)),
-                              ]),
-                              Row(children: [
-                                const Icon(Icons.credit_card,
-                                    color: Colors.black45, size: 20),
-                                const SizedBox(width: 6),
-                                Text('₹${s['card'].toStringAsFixed(0)}',
-                                    style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontWeight: FontWeight.bold)),
-                              ]),
-                            ],
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Card(
-              color: Colors.black,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                        mainAxisAlignment:
-                        MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Total Bills: $grandBills',
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 15)),
-                          Text('₹${grandTotal.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 26))
-                        ]),
-                    const SizedBox(height: 8),
-                    Row(children: [
-                      const Icon(Icons.money,
-                          color: Colors.white70, size: 20),
-                      const SizedBox(width: 6),
-                      Text('₹${grandCash.toStringAsFixed(0)}',
-                          style: TextStyle(
-                              color: Colors.grey[400],
-                              fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 14),
-                      const Icon(Icons.qr_code,
-                          color: Colors.white70, size: 20),
-                      const SizedBox(width: 6),
-                      Text('₹${grandUpi.toStringAsFixed(0)}',
-                          style: TextStyle(
-                              color: Colors.grey[400],
-                              fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 14),
-                      const Icon(Icons.credit_card,
-                          color: Colors.white70, size: 20),
-                      const SizedBox(width: 6),
-                      Text('₹${grandCard.toStringAsFixed(0)}',
-                          style: TextStyle(
-                              color: Colors.grey[400],
-                              fontWeight: FontWeight.bold))
-                    ]),
-                    const SizedBox(height: 8),
-                    if (_lastUpdatedTime.isNotEmpty)
-                      Text('Last updated: $_lastUpdatedTime',
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.white54)),
-                  ],
-                ),
-              ),
-            )
-          ],
-        ),
+      drawer: isDesktop
+          ? null
+          : const Drawer(
+        backgroundColor: Colors.white,
+        child: SafeArea(child: AppDrawer()),
       ),
+      body: isDesktop
+          ? Row(
+        children: [
+          Container(
+            width: 250,
+            color: Colors.white,
+            child: const AppDrawer(),
+          ),
+          Expanded(child: mainContent),
+        ],
+      )
+          : mainContent,
     );
   }
 }

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'responsive_layout.dart';
+import 'widgets/app_drawer.dart';
 
 class StockOrderReportPage extends StatefulWidget {
   final String? initialBranchId;
@@ -400,6 +400,46 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isDesktop = width >= 1024;
+
+    Widget mainContent = Column(
+      children: [
+        // Filters
+        Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildDateSelector(),
+                  // Could add more filters or stats here
+                ],
+              ),
+              const SizedBox(height: 12),
+              _buildBranchFilter(),
+            ],
+          ),
+        ),
+        // List
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : stockOrders.isEmpty
+              ? const Center(child: Text('No stock orders found'))
+              : ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            itemCount: stockOrders.length,
+            itemBuilder: (context, index) {
+              return _buildStockOrderCard(stockOrders[index]);
+            },
+          ),
+        ),
+      ],
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Stock Orders'),
@@ -419,70 +459,26 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Filters
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildDateSelector(),
-                    // Could add more filters or stats here
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _buildBranchFilter(),
-              ],
-            ),
-          ),
-          // List
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : stockOrders.isEmpty
-                    ? const Center(child: Text('No stock orders found'))
-                    : ResponsiveLayout(
-                        mobileBody: ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          itemCount: stockOrders.length,
-                          itemBuilder: (context, index) {
-                            return _buildStockOrderCard(stockOrders[index]);
-                          },
-                        ),
-                        tabletBody: GridView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            childAspectRatio: 1.5,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                          ),
-                          itemCount: stockOrders.length,
-                          itemBuilder: (context, index) {
-                            return _buildStockOrderCard(stockOrders[index]);
-                          },
-                        ),
-                        desktopBody: GridView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            childAspectRatio: 1.6,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                          ),
-                          itemCount: stockOrders.length,
-                          itemBuilder: (context, index) {
-                            return _buildStockOrderCard(stockOrders[index]);
-                          },
-                        ),
-                      ),
-          ),
-        ],
+      drawer: isDesktop
+          ? null
+          : const Drawer(
+        backgroundColor: Colors.white,
+        child: SafeArea(child: AppDrawer()),
       ),
+      body: isDesktop
+          ? Row(
+        children: [
+          // Fixed Sidebar
+          Container(
+            width: 250,
+            color: Colors.white,
+            child: const AppDrawer(),
+          ),
+          // Main Content
+          Expanded(child: mainContent),
+        ],
+      )
+          : mainContent,
     );
   }
 }

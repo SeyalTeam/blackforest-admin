@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'responsive_layout.dart';
+import 'widgets/app_drawer.dart';
 
 class WaiterwiseReportPage extends StatefulWidget {
   const WaiterwiseReportPage({super.key});
@@ -754,23 +754,13 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isDesktop = width >= 1024;
     final safeFrom = fromDate ?? DateTime.now();
     final dateFmt = DateFormat('MMM d'); // e.g., Nov 14
     final dateLabel = toDate == null ? dateFmt.format(safeFrom) : '${dateFmt.format(safeFrom)} - ${dateFmt.format(toDate!)}';
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Waiter-wise Report'),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            tooltip: 'Refresh (reset to today)',
-            onPressed: _onRefreshPressed,
-            icon: const Icon(Icons.refresh, color: Colors.white),
-          ),
-        ],
-      ),
-      body: Padding(
+
+    Widget mainContent = Padding(
         padding: const EdgeInsets.all(12),
         child: Column(children: [
           // Row 1: compact calendar (left) and refresh already in appbar; kept simple
@@ -788,41 +778,49 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
                 ? const Center(child: CircularProgressIndicator())
                 : waiterSummaries.isEmpty
                 ? const Center(child: Text('No data for selected range'))
-                : ResponsiveLayout(
-                    mobileBody: ListView.builder(
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: waiterSummaries.length,
-                      itemBuilder: (context, index) => _buildRow(index),
-                    ),
-                    tabletBody: GridView.builder(
-                      physics: const BouncingScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 2.2, // Adjust based on card content
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                      ),
-                      itemCount: waiterSummaries.length,
-                      itemBuilder: (context, index) => _buildRow(index),
-                    ),
-                    desktopBody: GridView.builder(
-                      physics: const BouncingScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        childAspectRatio: 2.5, // Adjust based on card content
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                      ),
-                      itemCount: waiterSummaries.length,
-                      itemBuilder: (context, index) => _buildRow(index),
-                    ),
-                  ),
+                : ListView.builder(
+              physics: const BouncingScrollPhysics(),
+              itemCount: waiterSummaries.length,
+              itemBuilder: (context, index) => _buildRow(index),
+            ),
           ),
           const SizedBox(height: 12),
           // Footer summary
           _buildFooter(),
         ]),
+      );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Waiter-wise Report'),
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            tooltip: 'Refresh (reset to today)',
+            onPressed: _onRefreshPressed,
+            icon: const Icon(Icons.refresh, color: Colors.white),
+          ),
+        ],
       ),
+      drawer: isDesktop
+          ? null
+          : const Drawer(
+        backgroundColor: Colors.white,
+        child: SafeArea(child: AppDrawer()),
+      ),
+      body: isDesktop
+          ? Row(
+        children: [
+          Container(
+            width: 250,
+            color: Colors.white,
+            child: const AppDrawer(),
+          ),
+          Expanded(child: mainContent),
+        ],
+      )
+          : mainContent,
     );
   }
 }

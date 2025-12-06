@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'responsive_layout.dart';
+import 'widgets/app_drawer.dart';
 
 class ReturnOrdersPage extends StatefulWidget {
   final String? initialBranchId;
@@ -1083,84 +1083,114 @@ class _ReturnOrdersPageState extends State<ReturnOrdersPage> {
 
   @override
   Widget build(BuildContext context) {
+    // If we have selected a filtering branch, or just showing all
+    // We compute displayed list
     final displayedReturns = _getDisplayedReturns();
+    final width = MediaQuery.of(context).size.width;
+    final isDesktop = width >= 1024;
+
+    Widget mainContent = Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildDateSelector(),
+                  _toggleIcon(),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: _buildBranchFilter(),
+              ),
+            ],
+          ),
+        ),
+        // List
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : displayedReturns.isEmpty
+              ? const Center(child: Text('No return orders found'))
+              : ListView.builder(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: displayedReturns.length,
+            itemBuilder: (context, index) {
+              final item = displayedReturns[index];
+              return _buildReturnCard(item, isCombined: _combinedView);
+            },
+          ),
+        ),
+        // Footer (optional, grand total)
+        if (grandCount > 0)
+          Container(
+            color: Colors.black,
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Total Returns: $grandCount',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  '₹${_formatAmount(grandTotal)}',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+              ],
+            ),
+          )
+      ],
+    );
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Return Orders Report'),
+        title: const Text('Return Orders'),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            tooltip: 'Refresh (reset to today)',
-            onPressed: _onRefreshPressed,
-            icon: const Icon(Icons.refresh, color: Colors.white),
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              // reset filters to default if needed or just refresh data
+              if (widget.initialBranchId == null) {
+                setState(() {
+                  selectedBranchId = 'ALL';
+                  _combinedView = true;
+                });
+              }
+              _fetchReturnOrders();
+            },
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(children: [
-          // Row 1: Calendar and Toggle
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildDateSelector(),
-              _toggleIcon(),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // Row 2: Branch Filter (always visible)
-          _buildBranchFilter(),
-          const SizedBox(height: 12),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : displayedReturns.isEmpty
-                    ? const Center(child: Text('No return orders for selected range'))
-                    : ResponsiveLayout(
-                        mobileBody: ListView.builder(
-                          physics: const BouncingScrollPhysics(),
-                          itemCount: displayedReturns.length,
-                          itemBuilder: (context, index) => _buildReturnCard(
-                            displayedReturns[index],
-                            isCombined: _combinedView,
-                          ),
-                        ),
-                        tabletBody: GridView.builder(
-                          physics: const BouncingScrollPhysics(),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            childAspectRatio: 0.8, // Adjust based on card content
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                          ),
-                          itemCount: displayedReturns.length,
-                          itemBuilder: (context, index) => _buildReturnCard(
-                            displayedReturns[index],
-                            isCombined: _combinedView,
-                          ),
-                        ),
-                        desktopBody: GridView.builder(
-                          physics: const BouncingScrollPhysics(),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            childAspectRatio: 0.85, // Adjust based on card content
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                          ),
-                          itemCount: displayedReturns.length,
-                          itemBuilder: (context, index) => _buildReturnCard(
-                            displayedReturns[index],
-                            isCombined: _combinedView,
-                          ),
-                        ),
-                      ),
-          ),
-          const SizedBox(height: 12),
-          _buildFooter(),
-        ]),
+      drawer: isDesktop
+          ? null
+          : const Drawer(
+        backgroundColor: Colors.white,
+        child: SafeArea(child: AppDrawer()),
       ),
+      body: isDesktop
+          ? Row(
+        children: [
+          // Fixed Sidebar
+          Container(
+            width: 250,
+            color: Colors.white,
+            child: const AppDrawer(),
+          ),
+          // Main Content
+          Expanded(child: mainContent),
+        ],
+      )
+          : mainContent,
     );
   }
 }

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'responsive_layout.dart';
+import 'widgets/app_drawer.dart';
 
 class ExpensewiseReportPage extends StatefulWidget {
   const ExpensewiseReportPage({super.key});
@@ -652,6 +652,8 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isDesktop = width >= 1024;
     final safeFrom = fromDate ?? DateTime.now();
     final dateFmt = DateFormat('MMM d'); // e.g., Nov 14
     final dateLabel = toDate == null
@@ -666,6 +668,64 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
       return totalB.compareTo(totalA);
     });
 
+    Widget mainContent = Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(children: [
+        Row(
+          children: [
+            _buildDateSelector(),
+            const SizedBox(width: 12),
+            Expanded(child: _buildBranchFilter()),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildSourceFilter(),
+        const SizedBox(height: 12),
+        Expanded(
+          child: GestureDetector(
+            onHorizontalDragEnd: (details) async {
+              final int index = sources.indexOf(selectedSource);
+              String? newSource;
+              if (details.primaryVelocity! < 0) { // swipe left - next
+                if (index < sources.length - 1) {
+                  newSource = sources[index + 1];
+                }
+              } else if (details.primaryVelocity! > 0) { // swipe right - previous
+                if (index > 0) {
+                  newSource = sources[index - 1];
+                }
+              }
+              if (newSource != null) {
+                String oldSource = selectedSource;
+                selectedSource = newSource;
+                setState(() {});
+                await _fetchAndGroup();
+                if (selectedSource != oldSource) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && _sourceKeys[selectedSource]?.currentContext != null) {
+                      Scrollable.ensureVisible(_sourceKeys[selectedSource]!.currentContext!,
+                          alignment: 0.5, duration: const Duration(milliseconds: 300));
+                    }
+                  });
+                }
+              }
+            },
+            child: _initialLoading
+                ? const Center(child: CircularProgressIndicator())
+                : branchNames.isEmpty
+                ? const Center(child: Text('No data for selected range'))
+                : ListView.builder(
+              physics: const BouncingScrollPhysics(),
+              itemCount: branchNames.length,
+              itemBuilder: (context, index) => _buildBranchCard(branchNames[index]),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildFooter(),
+      ]),
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Expense-wise Report'),
@@ -679,87 +739,26 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(children: [
-          Row(
-            children: [
-              _buildDateSelector(),
-              const SizedBox(width: 12),
-              Expanded(child: _buildBranchFilter()),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _buildSourceFilter(),
-          const SizedBox(height: 12),
-          Expanded(
-            child: GestureDetector(
-              onHorizontalDragEnd: (details) async {
-                final int index = sources.indexOf(selectedSource);
-                String? newSource;
-                if (details.primaryVelocity! < 0) { // swipe left - next
-                  if (index < sources.length - 1) {
-                    newSource = sources[index + 1];
-                  }
-                } else if (details.primaryVelocity! > 0) { // swipe right - previous
-                  if (index > 0) {
-                    newSource = sources[index - 1];
-                  }
-                }
-                if (newSource != null) {
-                  String oldSource = selectedSource;
-                  selectedSource = newSource;
-                  setState(() {});
-                  await _fetchAndGroup();
-                  if (selectedSource != oldSource) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted && _sourceKeys[selectedSource]?.currentContext != null) {
-                        Scrollable.ensureVisible(_sourceKeys[selectedSource]!.currentContext!,
-                            alignment: 0.5, duration: const Duration(milliseconds: 300));
-                      }
-                    });
-                  }
-                }
-              },
-              child: _initialLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : branchNames.isEmpty
-                  ? const Center(child: Text('No data for selected range'))
-                  : ResponsiveLayout(
-                      mobileBody: ListView.builder(
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: branchNames.length,
-                        itemBuilder: (context, index) => _buildBranchCard(branchNames[index]),
-                      ),
-                      tabletBody: GridView.builder(
-                        physics: const BouncingScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: 1.0, // Adjust based on card content
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                        ),
-                        itemCount: branchNames.length,
-                        itemBuilder: (context, index) => _buildBranchCard(branchNames[index]),
-                      ),
-                      desktopBody: GridView.builder(
-                        physics: const BouncingScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          childAspectRatio: 1.1, // Adjust based on card content
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                        ),
-                        itemCount: branchNames.length,
-                        itemBuilder: (context, index) => _buildBranchCard(branchNames[index]),
-                      ),
-                    ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildFooter(),
-        ]),
+      drawer: isDesktop
+          ? null
+          : const Drawer(
+        backgroundColor: Colors.white,
+        child: SafeArea(child: AppDrawer()),
       ),
+      body: isDesktop
+          ? Row(
+        children: [
+          // Fixed Sidebar
+          Container(
+            width: 250,
+            color: Colors.white,
+            child: const AppDrawer(),
+          ),
+          // Main Content
+          Expanded(child: mainContent),
+        ],
+      )
+          : mainContent,
     );
   }
 }

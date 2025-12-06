@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'responsive_layout.dart';
+import 'widgets/app_drawer.dart';
 
 class BillsDateTimePage extends StatefulWidget {
   const BillsDateTimePage({super.key});
@@ -534,85 +534,257 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
     );
   }
 
-  Widget _buildBillItem(int index) {
-    final bill = _displayedBills[index];
-    final branch = bill['branch']?['name'] ?? 'Unknown';
-    final amount = _extractAmount(bill);
-    final paymentMethod = (bill['paymentMethod'] ?? 'unknown').toString();
-    String waiterName = 'Unknown';
-    final createdBy = bill['createdBy'];
-    if (createdBy != null) {
-      if (createdBy is Map) {
-        waiterName = (createdBy['employee']?['name'] ?? createdBy['email'] ?? '')
-                .toString()
-                .trim()
-                .isNotEmpty
-            ? (createdBy['employee']?['name'] ?? createdBy['email'])
-            : waiterName;
-      } else if (createdBy is String && userMap.containsKey(createdBy)) {
-        waiterName = userMap[createdBy]!;
-      }
-    }
-
-    final createdAt = bill['createdAt'];
-    String timeText = '';
-    if (createdAt != null) {
-      final dt = DateTime.tryParse(createdAt);
-      if (dt != null) {
-        if (toDate != null) {
-          timeText = DateFormat('dd.MM.yy - hh:mm a').format(dt.toLocal());
-        } else {
-          timeText = DateFormat('hh:mm a').format(dt.toLocal());
-        }
-      }
-    }
-
-    final bgColor = index % 2 == 0 ? Colors.white : Colors.grey.shade50;
-
-    return GestureDetector(
-      onTap: () => _showBillPopup(bill),
-      child: Container(
-        color: bgColor,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Expanded(
-                child: Text(branch,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                        fontSize: 15),
-                    overflow: TextOverflow.ellipsis),
-              ),
-              Text('₹${amount.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
-                      fontSize: 15)),
-            ]),
-            const SizedBox(height: 4),
-            Text(
-              '$timeText - $waiterName - ${paymentMethod.toUpperCase()}',
-              style: const TextStyle(
-                  fontSize: 13,
-                  color: Colors.black54,
-                  fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isDesktop = width >= 1024;
     final safeFromDate = fromDate ?? DateTime.now();
     final dateFormat = DateFormat('MMM d');
     final dateLabel = toDate == null
         ? 'From: ${dateFormat.format(safeFromDate)}'
         : 'From: ${dateFormat.format(safeFromDate)}  To: ${dateFormat.format(toDate!)}';
+
+    Widget mainContent = _loading && allBills.isEmpty
+        ? const Center(child: CircularProgressIndicator())
+        : Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: InkWell(
+              onTap: _pickDateRange,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    vertical: 10, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.calendar_today,
+                        color: Colors.white, size: 18),
+                    const SizedBox(width: 8),
+                    Text(dateLabel,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(
+              child: _loadingBranches
+                  ? const SizedBox(
+                  height: 48,
+                  child: Center(child: CircularProgressIndicator()))
+                  : DropdownButtonFormField<String>(
+                value: selectedBranchId,
+                items: branches
+                    .map((b) => DropdownMenuItem<String>(
+                  value: b['id'],
+                  child: Text(b['name'] ?? 'Unnamed',
+                      overflow: TextOverflow.ellipsis),
+                ))
+                    .toList(),
+                onChanged: (v) => _onBranchChanged(v),
+                decoration: InputDecoration(
+                  labelText: 'Branch',
+                  contentPadding: const EdgeInsets.symmetric(
+                      vertical: 12, horizontal: 12),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6)),
+                ),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          Card(
+            color: Colors.grey[100],  // UPDATED: Changed from pink[50] to grey[100] for consistency with waiter/time wise (light background)
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8)),
+            child: Padding(
+              padding: const EdgeInsets.all(14.0),
+              child: _loadingSummary
+                  ? const Center(child: CircularProgressIndicator())
+                  : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    const Text('Total Bills: ',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold)),
+                    Text('$overviewBills',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold)),
+                  ]),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _buildPaymentTile(
+                          'CASH',
+                          Icons.money,
+                          Colors.green,
+                          cashTotal),
+                      _buildPaymentTile(
+                          'UPI', Icons.qr_code, Colors.blue, upiTotal),
+                      _buildPaymentTile(
+                          'CARD',
+                          Icons.credit_card,
+                          Colors.purple,
+                          cardTotal),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 12, horizontal: 14),
+                    decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius:
+                        BorderRadius.circular(6)),
+                    child: Row(
+                      mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Total Amount:',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight:
+                                FontWeight.bold)),
+                        Text(
+                            '₹${overviewAmount.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                                color: Colors.green,
+                                fontSize: 28,
+                                fontWeight:
+                                FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _displayedBills.isEmpty
+                ? const Center(child: Text('No bills found'))
+                : ListView.builder(
+              controller: _scrollController,
+              itemCount: _displayedBills.length,
+              itemBuilder: (context, index) {
+                final bill = _displayedBills[index];
+                final branch =
+                    bill['branch']?['name'] ?? 'Unknown';
+                final amount = _extractAmount(bill);
+                final paymentMethod =
+                (bill['paymentMethod'] ?? 'unknown')
+                    .toString();
+                String waiterName = 'Unknown';
+                final createdBy = bill['createdBy'];
+                if (createdBy != null) {
+                  if (createdBy is Map) {
+                    waiterName = (createdBy['employee']
+                    ?['name'] ??
+                        createdBy['email'] ??
+                        '')
+                        .toString()
+                        .trim()
+                        .isNotEmpty
+                        ? (createdBy['employee']?['name'] ??
+                        createdBy['email'])
+                        : waiterName;
+                  } else if (createdBy is String &&
+                      userMap.containsKey(createdBy)) {
+                    waiterName = userMap[createdBy]!;
+                  }
+                }
+
+                final createdAt = bill['createdAt'];
+                String timeText = '';
+                if (createdAt != null) {
+                  final dt = DateTime.tryParse(createdAt);
+                  if (dt != null) {
+                    if (toDate != null) {
+                      timeText = DateFormat('dd.MM.yy - hh:mm a')
+                          .format(dt.toLocal());
+                    } else {
+                      timeText = DateFormat('hh:mm a')
+                          .format(dt.toLocal());
+                    }
+                  }
+                }
+
+                final bgColor = index % 2 == 0
+                    ? Colors.white  // UPDATED: Changed to white / grey.shade50 for consistency with waiter/time wise
+                    : Colors.grey.shade50;
+
+                return GestureDetector(
+                  onTap: () => _showBillPopup(bill),
+                  child: Container(
+                    color: bgColor,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    child: Column(
+                      crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                            mainAxisAlignment:
+                            MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(branch,
+                                    style: const TextStyle(
+                                        fontWeight:
+                                        FontWeight.bold,
+                                        color: Colors.black,
+                                        fontSize: 15),
+                                    overflow:
+                                    TextOverflow.ellipsis),
+                              ),
+                              Text(
+                                  '₹${amount.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                      fontWeight:
+                                      FontWeight.bold,
+                                      color: Colors.green,
+                                      fontSize: 15)),
+                            ]),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$timeText - $waiterName - ${paymentMethod.toUpperCase()}',
+                          style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.black54,
+                              fontWeight:
+                              FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          if (_isLoadingMore)
+            const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: CircularProgressIndicator()),
+        ],
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -627,185 +799,26 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
           ),
         ],
       ),
-      body: _loading && allBills.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: InkWell(
-                onTap: _pickDateRange,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      vertical: 10, horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.calendar_today,
-                          color: Colors.white, size: 18),
-                      const SizedBox(width: 8),
-                      Text(dateLabel,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14)),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                child: _loadingBranches
-                    ? const SizedBox(
-                    height: 48,
-                    child: Center(child: CircularProgressIndicator()))
-                    : DropdownButtonFormField<String>(
-                  value: selectedBranchId,
-                  items: branches
-                      .map((b) => DropdownMenuItem<String>(
-                    value: b['id'],
-                    child: Text(b['name'] ?? 'Unnamed',
-                        overflow: TextOverflow.ellipsis),
-                  ))
-                      .toList(),
-                  onChanged: (v) => _onBranchChanged(v),
-                  decoration: InputDecoration(
-                    labelText: 'Branch',
-                    contentPadding: const EdgeInsets.symmetric(
-                        vertical: 12, horizontal: 12),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(6)),
-                  ),
-                ),
-              ),
-            ]),
-            const SizedBox(height: 12),
-            Card(
-              color: Colors.grey[100],  // UPDATED: Changed from pink[50] to grey[100] for consistency with waiter/time wise (light background)
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-              child: Padding(
-                padding: const EdgeInsets.all(14.0),
-                child: _loadingSummary
-                    ? const Center(child: CircularProgressIndicator())
-                    : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      const Text('Total Bills: ',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold)),
-                      Text('$overviewBills',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold)),
-                    ]),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        _buildPaymentTile(
-                            'CASH',
-                            Icons.money,
-                            Colors.green,
-                            cashTotal),
-                        _buildPaymentTile(
-                            'UPI', Icons.qr_code, Colors.blue, upiTotal),
-                        _buildPaymentTile(
-                            'CARD',
-                            Icons.credit_card,
-                            Colors.purple,
-                            cardTotal),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 12, horizontal: 14),
-                      decoration: BoxDecoration(
-                          color: Colors.black,
-                          borderRadius:
-                          BorderRadius.circular(6)),
-                      child: Row(
-                        mainAxisAlignment:
-                        MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Total Amount:',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight:
-                                  FontWeight.bold)),
-                          Text(
-                              '₹${overviewAmount.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                  color: Colors.green,
-                                  fontSize: 28,
-                                  fontWeight:
-                                  FontWeight.bold)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: _displayedBills.isEmpty
-                  ? const Center(child: Text('No bills found'))
-                  : ResponsiveLayout(
-                      mobileBody: ListView.builder(
-                        controller: _scrollController,
-                        itemCount: _displayedBills.length,
-                        itemBuilder: (context, index) {
-                          return _buildBillItem(index);
-                        },
-                      ),
-                      tabletBody: GridView.builder(
-                        controller: _scrollController,
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: 2.0,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                        ),
-                        itemCount: _displayedBills.length,
-                        itemBuilder: (context, index) {
-                          return _buildBillItem(index);
-                        },
-                      ),
-                      desktopBody: GridView.builder(
-                        controller: _scrollController,
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          childAspectRatio: 2.2,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                        ),
-                        itemCount: _displayedBills.length,
-                        itemBuilder: (context, index) {
-                          return _buildBillItem(index);
-                        },
-                      ),
-                    ),
-            ),
-            if (_isLoadingMore)
-              const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: CircularProgressIndicator()),
-          ],
-        ),
+      drawer: isDesktop
+          ? null
+          : const Drawer(
+        backgroundColor: Colors.white,
+        child: SafeArea(child: AppDrawer()),
       ),
+      body: isDesktop
+          ? Row(
+        children: [
+          // Fixed Sidebar
+          Container(
+            width: 250,
+            color: Colors.white,
+            child: const AppDrawer(),
+          ),
+          // Main Content
+          Expanded(child: mainContent),
+        ],
+      )
+          : mainContent,
     );
   }
 }
