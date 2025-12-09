@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'home.dart';
 import 'kitchen_order.dart'; // ADDED: Import for KitchenOrderPage
+import 'constants.dart';
 
 class IdleTimeoutWrapper extends StatefulWidget {
   final Widget child;
