@@ -3,8 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
+import 'package:flutter/services.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'widgets/app_drawer.dart';
-import 'constants.dart';
 
 class StockOrderReportPage extends StatefulWidget {
   final String? initialBranchId;
@@ -47,7 +52,6 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   }
 
   Future<void> _bootstrap() async {
-    await _fetchBranches();
     await _fetchBranches();
     await _fetchDepartments();
     await _fetchCategories();
@@ -110,7 +114,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     try {
       final token = await _getToken();
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/categories?limit=1000'),
+        Uri.parse('https://admin.theblackforestcakes.com/api/categories?limit=1000&depth=1'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -135,7 +139,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59)
           : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
 
-      var url = 'https://admin.theblackforestcakes.com/api/stock-orders?limit=1000&depth=1'
+      var url = 'https://admin.theblackforestcakes.com/api/stock-orders?limit=1000&depth=2'
           '&where[createdAt][greater_than]=${start.toUtc().toIso8601String()}'
           '&where[createdAt][less_than]=${end.toUtc().toIso8601String()}';
 
@@ -356,6 +360,200 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     return finalItems;
   }
 
+  Future<void> _shareOrderPdf(Map<String, dynamic> order) async {
+    final brown100 = PdfColor.fromInt(0xFFD7CCC8);
+    final brown300 = PdfColor.fromInt(0xFFA1887F);
+    final brown50 = PdfColor.fromInt(0xFFEFEBE9);
+    final grey300 = PdfColor.fromInt(0xFFE0E0E0);
+    final blue700 = PdfColor.fromInt(0xFF1976D2);
+    
+    final pdf = pw.Document();
+    final invoiceNumber = order['invoiceNumber'] ?? 'No Invoice';
+    final branchName = order['branch'] is Map ? order['branch']['name'] : (order['branch'] ?? 'Unknown Branch');
+    final status = order['status'] ?? 'pending';
+    final items = (order['items'] as List?) ?? [];
+    final createdAt = DateTime.tryParse(order['createdAt'] ?? '');
+    final deliveryDate = DateTime.tryParse(order['deliveryDate'] ?? '');
+    final dateFmt = DateFormat('MMM d, h:mm a');
+    final createdStr = createdAt != null ? dateFmt.format(createdAt.add(const Duration(hours: 5, minutes: 30))) : '';
+    final deliveryStr = deliveryDate != null ? dateFmt.format(deliveryDate.add(const Duration(hours: 5, minutes: 30))) : '';
+
+    final groupedItems = _groupItemsWithHeaders(items);
+
+    // Calculate Totals
+    int totalReq = 0, totalSent = 0, totalConf = 0, totalPick = 0, totalRecv = 0, totalDiff = 0;
+    double totalReqAmt = 0, totalSntAmt = 0, totalRecAmt = 0;
+    for (var item in items) {
+      totalReq += (item['requiredQty'] ?? 0) as int;
+      totalSent += (item['sendingQty'] ?? 0) as int;
+      totalConf += (item['confirmedQty'] ?? 0) as int;
+      totalPick += (item['pickedQty'] ?? 0) as int;
+      totalRecv += (item['receivedQty'] ?? 0) as int;
+      totalDiff += (item['differenceQty'] ?? 0) as int;
+      totalReqAmt += (item['requiredAmount'] ?? 0).toDouble();
+      totalSntAmt += (item['sendingAmount'] ?? 0).toDouble();
+      totalRecAmt += (item['receivedAmount'] ?? 0).toDouble();
+    }
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(16),
+        build: (pw.Context context) {
+          return [
+            // Header
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text('Invoice: $invoiceNumber', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey)),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: pw.BoxDecoration(
+                        color: status.toLowerCase() == 'approved' ? PdfColors.green : PdfColors.orange,
+                        borderRadius: pw.BorderRadius.circular(12),
+                      ),
+                      child: pw.Text(status.toUpperCase(), style: pw.TextStyle(color: PdfColors.white, fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 2),
+                pw.Text(branchName.toString(), style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+                pw.SizedBox(height: 3),
+                pw.Text('Delivery: $deliveryStr', style: pw.TextStyle(color: blue700, fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                pw.Text('Created: $createdStr', style: const pw.TextStyle(color: PdfColors.grey, fontSize: 10)),
+                pw.SizedBox(height: 8),
+                pw.Text('${items.length} Items     Req Amt: ${totalReqAmt.toInt()}     Snt Amt: ${totalSntAmt.toInt()}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
+                pw.Divider(height: 10),
+              ],
+            ),
+            
+            // Table Header
+            pw.Container(
+              color: brown100,
+              padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+              child: pw.Row(
+                children: [
+                  pw.Expanded(flex: 3, child: pw.Text('Name', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                  pw.Expanded(flex: 1, child: pw.Text('Prc', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
+                  pw.Expanded(flex: 1, child: pw.Text('Req', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
+                  pw.Expanded(flex: 1, child: pw.Text('Snt', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
+                  pw.Expanded(flex: 1, child: pw.Text('Con', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
+                  pw.Expanded(flex: 1, child: pw.Text('Pic', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
+                  pw.Expanded(flex: 1, child: pw.Text('Rec', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
+                  pw.Expanded(flex: 1, child: pw.Text('Dif', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
+                ],
+              ),
+            ),
+            
+            // Items
+            ...groupedItems.asMap().entries.map((entry) {
+              final idx = entry.key;
+              final item = entry.value;
+
+              if (item['type'] == 'dept_header') {
+                return pw.Container(
+                  width: double.infinity,
+                  color: brown300,
+                  padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                  margin: const pw.EdgeInsets.only(top: 8),
+                  child: pw.Text(
+                    (item['name'] ?? '').toUpperCase(),
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12, color: PdfColors.white),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                );
+              }
+              if (item['type'] == 'cat_header') {
+                return pw.Container(
+                  width: double.infinity,
+                  color: grey300,
+                  padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                  child: pw.Text(
+                    (item['name'] ?? '').toUpperCase(),
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                );
+              }
+
+              final name = item['name'] ?? 'Unknown';
+              final req = item['requiredQty'] ?? 0;
+              final reqAmount = (item['requiredAmount'] ?? 0).toDouble();
+              final price = req > 0 ? (reqAmount / req).round() : 0;
+              final sent = item['sendingQty'] ?? 0;
+              final conf = item['confirmedQty'] ?? 0;
+              final pick = item['pickedQty'] ?? 0;
+              final recv = item['receivedQty'] ?? 0;
+              final diff = item['differenceQty'] ?? 0;
+              final bgColor = idx % 2 == 0 ? PdfColors.white : brown50;
+
+              return pw.Container(
+                color: bgColor,
+                padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                child: pw.Row(
+                  children: [
+                    pw.Expanded(flex: 3, child: pw.Text(name, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))),
+                    pw.Expanded(flex: 1, child: pw.Text(price.toString(), style: const pw.TextStyle(fontSize: 10), textAlign: pw.TextAlign.center)),
+                    pw.Expanded(flex: 1, child: pw.Text(req.toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center)),
+                    pw.Expanded(flex: 1, child: pw.Text(sent.toString(), style: const pw.TextStyle(fontSize: 10), textAlign: pw.TextAlign.center)),
+                    pw.Expanded(flex: 1, child: pw.Text(conf.toString(), style: const pw.TextStyle(fontSize: 10), textAlign: pw.TextAlign.center)),
+                    pw.Expanded(flex: 1, child: pw.Text(pick.toString(), style: const pw.TextStyle(fontSize: 10), textAlign: pw.TextAlign.center)),
+                    pw.Expanded(flex: 1, child: pw.Text(recv.toString(), style: const pw.TextStyle(fontSize: 10), textAlign: pw.TextAlign.center)),
+                    pw.Expanded(flex: 1, child: pw.Text(diff.toString(), style: pw.TextStyle(fontSize: 10, color: diff != 0 ? PdfColors.red : PdfColors.black, fontWeight: diff != 0 ? pw.FontWeight.bold : pw.FontWeight.normal), textAlign: pw.TextAlign.center)),
+                  ],
+                ),
+              );
+            }).toList(),
+
+            // Totals
+             pw.Container(
+               color: brown300,
+               padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+               margin: const pw.EdgeInsets.only(top: 8),
+               child: pw.Row(
+                 children: [
+                   pw.Expanded(flex: 3, child: pw.Text('Total', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white))),
+                   pw.Expanded(flex: 1, child: pw.Text('', style: const pw.TextStyle(fontSize: 10), textAlign: pw.TextAlign.center)),
+                   pw.Expanded(flex: 1, child: pw.Text(totalReq.toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white), textAlign: pw.TextAlign.center)),
+                   pw.Expanded(flex: 1, child: pw.Text(totalSent.toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white), textAlign: pw.TextAlign.center)),
+                   pw.Expanded(flex: 1, child: pw.Text(totalConf.toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white), textAlign: pw.TextAlign.center)),
+                   pw.Expanded(flex: 1, child: pw.Text(totalPick.toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white), textAlign: pw.TextAlign.center)),
+                   pw.Expanded(flex: 1, child: pw.Text(totalRecv.toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white), textAlign: pw.TextAlign.center)),
+                   pw.Expanded(flex: 1, child: pw.Text(totalDiff.toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: totalDiff != 0 ? PdfColors.yellow : PdfColors.white), textAlign: pw.TextAlign.center)),
+                 ],
+               ),
+             ),
+             pw.Container(
+                color: brown100,
+                padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+                child: pw.Row(
+                  children: [
+                    pw.Expanded(flex: 3, child: pw.Text('Amount', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.black))),
+                    pw.Expanded(flex: 1, child: pw.Text('', style: const pw.TextStyle(fontSize: 10), textAlign: pw.TextAlign.center)),
+                    pw.Expanded(flex: 1, child: pw.Text(totalReqAmt.toInt().toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.black), textAlign: pw.TextAlign.center)),
+                    pw.Expanded(flex: 1, child: pw.Text(totalSntAmt.toInt().toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.black), textAlign: pw.TextAlign.center)),
+                    pw.Expanded(flex: 1, child: pw.Text('', style: const pw.TextStyle(fontSize: 10), textAlign: pw.TextAlign.center)),
+                    pw.Expanded(flex: 1, child: pw.Text('', style: const pw.TextStyle(fontSize: 10), textAlign: pw.TextAlign.center)),
+                    pw.Expanded(flex: 1, child: pw.Text(totalRecAmt.toInt().toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.black), textAlign: pw.TextAlign.center)),
+                    pw.Expanded(flex: 1, child: pw.Text('', style: const pw.TextStyle(fontSize: 10), textAlign: pw.TextAlign.center)),
+                  ],
+                ),
+              ),
+
+          ];
+        },
+      ),
+    );
+
+    final output = await getTemporaryDirectory();
+    final safeInvoice = invoiceNumber.toString().replaceAll(RegExp(r'[^\w\-]'), '_');
+    final file = File('${output.path}/stockorder_$safeInvoice.pdf');
+    await file.writeAsBytes(await pdf.save());
+    await Share.shareXFiles([XFile(file.path)], text: 'Stock Order - $branchName');
+  }
 
   Future<void> _pickDateRange() async {
     final now = DateTime.now();
@@ -461,11 +659,13 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     final createdStr = createdAt != null ? dateFmt.format(createdAt.add(const Duration(hours: 5, minutes: 30))) : '';
     final deliveryStr = deliveryDate != null ? dateFmt.format(deliveryDate.add(const Duration(hours: 5, minutes: 30))) : '';
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ExpansionTile(
+    return GestureDetector(
+      onLongPress: () => _shareOrderPdf(order),
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        elevation: 3,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -658,6 +858,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           const SizedBox(height: 8),
         ],
       ),
+    ),
     );
   }
 

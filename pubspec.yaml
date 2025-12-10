@@ -1,6 +1,6 @@
 name: bs_admin
 description: "super admin app for blackforest group"
-publish_to: 'none'
+publish_to: "none"
 version: 1.0.0+1
 environment:
   sdk: ^3.9.2
@@ -13,6 +13,10 @@ dependencies:
   flutter_secure_storage: ^9.0.0
   dio: ^5.0.0
   cupertino_icons: ^1.0.8
+  pdf: ^3.11.3
+  printing: ^5.14.2
+  share_plus: ^12.0.1
+  path_provider: ^2.1.5
 dev_dependencies:
   flutter_test:
     sdk: flutter
