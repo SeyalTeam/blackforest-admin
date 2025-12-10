@@ -30,6 +30,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   List<Map<String, String>> branches = [];
   String selectedBranchId = 'ALL';
   List<Map<String, dynamic>> stockOrders = [];
+  List<Map<String, dynamic>> categories = [];
+  List<Map<String, dynamic>> departments = [];
+  Map<String, dynamic>? _combinedOrder;
 
   @override
   void initState() {
@@ -45,6 +48,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
   Future<void> _bootstrap() async {
     await _fetchBranches();
+    await _fetchBranches();
+    await _fetchDepartments();
+    await _fetchCategories();
     await _fetchStockOrders();
   }
 
@@ -78,6 +84,44 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       debugPrint('fetchBranches error: $e');
     } finally {
       setState(() => _loadingBranches = false);
+    }
+  }
+
+  Future<void> _fetchDepartments() async {
+    try {
+      final token = await _getToken();
+      final res = await http.get(
+        Uri.parse('https://admin.theblackforestcakes.com/api/departments?limit=1000'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final docs = data['docs'] ?? [];
+        setState(() {
+          departments = docs.cast<Map<String, dynamic>>();
+        });
+      }
+    } catch (e) {
+      debugPrint('fetchDepartments error: $e');
+    }
+  }
+
+  Future<void> _fetchCategories() async {
+    try {
+      final token = await _getToken();
+      final res = await http.get(
+        Uri.parse('https://admin.theblackforestcakes.com/api/categories?limit=1000'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final docs = data['docs'] ?? [];
+        setState(() {
+          categories = docs.cast<Map<String, dynamic>>();
+        });
+      }
+    } catch (e) {
+      debugPrint('fetchCategories error: $e');
     }
   }
 
@@ -115,6 +159,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             if (dateB == null) return -1;
             return dateB.compareTo(dateA);
           });
+          _calculateCombinedOrder();
         });
       }
     } catch (e) {
@@ -123,6 +168,194 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       setState(() => _loading = false);
     }
   }
+  void _calculateCombinedOrder() {
+    if (stockOrders.isEmpty) {
+      _combinedOrder = null;
+      return;
+    }
+
+    final Map<String, Map<String, dynamic>> itemMap = {};
+    final Set<String> branchNames = {};
+
+    for (var order in stockOrders) {
+      // Branch Name processing
+      String bName = 'Unknown';
+      if (order['branch'] is Map && order['branch']['name'] != null) {
+        bName = order['branch']['name'].toString();
+      } else if (order['branch'] is String) {
+        bName = order['branch'];
+      }
+
+      final cleanName = bName.trim();
+      if (cleanName.isNotEmpty) {
+        if (cleanName.length > 3) {
+          branchNames.add(cleanName.substring(0, 3));
+        } else {
+          branchNames.add(cleanName);
+        }
+      }
+
+      // Items aggregation
+      final items = (order['items'] as List?) ?? [];
+      for (var item in items) {
+        // We still need to preserve category info for the grouped display later
+        // So we grab it here and store it in the aggregated item
+        
+        dynamic categoryData; 
+        if (item['product'] is Map && item['product']['category'] != null) {
+           categoryData = item['product']['category'];
+        } else if (item['category'] != null) {
+           categoryData = item['category'];
+        }
+
+        final name = item['name'] ?? 'Unknown';
+        if (!itemMap.containsKey(name)) {
+          itemMap[name] = {
+            'name': name,
+            'category': categoryData,
+            'requiredQty': 0,
+            'requiredAmount': 0.0,
+            'sendingQty': 0,
+            'sendingAmount': 0.0,
+            'confirmedQty': 0,
+            'pickedQty': 0,
+            'receivedQty': 0,
+            'receivedAmount': 0.0,
+            'differenceQty': 0,
+          };
+        }
+
+        final cur = itemMap[name]!;
+        cur['requiredQty'] = (cur['requiredQty'] as int) + ((item['requiredQty'] ?? 0) as int);
+        cur['requiredAmount'] = (cur['requiredAmount'] as double) + ((item['requiredAmount'] ?? 0) as num).toDouble();
+        cur['sendingQty'] = (cur['sendingQty'] as int) + ((item['sendingQty'] ?? 0) as int);
+        cur['sendingAmount'] = (cur['sendingAmount'] as double) + ((item['sendingAmount'] ?? 0) as num).toDouble();
+        cur['confirmedQty'] = (cur['confirmedQty'] as int) + ((item['confirmedQty'] ?? 0) as int);
+        cur['pickedQty'] = (cur['pickedQty'] as int) + ((item['pickedQty'] ?? 0) as int);
+        cur['receivedQty'] = (cur['receivedQty'] as int) + ((item['receivedQty'] ?? 0) as int);
+        cur['receivedAmount'] = (cur['receivedAmount'] as double) + ((item['receivedAmount'] ?? 0) as num).toDouble();
+        cur['differenceQty'] = (cur['differenceQty'] as int) + ((item['differenceQty'] ?? 0) as int);
+        
+        // Ensure category is set if missing in the first occurrence
+        if (cur['category'] == null && categoryData != null) {
+             cur['category'] = categoryData;
+        }
+      }
+    }
+
+    final combinedItems = itemMap.values.toList();
+
+    _combinedOrder = {
+      'invoiceNumber': 'ALL DET',
+      'branch': {'name': branchNames.join(',')},
+      'status': 'Combined',
+      'createdAt': DateTime.now().toIso8601String(),
+      'deliveryDate': DateTime.now().toIso8601String(),
+      'items': combinedItems,
+    };
+  }
+
+  List<Map<String, dynamic>> _groupItemsWithHeaders(List<dynamic> items) {
+    if (items.isEmpty) return [];
+
+    // Structure: DeptName -> { CatName -> [Items] }
+    final Map<String, Map<String, List<Map<String, dynamic>>>> hierarchyMap = {};
+
+    for (var item in items) {
+      // 1. Determine Category Name and Object
+      String categoryName = 'Unknown Category';
+      Map<String, dynamic>? categoryObj;
+
+      if (item['product'] is Map && item['product']['category'] != null) {
+        final cat = item['product']['category'];
+        if (cat is Map) {
+          categoryName = cat['name'] ?? 'Unknown Category';
+          categoryObj = cat as Map<String, dynamic>;
+        } else if (cat is String) {
+          final found = categories.firstWhere((c) => c['id'] == cat || c['_id'] == cat, orElse: () => {});
+          if (found.isNotEmpty) {
+            categoryName = found['name'];
+            categoryObj = found;
+          }
+        }
+      } else if (item['category'] != null) {
+        final cat = item['category'];
+        if (cat is Map) {
+          categoryName = cat['name'] ?? 'Unknown Category';
+          categoryObj = cat as Map<String, dynamic>;
+        } else if (cat is String) {
+          final found = categories.firstWhere((c) => c['id'] == cat || c['_id'] == cat, orElse: () => {});
+          if (found.isNotEmpty) {
+            categoryName = found['name'];
+            categoryObj = found;
+          }
+        }
+      }
+
+      // 2. Determine Department Name from Category
+      String deptName = 'Unknown Department';
+      if (categoryObj != null) {
+        // Check local category object first (if populated)
+        if (categoryObj['department'] != null) {
+          final dept = categoryObj['department'];
+          if (dept is Map) {
+            deptName = dept['name'] ?? 'Unknown Department';
+          } else if (dept is String) {
+             // Look up in fetched departments
+             final foundDept = departments.firstWhere((d) => d['id'] == dept || d['_id'] == dept, orElse: () => {});
+             if (foundDept.isNotEmpty) {
+               deptName = foundDept['name'];
+             }
+          }
+        } else {
+           // If categoryObj came from 'product.category' which might be partial
+           // Try to find the full category object in our fetched list to get department
+           final catId = categoryObj['id'] ?? categoryObj['_id'];
+           if (catId != null) {
+             final fullCat = categories.firstWhere((c) => c['id'] == catId || c['_id'] == catId, orElse: () => {});
+             if (fullCat.isNotEmpty && fullCat['department'] != null) {
+                final dept = fullCat['department'];
+                if (dept is Map) {
+                  deptName = dept['name'] ?? 'Unknown Department';
+                } else if (dept is String) {
+                   final foundDept = departments.firstWhere((d) => d['id'] == dept || d['_id'] == dept, orElse: () => {});
+                   if (foundDept.isNotEmpty) deptName = foundDept['name'];
+                }
+             }
+           }
+        }
+      }
+
+      // 3. Populate Map
+      if (!hierarchyMap.containsKey(deptName)) {
+        hierarchyMap[deptName] = {};
+      }
+      if (!hierarchyMap[deptName]!.containsKey(categoryName)) {
+        hierarchyMap[deptName]![categoryName] = [];
+      }
+      hierarchyMap[deptName]![categoryName]!.add(item as Map<String, dynamic>);
+    }
+
+    // 4. Flatten to List
+    final List<Map<String, dynamic>> finalItems = [];
+    final sortedDepts = hierarchyMap.keys.toList()..sort();
+
+    for (var dept in sortedDepts) {
+      finalItems.add({'type': 'dept_header', 'name': dept});
+      
+      final catMap = hierarchyMap[dept]!;
+      final sortedCats = catMap.keys.toList()..sort();
+      
+      for (var cat in sortedCats) {
+        finalItems.add({'type': 'cat_header', 'name': cat});
+        final products = catMap[cat]!;
+        products.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+        finalItems.addAll(products);
+      }
+    }
+    return finalItems;
+  }
+
 
   Future<void> _pickDateRange() async {
     final now = DateTime.now();
@@ -308,9 +541,38 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             ),
           ),
           // Data Rows with zebra stripes
-          ...items.asMap().entries.map((entry) {
+          // Data Rows with zebra stripes
+          ..._groupItemsWithHeaders(items).asMap().entries.map((entry) {
             final idx = entry.key;
             final item = entry.value;
+
+            // Check if it's a header
+            if (item['type'] == 'dept_header') {
+              return Container(
+                width: double.infinity,
+                color: Colors.brown[300],
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                margin: const EdgeInsets.only(top: 8),
+                child: Text(
+                  (item['name'] ?? '').toUpperCase(),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+                  textAlign: TextAlign.center,
+                ),
+              );
+            }
+            if (item['type'] == 'cat_header') {
+              return Container(
+                width: double.infinity,
+                color: Colors.grey[300],
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                child: Text(
+                  (item['name'] ?? '').toUpperCase(),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              );
+            }
+
             final name = item['name'] ?? 'Unknown';
             final req = item['requiredQty'] ?? 0;
             final reqAmount = (item['requiredAmount'] ?? 0).toDouble();
@@ -429,14 +691,20 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           child: _loading
               ? const Center(child: CircularProgressIndicator())
               : stockOrders.isEmpty
-              ? const Center(child: Text('No stock orders found'))
-              : ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            itemCount: stockOrders.length,
-            itemBuilder: (context, index) {
-              return _buildStockOrderCard(stockOrders[index]);
-            },
-          ),
+                  ? const Center(child: Text('No stock orders found'))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      itemCount: stockOrders.length + (_combinedOrder != null ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (_combinedOrder != null) {
+                          if (index == 0) {
+                            return _buildStockOrderCard(_combinedOrder!);
+                          }
+                          return _buildStockOrderCard(stockOrders[index - 1]);
+                        }
+                        return _buildStockOrderCard(stockOrders[index]);
+                      },
+                    ),
         ),
       ],
     );
