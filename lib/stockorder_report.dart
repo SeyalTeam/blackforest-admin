@@ -749,40 +749,42 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
     return Align(
       alignment: Alignment.topLeft,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Branch Table
-          Card(
-            elevation: 4,
-            margin: const EdgeInsets.all(12),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.vertical,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Branch Table
+            Card(
+              elevation: 4,
+              margin: const EdgeInsets.all(12),
               child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  headingRowColor: MaterialStateProperty.all(Colors.brown.shade300),
-                  headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  columns: const [
-                    DataColumn(label: Text('Branch')),
-                    DataColumn(label: Text('Req Amt'), tooltip: 'Requested Amount'),
-                    DataColumn(label: Text('Snt Amt'), tooltip: 'Sent Amount'),
-                    DataColumn(label: Text('Con Amt'), tooltip: 'Confirmed Amount'),
-                    DataColumn(label: Text('Pic Amt'), tooltip: 'Picked Amount'),
-                    DataColumn(label: Text('Rec Amt'), tooltip: 'Received Amount'),
-                    DataColumn(label: Text('Dif Amt'), tooltip: 'Difference Amount'),
-                  ],
-                  rows: rows,
+                scrollDirection: Axis.vertical,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    headingRowColor: MaterialStateProperty.all(Colors.brown.shade300),
+                    headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    columns: const [
+                      DataColumn(label: Text('Branch')),
+                      DataColumn(label: Text('Req Amt'), tooltip: 'Requested Amount'),
+                      DataColumn(label: Text('Snt Amt'), tooltip: 'Sent Amount'),
+                      DataColumn(label: Text('Con Amt'), tooltip: 'Confirmed Amount'),
+                      DataColumn(label: Text('Pic Amt'), tooltip: 'Picked Amount'),
+                      DataColumn(label: Text('Rec Amt'), tooltip: 'Received Amount'),
+                      DataColumn(label: Text('Dif Amt'), tooltip: 'Difference Amount'),
+                    ],
+                    rows: rows,
+                  ),
                 ),
               ),
             ),
-          ),
 
-          const SizedBox(height: 20),
-          
-          // Product Table
-          _buildProductSummaryTable(),
-        ],
+            const SizedBox(height: 20),
+            
+            // Product Table
+            _buildProductSummaryTable(),
+          ],
+        ),
       ),
     );
   }
