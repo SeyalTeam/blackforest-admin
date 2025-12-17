@@ -296,6 +296,18 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         }
       }
 
+      // Refresh categoryObj from local categories list to ensure we have Department info
+      if (categoryObj != null) {
+        final catId = categoryObj['id'] ?? categoryObj['_id'];
+        if (catId != null) {
+           final found = categories.firstWhere((c) => c['id'] == catId || c['_id'] == catId, orElse: () => {});
+           if (found.isNotEmpty) {
+             categoryObj = found;
+             categoryName = found['name'] ?? categoryName;
+           }
+        }
+      }
+
       // 2. Determine Department Name from Category
       String deptName = 'Unknown Department';
       if (categoryObj != null) {
@@ -430,23 +442,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               ],
             ),
             
-            // Table Header
-            pw.Container(
-              color: brown100,
-              padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-              child: pw.Row(
-                children: [
-                  pw.Expanded(flex: 3, child: pw.Text('Name', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
-                  pw.Expanded(flex: 1, child: pw.Text('Prc', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
-                  pw.Expanded(flex: 1, child: pw.Text('Req', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
-                  pw.Expanded(flex: 1, child: pw.Text('Snt', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
-                  pw.Expanded(flex: 1, child: pw.Text('Con', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
-                  pw.Expanded(flex: 1, child: pw.Text('Pic', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
-                  pw.Expanded(flex: 1, child: pw.Text('Rec', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
-                  pw.Expanded(flex: 1, child: pw.Text('Dif', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
-                ],
-              ),
-            ),
+
             
             // Items
             ...groupedItems.asMap().entries.map((entry) {
@@ -467,15 +463,35 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                 );
               }
               if (item['type'] == 'cat_header') {
-                return pw.Container(
-                  width: double.infinity,
-                  color: grey300,
-                  padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                  child: pw.Text(
-                    (item['name'] ?? '').toUpperCase(),
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-                    textAlign: pw.TextAlign.center,
-                  ),
+                return pw.Column(
+                  children: [
+                    pw.Container(
+                      width: double.infinity,
+                      color: grey300,
+                      padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                      child: pw.Text(
+                        (item['name'] ?? '').toUpperCase(),
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                        textAlign: pw.TextAlign.center,
+                      ),
+                    ),
+                    pw.Container(
+                      color: brown100,
+                      padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                      child: pw.Row(
+                        children: [
+                          pw.Expanded(flex: 3, child: pw.Text('Name', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10))),
+                          pw.Expanded(flex: 1, child: pw.Text('Prc', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
+                          pw.Expanded(flex: 1, child: pw.Text('Req', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
+                          pw.Expanded(flex: 1, child: pw.Text('Snt', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
+                          pw.Expanded(flex: 1, child: pw.Text('Con', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
+                          pw.Expanded(flex: 1, child: pw.Text('Pic', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
+                          pw.Expanded(flex: 1, child: pw.Text('Rec', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
+                          pw.Expanded(flex: 1, child: pw.Text('Dif', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center)),
+                        ],
+                      ),
+                    ),
+                  ],
                 );
               }
 
@@ -724,22 +740,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         children: [
           const Divider(height: 1),
           // Header Row
-          Container(
-            color: Colors.brown.shade100,
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-            child: Row(
-              children: const [
-                Expanded(flex: 3, child: Text('Name', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                Expanded(flex: 1, child: Text('Prc', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                Expanded(flex: 1, child: Text('Req', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                Expanded(flex: 1, child: Text('Snt', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                Expanded(flex: 1, child: Text('Con', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                Expanded(flex: 1, child: Text('Pic', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                Expanded(flex: 1, child: Text('Rec', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-                Expanded(flex: 1, child: Text('Dif', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
-              ],
-            ),
-          ),
+
           // Data Rows with zebra stripes
           // Data Rows with zebra stripes
           ..._groupItemsWithHeaders(items).asMap().entries.map((entry) {
@@ -761,15 +762,35 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               );
             }
             if (item['type'] == 'cat_header') {
-              return Container(
-                width: double.infinity,
-                color: Colors.grey[300],
-                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                child: Text(
-                  (item['name'] ?? '').toUpperCase(),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  textAlign: TextAlign.center,
-                ),
+              return Column(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    color: Colors.grey[300],
+                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                    child: Text(
+                      (item['name'] ?? '').toUpperCase(),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  Container(
+                    color: Colors.brown.shade100,
+                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                    child: Row(
+                      children: const [
+                        Expanded(flex: 3, child: Text('Name', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        Expanded(flex: 1, child: Text('Prc', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                        Expanded(flex: 1, child: Text('Req', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                        Expanded(flex: 1, child: Text('Snt', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                        Expanded(flex: 1, child: Text('Con', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                        Expanded(flex: 1, child: Text('Pic', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                        Expanded(flex: 1, child: Text('Rec', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                        Expanded(flex: 1, child: Text('Dif', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                      ],
+                    ),
+                  ),
+                ],
               );
             }
 

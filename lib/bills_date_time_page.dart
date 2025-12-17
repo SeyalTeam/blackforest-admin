@@ -178,11 +178,13 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
           final id = user['id'] ?? user['_id'];
           final employee = user['employee'];
           String name = '';
-          if (employee != null && employee['name'] != null) {
+          
+          if (employee is Map && employee['name'] != null) {
             name = employee['name'].toString().trim();
           } else if (user['email'] != null) {
             name = user['email'].toString().trim();
           }
+          
           if (id != null && name.isNotEmpty) userMap[id.toString()] = name;
         }
       }
@@ -387,9 +389,19 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
       }
     }
 
-    final waiter = bill['createdBy']?['employee']?['name'] ??
-        bill['createdBy']?['email'] ??
-        'Unknown';
+    String waiter = 'Unknown';
+    final createdBy = bill['createdBy'];
+    if (createdBy != null) {
+      if (createdBy is Map) {
+         if (createdBy['employee'] is Map && createdBy['employee']['name'] != null) {
+            waiter = createdBy['employee']['name'].toString();
+         } else if (createdBy['email'] != null) {
+            waiter = createdBy['email'].toString();
+         }
+      } else if (createdBy is String && userMap.containsKey(createdBy)) {
+        waiter = userMap[createdBy]!;
+      }
+    }
     final date = DateTime.tryParse(bill['createdAt'] ?? '');
 
     showDialog(
@@ -695,18 +707,12 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
                 final createdBy = bill['createdBy'];
                 if (createdBy != null) {
                   if (createdBy is Map) {
-                    waiterName = (createdBy['employee']
-                    ?['name'] ??
-                        createdBy['email'] ??
-                        '')
-                        .toString()
-                        .trim()
-                        .isNotEmpty
-                        ? (createdBy['employee']?['name'] ??
-                        createdBy['email'])
-                        : waiterName;
-                  } else if (createdBy is String &&
-                      userMap.containsKey(createdBy)) {
+                    if (createdBy['employee'] is Map && createdBy['employee']['name'] != null) {
+                      waiterName = createdBy['employee']['name'].toString().trim();
+                    } else if (createdBy['email'] != null) {
+                      waiterName = createdBy['email'].toString().trim();
+                    }
+                  } else if (createdBy is String && userMap.containsKey(createdBy)) {
                     waiterName = userMap[createdBy]!;
                   }
                 }
