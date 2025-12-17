@@ -1,5 +1,9 @@
 {
   "routes": [
-    { "src": "/[^.]+", "dest": "/", "status": 200 }
+    { "src": "/", "dest": "/build/web/index.html" },
+    { "src": "/assets/(.*)", "dest": "/build/web/assets/$1" },
+    { "src": "/icons/(.*)", "dest": "/build/web/icons/$1" },
+    { "src": "/(.*)", "dest": "/build/web/$1" },
+    { "src": "/[^.]+", "dest": "/build/web/index.html", "status": 200 }
   ]
 }
