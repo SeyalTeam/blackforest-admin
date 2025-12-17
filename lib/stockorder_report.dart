@@ -865,7 +865,6 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             ),
           ),
         ),
-      ),
     );
   }
 
