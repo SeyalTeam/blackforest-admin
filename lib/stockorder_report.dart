@@ -859,6 +859,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         ),
       ),
     );
+  }
 
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
