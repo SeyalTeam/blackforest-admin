@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -635,6 +636,105 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           );
   }
 
+  Widget _buildWebTable() {
+    final Map<String, Map<String, int>> aggregates = {};
+
+    for (var order in stockOrders) {
+      String bName = 'Unknown';
+      if (order['branch'] is Map && order['branch']['name'] != null) {
+        bName = order['branch']['name'].toString();
+      } else if (order['branch'] is String) {
+        bName = order['branch'];
+      }
+
+      if (!aggregates.containsKey(bName)) {
+        aggregates[bName] = {
+          'Req': 0, 'Snt': 0, 'Con': 0, 'Pic': 0, 'Rec': 0, 'Dif': 0,
+        };
+      }
+
+      final items = (order['items'] as List?) ?? [];
+      for (var item in items) {
+        final cur = aggregates[bName]!;
+        cur['Req'] = (cur['Req']!) + ((item['requiredQty'] ?? 0) as int);
+        cur['Snt'] = (cur['Snt']!) + ((item['sendingQty'] ?? 0) as int);
+        cur['Con'] = (cur['Con']!) + ((item['confirmedQty'] ?? 0) as int);
+        cur['Pic'] = (cur['Pic']!) + ((item['pickedQty'] ?? 0) as int);
+        cur['Rec'] = (cur['Rec']!) + ((item['receivedQty'] ?? 0) as int);
+        cur['Dif'] = (cur['Dif']!) + ((item['differenceQty'] ?? 0) as int);
+      }
+    }
+
+    final sortedBranches = aggregates.keys.toList()..sort();
+
+    int totalReq = 0;
+    int totalSnt = 0;
+    int totalCon = 0;
+    int totalPic = 0;
+    int totalRec = 0;
+    int totalDif = 0;
+
+    List<DataRow> rows = [];
+    for (var bName in sortedBranches) {
+      final data = aggregates[bName]!;
+      totalReq += data['Req']!;
+      totalSnt += data['Snt']!;
+      totalCon += data['Con']!;
+      totalPic += data['Pic']!;
+      totalRec += data['Rec']!;
+      totalDif += data['Dif']!;
+
+      rows.add(DataRow(cells: [
+        DataCell(Text(bName, style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(data['Req'].toString())),
+        DataCell(Text(data['Snt'].toString())),
+        DataCell(Text(data['Con'].toString())),
+        DataCell(Text(data['Pic'].toString())),
+        DataCell(Text(data['Rec'].toString())),
+        DataCell(Text(data['Dif'].toString(), style: TextStyle(color: data['Dif']! != 0 ? Colors.red : Colors.black, fontWeight: data['Dif']! != 0 ? FontWeight.bold : FontWeight.normal))),
+      ]));
+    }
+
+    // Total Row
+    rows.add(DataRow(
+      color: MaterialStateProperty.all(Colors.grey.shade300),
+      cells: [
+        const DataCell(Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(totalReq.toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(totalSnt.toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(totalCon.toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(totalPic.toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(totalRec.toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(totalDif.toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+      ],
+    ));
+
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.all(12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.vertical,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            headingRowColor: MaterialStateProperty.all(Colors.brown.shade300),
+            headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            columns: const [
+              DataColumn(label: Text('Branch')),
+              DataColumn(label: Text('Req', tooltip: 'Requested')),
+              DataColumn(label: Text('Snt', tooltip: 'Sent')),
+              DataColumn(label: Text('Con', tooltip: 'Confirmed')),
+              DataColumn(label: Text('Pic', tooltip: 'Picked')),
+              DataColumn(label: Text('Rec', tooltip: 'Received')),
+              DataColumn(label: Text('Dif', tooltip: 'Difference')),
+            ],
+            rows: rows,
+          ),
+        ),
+      ),
+    );
+  }
+
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'approved':
@@ -914,7 +1014,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               ? const Center(child: CircularProgressIndicator())
               : stockOrders.isEmpty
                   ? const Center(child: Text('No stock orders found'))
-                  : ListView.builder(
+                  : kIsWeb
+                      ? _buildWebTable()
+                      : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       itemCount: stockOrders.length + (_combinedOrder != null ? 1 : 0),
                       itemBuilder: (context, index) {
