@@ -747,50 +747,58 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       ],
     ));
 
-    final scrollController = ScrollController();
+    final vScroll = ScrollController();
+    final hScroll = ScrollController();
     
     return Align(
       alignment: Alignment.topLeft,
       child: Scrollbar(
-        controller: scrollController,
+        controller: vScroll,
         thumbVisibility: true,
         trackVisibility: true,
         child: SingleChildScrollView(
-          controller: scrollController,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Branch Table
-              Card(
-                elevation: 4,
-                margin: const EdgeInsets.all(12),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.vertical,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      headingRowColor: MaterialStateProperty.all(Colors.brown.shade300),
-                      headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      columns: const [
-                        DataColumn(label: Text('Branch')),
-                        DataColumn(label: Text('Req Amt'), tooltip: 'Requested Amount'),
-                        DataColumn(label: Text('Snt Amt'), tooltip: 'Sent Amount'),
-                        DataColumn(label: Text('Con Amt'), tooltip: 'Confirmed Amount'),
-                        DataColumn(label: Text('Pic Amt'), tooltip: 'Picked Amount'),
-                        DataColumn(label: Text('Rec Amt'), tooltip: 'Received Amount'),
-                        DataColumn(label: Text('Dif Amt'), tooltip: 'Difference Amount'),
-                      ],
-                      rows: rows,
+          controller: vScroll,
+          scrollDirection: Axis.vertical,
+          child: Scrollbar(
+            controller: hScroll,
+            thumbVisibility: true,
+            trackVisibility: true,
+            notificationPredicate: (notif) => notif.depth == 1,
+            child: SingleChildScrollView(
+              controller: hScroll,
+              scrollDirection: Axis.horizontal,
+              child: IntrinsicWidth(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Branch Table
+                    Card(
+                      elevation: 4,
+                      margin: const EdgeInsets.all(12),
+                      child: DataTable(
+                        headingRowColor: MaterialStateProperty.all(Colors.brown.shade300),
+                        headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        columns: const [
+                          DataColumn(label: Text('Branch')),
+                          DataColumn(label: Text('Req Amt'), tooltip: 'Requested Amount'),
+                          DataColumn(label: Text('Snt Amt'), tooltip: 'Sent Amount'),
+                          DataColumn(label: Text('Con Amt'), tooltip: 'Confirmed Amount'),
+                          DataColumn(label: Text('Pic Amt'), tooltip: 'Picked Amount'),
+                          DataColumn(label: Text('Rec Amt'), tooltip: 'Received Amount'),
+                          DataColumn(label: Text('Dif Amt'), tooltip: 'Difference Amount'),
+                        ],
+                        rows: rows,
+                      ),
                     ),
-                  ),
+
+                    const SizedBox(height: 20),
+                    
+                    // Product Table
+                    _buildProductSummaryTable(),
+                  ],
                 ),
               ),
-
-              const SizedBox(height: 20),
-              
-              // Product Table
-              _buildProductSummaryTable(),
-            ],
+            ),
           ),
         ),
       ),
@@ -846,25 +854,19 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     return Card(
       elevation: 4,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowColor: MaterialStateProperty.all(Colors.blueGrey.shade700),
-              headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              columns: const [
-                DataColumn(label: Text('Product Name')),
-                DataColumn(label: Text('Req (Qty)')),
-                DataColumn(label: Text('Snt (Qty)')),
-                DataColumn(label: Text('Con (Qty)')),
-                DataColumn(label: Text('Pic (Qty)')),
-                DataColumn(label: Text('Dif (Qty)')),
-              ],
-              rows: productRows,
-            ),
-          ),
-        ),
+      child: DataTable(
+        headingRowColor: MaterialStateProperty.all(Colors.blueGrey.shade700),
+        headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        columns: const [
+          DataColumn(label: Text('Product Name')),
+          DataColumn(label: Text('Req (Qty)')),
+          DataColumn(label: Text('Snt (Qty)')),
+          DataColumn(label: Text('Con (Qty)')),
+          DataColumn(label: Text('Pic (Qty)')),
+          DataColumn(label: Text('Dif (Qty)')),
+        ],
+        rows: productRows,
+      ),
     );
   }
 
