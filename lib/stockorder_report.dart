@@ -581,6 +581,14 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       initialDateRange: fromDate != null && toDate != null
           ? DateTimeRange(start: fromDate!, end: toDate!)
           : DateTimeRange(start: now, end: now),
+      builder: (context, child) {
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+            child: child,
+          ),
+        );
+      },
     );
     if (picked != null) {
       setState(() {
@@ -613,8 +621,10 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
   Widget _buildBranchFilter() {
     return _loadingBranches
-        ? const SizedBox(height: 40, child: Center(child: CircularProgressIndicator()))
-        : DropdownButtonFormField<String>(
+        ? const SizedBox(height: 40, width: 40, child: Center(child: CircularProgressIndicator()))
+        : SizedBox(
+            width: 250,
+            child: DropdownButtonFormField<String>(
             value: selectedBranchId,
             items: branches.map((b) {
               return DropdownMenuItem<String>(
@@ -633,7 +643,8 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               isDense: true,
               labelText: 'Branch',
             ),
-          );
+          ),
+        );
   }
 
   Widget _buildWebTable() {
@@ -696,6 +707,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     double totalDif = 0;
 
     List<DataRow> rows = [];
+    int index = 0;
     for (var bName in sortedBranches) {
       final data = aggregates[bName]!;
       totalReq += data['Req']!;
@@ -704,16 +716,21 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       totalPic += data['Pic']!;
       totalRec += data['Rec']!;
       totalDif += data['Dif']!;
+      
+      final bgColor = index % 2 == 0 ? Colors.green.withOpacity(0.1) : Colors.white;
 
-      rows.add(DataRow(cells: [
+      rows.add(DataRow(
+        color: MaterialStateProperty.all(bgColor),
+        cells: [
         DataCell(Text(bName, style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataCell(Text(data['Req']!.round().toString())),
-        DataCell(Text(data['Snt']!.round().toString())),
-        DataCell(Text(data['Con']!.round().toString())),
-        DataCell(Text(data['Pic']!.round().toString())),
-        DataCell(Text(data['Rec']!.round().toString())),
-        DataCell(Text(data['Dif']!.round().toString(), style: TextStyle(color: data['Dif']! != 0 ? Colors.red : Colors.black, fontWeight: data['Dif']! != 0 ? FontWeight.bold : FontWeight.normal))),
+        DataCell(Text(data['Req']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(data['Snt']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(data['Con']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(data['Pic']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(data['Rec']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(data['Dif']!.round().toString(), style: TextStyle(color: data['Dif']! != 0 ? Colors.red : Colors.black, fontWeight: FontWeight.bold))),
       ]));
+      index++;
     }
 
     // Total Row
@@ -1017,18 +1034,14 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         // Filters
         Padding(
           padding: const EdgeInsets.all(12.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 12,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildDateSelector(),
-                  // Could add more filters or stats here
-                ],
-              ),
-              const SizedBox(height: 12),
-              _buildBranchFilter(),
+               _buildDateSelector(),
+               _buildBranchFilter(),
+               // Could add more filters or stats here
             ],
           ),
         ),
