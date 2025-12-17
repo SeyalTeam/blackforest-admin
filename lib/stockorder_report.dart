@@ -749,32 +749,116 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
     return Align(
       alignment: Alignment.topLeft,
-      child: Card(
-        elevation: 4,
-        margin: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Branch Table
+          Card(
+            elevation: 4,
+            margin: const EdgeInsets.all(12),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.vertical,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  headingRowColor: MaterialStateProperty.all(Colors.brown.shade300),
+                  headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  columns: const [
+                    DataColumn(label: Text('Branch')),
+                    DataColumn(label: Text('Req Amt'), tooltip: 'Requested Amount'),
+                    DataColumn(label: Text('Snt Amt'), tooltip: 'Sent Amount'),
+                    DataColumn(label: Text('Con Amt'), tooltip: 'Confirmed Amount'),
+                    DataColumn(label: Text('Pic Amt'), tooltip: 'Picked Amount'),
+                    DataColumn(label: Text('Rec Amt'), tooltip: 'Received Amount'),
+                    DataColumn(label: Text('Dif Amt'), tooltip: 'Difference Amount'),
+                  ],
+                  rows: rows,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+          
+          // Product Table
+          _buildProductSummaryTable(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProductSummaryTable() {
+    final Map<String, Map<String, int>> productAggregates = {};
+
+    for (var order in stockOrders) {
+      final items = (order['items'] as List?) ?? [];
+      for (var item in items) {
+        final name = item['name'] ?? 'Unknown Product';
+        
+        if (!productAggregates.containsKey(name)) {
+          productAggregates[name] = {
+            'Req': 0, 'Snt': 0, 'Con': 0, 'Pic': 0, 'Dif': 0,
+          };
+        }
+
+        final cur = productAggregates[name]!;
+        cur['Req'] = (cur['Req']!) + ((item['requiredQty'] ?? 0) as int);
+        cur['Snt'] = (cur['Snt']!) + ((item['sendingQty'] ?? 0) as int);
+        cur['Con'] = (cur['Con']!) + ((item['confirmedQty'] ?? 0) as int);
+        cur['Pic'] = (cur['Pic']!) + ((item['pickedQty'] ?? 0) as int);
+        cur['Dif'] = (cur['Dif']!) + ((item['differenceQty'] ?? 0) as int);
+      }
+    }
+
+    final sortedProducts = productAggregates.keys.toList()..sort();
+    
+    List<DataRow> productRows = [];
+    int pIndex = 0;
+    
+    for (var pName in sortedProducts) {
+      final data = productAggregates[pName]!;
+      final bgColor = pIndex % 2 == 0 ? Colors.blue.withOpacity(0.05) : Colors.white;
+
+      productRows.add(DataRow(
+        color: MaterialStateProperty.all(bgColor),
+        cells: [
+          DataCell(Text(pName, style: const TextStyle(fontWeight: FontWeight.bold))),
+          DataCell(Text(data['Req'].toString())),
+          DataCell(Text(data['Snt'].toString())),
+          DataCell(Text(data['Con'].toString())),
+          DataCell(Text(data['Pic'].toString())),
+          DataCell(Text(data['Dif'].toString(), style: TextStyle(color: data['Dif']! != 0 ? Colors.red : Colors.black, fontWeight: FontWeight.bold))),
+        ],
+      ));
+      pIndex++;
+    }
+
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+      child: SizedBox(
+        width: 800, // Limit width so it doesn't stretch too wide if not needed
         child: SingleChildScrollView(
           scrollDirection: Axis.vertical,
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: DataTable(
-              headingRowColor: MaterialStateProperty.all(Colors.brown.shade300),
+              headingRowColor: MaterialStateProperty.all(Colors.blueGrey.shade700),
               headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
               columns: const [
-                DataColumn(label: Text('Branch')),
-                DataColumn(label: Text('Req Amt'), tooltip: 'Requested Amount'),
-                DataColumn(label: Text('Snt Amt'), tooltip: 'Sent Amount'),
-                DataColumn(label: Text('Con Amt'), tooltip: 'Confirmed Amount'),
-                DataColumn(label: Text('Pic Amt'), tooltip: 'Picked Amount'),
-                DataColumn(label: Text('Rec Amt'), tooltip: 'Received Amount'),
-                DataColumn(label: Text('Dif Amt'), tooltip: 'Difference Amount'),
+                DataColumn(label: Text('Product Name')),
+                DataColumn(label: Text('Req (Qty)')),
+                DataColumn(label: Text('Snt (Qty)')),
+                DataColumn(label: Text('Con (Qty)')),
+                DataColumn(label: Text('Pic (Qty)')),
+                DataColumn(label: Text('Dif (Qty)')),
               ],
-              rows: rows,
+              rows: productRows,
             ),
           ),
         ),
       ),
     );
-  }
 
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
@@ -1034,15 +1118,18 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         // Filters
         Padding(
           padding: const EdgeInsets.all(12.0),
-          child: Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-               _buildDateSelector(),
-               _buildBranchFilter(),
-               // Could add more filters or stats here
-            ],
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                 _buildDateSelector(),
+                 _buildBranchFilter(),
+                 // Could add more filters or stats here
+              ],
+            ),
           ),
         ),
         // List
