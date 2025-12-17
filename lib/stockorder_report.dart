@@ -141,8 +141,8 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
 
       var url = 'https://admin.theblackforestcakes.com/api/stock-orders?limit=1000&depth=2'
-          '&where[createdAt][greater_than]=${start.toUtc().toIso8601String()}'
-          '&where[createdAt][less_than]=${end.toUtc().toIso8601String()}';
+          '&where[deliveryDate][greater_than]=${start.toUtc().toIso8601String()}'
+          '&where[deliveryDate][less_than]=${end.toUtc().toIso8601String()}';
 
       if (selectedBranchId != 'ALL') {
         url += '&where[branch][equals]=$selectedBranchId';
@@ -721,12 +721,12 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             columns: const [
               DataColumn(label: Text('Branch')),
-              DataColumn(label: Text('Req', tooltip: 'Requested')),
-              DataColumn(label: Text('Snt', tooltip: 'Sent')),
-              DataColumn(label: Text('Con', tooltip: 'Confirmed')),
-              DataColumn(label: Text('Pic', tooltip: 'Picked')),
-              DataColumn(label: Text('Rec', tooltip: 'Received')),
-              DataColumn(label: Text('Dif', tooltip: 'Difference')),
+              DataColumn(label: Text('Req'), tooltip: 'Requested'),
+              DataColumn(label: Text('Snt'), tooltip: 'Sent'),
+              DataColumn(label: Text('Con'), tooltip: 'Confirmed'),
+              DataColumn(label: Text('Pic'), tooltip: 'Picked'),
+              DataColumn(label: Text('Rec'), tooltip: 'Received'),
+              DataColumn(label: Text('Dif'), tooltip: 'Difference'),
             ],
             rows: rows,
           ),
