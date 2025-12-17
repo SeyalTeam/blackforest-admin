@@ -637,7 +637,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   }
 
   Widget _buildWebTable() {
-    final Map<String, Map<String, int>> aggregates = {};
+    final Map<String, Map<String, double>> aggregates = {};
 
     for (var order in stockOrders) {
       String bName = 'Unknown';
@@ -649,30 +649,51 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
       if (!aggregates.containsKey(bName)) {
         aggregates[bName] = {
-          'Req': 0, 'Snt': 0, 'Con': 0, 'Pic': 0, 'Rec': 0, 'Dif': 0,
+          'Req': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Rec': 0.0, 'Dif': 0.0,
         };
       }
 
       final items = (order['items'] as List?) ?? [];
       for (var item in items) {
         final cur = aggregates[bName]!;
-        cur['Req'] = (cur['Req']!) + ((item['requiredQty'] ?? 0) as int);
-        cur['Snt'] = (cur['Snt']!) + ((item['sendingQty'] ?? 0) as int);
-        cur['Con'] = (cur['Con']!) + ((item['confirmedQty'] ?? 0) as int);
-        cur['Pic'] = (cur['Pic']!) + ((item['pickedQty'] ?? 0) as int);
-        cur['Rec'] = (cur['Rec']!) + ((item['receivedQty'] ?? 0) as int);
-        cur['Dif'] = (cur['Dif']!) + ((item['differenceQty'] ?? 0) as int);
+
+        final reqQty = (item['requiredQty'] ?? 0) as int;
+        final reqAmt = (item['requiredAmount'] ?? 0).toDouble();
+        final unitPrice = reqQty > 0 ? reqAmt / reqQty : 0.0;
+
+        final sentQty = (item['sendingQty'] ?? 0) as int;
+        final confQty = (item['confirmedQty'] ?? 0) as int;
+        final pickQty = (item['pickedQty'] ?? 0) as int;
+        final differenceQty = (item['differenceQty'] ?? 0) as int;
+
+        // Amounts calculation
+        // SntAmt & RecAmt might be available directly, but for consistency let's use logic or available fields
+        // Assuming sendingAmount and receivedAmount are available.
+        final sentAmt = (item['sendingAmount'] ?? 0).toDouble();
+        final recvAmt = (item['receivedAmount'] ?? 0).toDouble();
+
+        // For Confirmed, Picked, Difference, we calculate estimate
+        final confAmt = confQty * unitPrice;
+        final pickAmt = pickQty * unitPrice;
+        final diffAmt = differenceQty * unitPrice;
+
+        cur['Req'] = (cur['Req']!) + reqAmt;
+        cur['Snt'] = (cur['Snt']!) + sentAmt;
+        cur['Con'] = (cur['Con']!) + confAmt;
+        cur['Pic'] = (cur['Pic']!) + pickAmt;
+        cur['Rec'] = (cur['Rec']!) + recvAmt;
+        cur['Dif'] = (cur['Dif']!) + diffAmt;
       }
     }
 
     final sortedBranches = aggregates.keys.toList()..sort();
 
-    int totalReq = 0;
-    int totalSnt = 0;
-    int totalCon = 0;
-    int totalPic = 0;
-    int totalRec = 0;
-    int totalDif = 0;
+    double totalReq = 0;
+    double totalSnt = 0;
+    double totalCon = 0;
+    double totalPic = 0;
+    double totalRec = 0;
+    double totalDif = 0;
 
     List<DataRow> rows = [];
     for (var bName in sortedBranches) {
@@ -686,12 +707,12 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
       rows.add(DataRow(cells: [
         DataCell(Text(bName, style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataCell(Text(data['Req'].toString())),
-        DataCell(Text(data['Snt'].toString())),
-        DataCell(Text(data['Con'].toString())),
-        DataCell(Text(data['Pic'].toString())),
-        DataCell(Text(data['Rec'].toString())),
-        DataCell(Text(data['Dif'].toString(), style: TextStyle(color: data['Dif']! != 0 ? Colors.red : Colors.black, fontWeight: data['Dif']! != 0 ? FontWeight.bold : FontWeight.normal))),
+        DataCell(Text(data['Req']!.round().toString())),
+        DataCell(Text(data['Snt']!.round().toString())),
+        DataCell(Text(data['Con']!.round().toString())),
+        DataCell(Text(data['Pic']!.round().toString())),
+        DataCell(Text(data['Rec']!.round().toString())),
+        DataCell(Text(data['Dif']!.round().toString(), style: TextStyle(color: data['Dif']! != 0 ? Colors.red : Colors.black, fontWeight: data['Dif']! != 0 ? FontWeight.bold : FontWeight.normal))),
       ]));
     }
 
@@ -700,35 +721,38 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       color: MaterialStateProperty.all(Colors.grey.shade300),
       cells: [
         const DataCell(Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold))),
-        DataCell(Text(totalReq.toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataCell(Text(totalSnt.toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataCell(Text(totalCon.toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataCell(Text(totalPic.toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataCell(Text(totalRec.toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataCell(Text(totalDif.toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(totalReq.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(totalSnt.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(totalCon.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(totalPic.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(totalRec.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(totalDif.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
       ],
     ));
 
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.all(12),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Card(
+        elevation: 4,
+        margin: const EdgeInsets.all(12),
         child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            headingRowColor: MaterialStateProperty.all(Colors.brown.shade300),
-            headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            columns: const [
-              DataColumn(label: Text('Branch')),
-              DataColumn(label: Text('Req'), tooltip: 'Requested'),
-              DataColumn(label: Text('Snt'), tooltip: 'Sent'),
-              DataColumn(label: Text('Con'), tooltip: 'Confirmed'),
-              DataColumn(label: Text('Pic'), tooltip: 'Picked'),
-              DataColumn(label: Text('Rec'), tooltip: 'Received'),
-              DataColumn(label: Text('Dif'), tooltip: 'Difference'),
-            ],
-            rows: rows,
+          scrollDirection: Axis.vertical,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowColor: MaterialStateProperty.all(Colors.brown.shade300),
+              headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              columns: const [
+                DataColumn(label: Text('Branch')),
+                DataColumn(label: Text('Req Amt'), tooltip: 'Requested Amount'),
+                DataColumn(label: Text('Snt Amt'), tooltip: 'Sent Amount'),
+                DataColumn(label: Text('Con Amt'), tooltip: 'Confirmed Amount'),
+                DataColumn(label: Text('Pic Amt'), tooltip: 'Picked Amount'),
+                DataColumn(label: Text('Rec Amt'), tooltip: 'Received Amount'),
+                DataColumn(label: Text('Dif Amt'), tooltip: 'Difference Amount'),
+              ],
+              rows: rows,
+            ),
           ),
         ),
       ),
