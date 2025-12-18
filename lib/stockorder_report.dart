@@ -1172,7 +1172,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         
         if (!groupedAggregates[departmentName]![categoryName]!.containsKey(name)) {
           groupedAggregates[departmentName]![categoryName]![name] = {
-            'Ord': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Dif': 0.0,
+            'Ord': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Rec': 0.0, 'Dif': 0.0,
           };
         }
 
@@ -1184,6 +1184,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         cur['Snt'] = (cur['Snt']!) + parseQty(item['sendingQty']);
         cur['Con'] = (cur['Con']!) + parseQty(item['confirmedQty']);
         cur['Pic'] = (cur['Pic']!) + parseQty(item['pickedQty']);
+        cur['Rec'] = (cur['Rec']!) + parseQty(item['receivedQty']);
         cur['Dif'] = (cur['Dif']!) + parseQty(item['differenceQty']);
       }
     }
@@ -1192,10 +1193,10 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     final sortedDepartments = groupedAggregates.keys.toList()..sort();
     
     // Fixed column widths to ensure alignment across multiple DataTables
-    const double nameColWidth = 350;
-    const double dataColWidth = 100;
+    const double nameColWidth = 330;
+    const double dataColWidth = 85;
     const double hMargin = 12; // Matching DataTable horizontalMargin
-    const double totalTableWidth = nameColWidth + (dataColWidth * 5) + (hMargin * 2);
+    const double totalTableWidth = nameColWidth + (dataColWidth * 6) + (hMargin * 2);
 
     List<Widget> children = [];
     int pIndex = 0;
@@ -1257,6 +1258,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               DataCell(SizedBox(width: dataColWidth, child: Text(data['Snt']!.round().toString()))),
               DataCell(SizedBox(width: dataColWidth, child: Text(data['Con']!.round().toString()))),
               DataCell(SizedBox(width: dataColWidth, child: Text(data['Pic']!.round().toString()))),
+              DataCell(SizedBox(width: dataColWidth, child: Text(data['Rec']!.round().toString()))),
               DataCell(SizedBox(width: dataColWidth, child: Text(data['Dif']!.round().toString(), style: TextStyle(color: data['Dif']! != 0 ? Colors.red : Colors.black, fontWeight: FontWeight.bold)))),
             ],
           ));
@@ -1275,6 +1277,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Snt'))),
               DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Con'))),
               DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Pic'))),
+              DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Rec'))),
               DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Dif'))),
             ],
             rows: productRows,
