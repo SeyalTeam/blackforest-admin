@@ -910,7 +910,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       rows.add(DataRow(
         color: MaterialStateProperty.all(Colors.brown.shade400),
         cells: [
-          DataCell(Text(deptName.toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16))),
+          DataCell(Center(child: Text(deptName.toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)))),
           const DataCell(Text('')),
           const DataCell(Text('')),
           const DataCell(Text('')),
@@ -927,10 +927,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         rows.add(DataRow(
           color: MaterialStateProperty.all(Colors.blueGrey.shade100),
           cells: [
-            DataCell(Padding(
-              padding: const EdgeInsets.only(left: 12.0),
-              child: Text(catName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            )),
+            DataCell(Center(child: Text(catName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)))),
             const DataCell(Text('')),
             const DataCell(Text('')),
             const DataCell(Text('')),
