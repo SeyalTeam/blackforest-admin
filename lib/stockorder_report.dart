@@ -1217,13 +1217,6 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   }
 
   @override
-  void dispose() {
-    _webVScroll.dispose();
-    _webHScroll.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final isDesktop = width >= 1024;
