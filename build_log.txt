@@ -34,30 +34,14 @@ Consider addressing these issues to enable wasm builds. See docs for more info: 
 
 Use --no-wasm-dry-run to disable these warnings.
 Target dart2js failed: ProcessException: Process exited abnormally with exit code 1:
-lib/stockorder_report.dart:868:7:
-Error: Expected ';' after this.
-      ),
-      ^
-lib/stockorder_report.dart:868:8:
-Error: Expected an identifier, but got ','.
-      ),
-       ^
-lib/stockorder_report.dart:868:8:
-Error: Unexpected token ';'.
-      ),
-       ^
-lib/stockorder_report.dart:869:5:
-Error: Expected an identifier, but got ')'.
-    );
-    ^
-lib/stockorder_report.dart:868:8:
-Error: Expected ';' after this.
-      ),
-       ^
-lib/stockorder_report.dart:869:5:
-Error: Unexpected token ';'.
-    );
-    ^
+lib/stockorder_report.dart:1220:8:
+Error: 'dispose' is already declared in this scope.
+  void dispose() {
+       ^^^^^^^
+lib/stockorder_report.dart:1213:8:
+Info: Previous declaration of 'dispose'.
+  void dispose() {
+       ^^^^^^^
 Error: Compilation failed.
   Command: /Users/castromurugan/development/flutter/bin/cache/dart-sdk/bin/dart compile js --platform-binaries=/Users/castromurugan/development/flutter/bin/cache/flutter_web_sdk/kernel --invoker=flutter_tool -Ddart.vm.product=true -DFLUTTER_VERSION=3.35.6 -DFLUTTER_CHANNEL=stable -DFLUTTER_GIT_URL=https://github.com/flutter/flutter.git -DFLUTTER_FRAMEWORK_REVISION=9f455d2486 -DFLUTTER_ENGINE_REVISION=d2913632a4 -DFLUTTER_DART_VERSION=3.9.2 -DFLUTTER_WEB_USE_SKIA=true -DFLUTTER_WEB_USE_SKWASM=false -DFLUTTER_WEB_CANVASKIT_URL=https://www.gstatic.com/flutter-canvaskit/d2913632a4578ee4d0b8b1c4a69888c8a0672c4b/ --native-null-assertions --no-source-maps -O4 --minify -o /Users/castromurugan/Documents/BS_Admin/.dart_tool/flutter_build/8d71a92219bd23ab0d7d6474a1020fda/app.dill --packages=/Users/castromurugan/Documents/BS_Admin/.dart_tool/package_config.json --cfe-only /Users/castromurugan/Documents/BS_Admin/.dart_tool/flutter_build/8d71a92219bd23ab0d7d6474a1020fda/main.dart
 #0      RunResult.throwException (package:flutter_tools/src/base/process.dart:118:5)
@@ -100,5 +84,5 @@ Error: Compilation failed.
 #19     main (package:flutter_tools/executable.dart:101:3)
 <asynchronous suspension>
 
-Compiling lib/main.dart for the Web...                              7.0s
+Compiling lib/main.dart for the Web...                              6.3s
 Error: Failed to compile application for the Web.
