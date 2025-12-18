@@ -45,6 +45,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
   String selectedDepartmentId = 'ALL';
   String selectedCategoryId = 'ALL';
+  String selectedProductId = 'ALL';
 
   @override
   void initState() {
@@ -650,6 +651,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               selectedBranchId = val;
               selectedDepartmentId = 'ALL';
               selectedCategoryId = 'ALL';
+              selectedProductId = 'ALL';
             });
             _fetchStockOrders();
           }
@@ -681,6 +683,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             setState(() {
               selectedDepartmentId = val;
               selectedCategoryId = 'ALL';
+              selectedProductId = 'ALL';
             });
           }
         },
@@ -717,7 +720,98 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         ],
         onChanged: (val) {
           if (val != null) {
-            setState(() => selectedCategoryId = val);
+            setState(() {
+              selectedCategoryId = val;
+              selectedProductId = 'ALL';
+            });
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildProductFilter() {
+    // Collect unique products from stockOrders (filtered by Dept/Cat)
+    final Set<String> productNames = {};
+    for (var order in stockOrders) {
+      final items = (order['items'] as List?) ?? [];
+      for (var item in items) {
+        final name = item['name']?.toString();
+        if (name == null) continue;
+
+        // Check Dept/Cat filtering logic to see if this product SHOULD be in the list
+        // This duplicates the filtering logic slightly but is needed for correct UI options
+        bool include = true;
+
+        if (selectedDepartmentId != 'ALL') {
+          String? deptId;
+          // Try to extract Dept ID logic
+            String itemDeptId = 'UNKNOWN';
+            Map<String, dynamic>? catData;
+            dynamic catSource = (item['product'] is Map) ? item['product']['category'] : null;
+            if (catSource == null) catSource = item['category'];
+
+            if (catSource is Map) {
+              catData = catSource.cast<String, dynamic>();
+            } else if (catSource is String) {
+               // Optimization: In this UI builder loop, we might skip heavy lookups if lists are huge
+               // but for reasonably sized lists, it's fine.
+               final found = categories.firstWhere((c) => c['id'] == catSource || c['_id'] == catSource, orElse: () => {});
+               if (found.isNotEmpty) catData = found;
+            }
+
+            if (catData != null) {
+              final dept = catData['department'];
+              itemDeptId = (dept is Map ? (dept['id'] ?? dept['_id']) : dept)?.toString() ?? 'UNKNOWN';
+            }
+            if (itemDeptId != selectedDepartmentId) include = false;
+        }
+
+        if (include && selectedCategoryId != 'ALL') {
+             String itemCatId = 'UNKNOWN';
+             Map<String, dynamic>? catData;
+             dynamic catSource = (item['product'] is Map) ? item['product']['category'] : null;
+             if (catSource == null) catSource = item['category'];
+
+             if (catSource is Map) {
+                catData = catSource.cast<String, dynamic>();
+             } else if (catSource is String) {
+                itemCatId = catSource;
+             }
+             if (catData != null) {
+               itemCatId = (catData['id'] ?? catData['_id'])?.toString() ?? 'UNKNOWN';
+             }
+             if (itemCatId != selectedCategoryId) include = false;
+        }
+
+        if (include) {
+          productNames.add(name);
+        }
+      }
+    }
+
+    final sortedProducts = productNames.toList()..sort();
+
+    return SizedBox(
+      width: 250,
+      child: DropdownButtonFormField<String>(
+        decoration: InputDecoration(
+          labelText: 'Product',
+          prefixIcon: const Icon(Icons.inventory),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        value: selectedProductId,
+        items: [
+          const DropdownMenuItem(value: 'ALL', child: Text('All Products')),
+          ...sortedProducts.map((p) => DropdownMenuItem(
+                value: p,
+                child: Text(p, overflow: TextOverflow.ellipsis),
+              )),
+        ],
+        onChanged: (val) {
+          if (val != null) {
+            setState(() => selectedProductId = val);
           }
         },
       ),
@@ -743,6 +837,11 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
         final items = (order['items'] as List?) ?? [];
         for (var item in items) {
+          // --- Product Filtering Logic ---
+          final name = item['name']?.toString() ?? 'Unknown Product';
+          if (selectedProductId != 'ALL' && name != selectedProductId) continue;
+          // ------------------------------
+
           // --- Department Filtering Logic ---
           if (selectedDepartmentId != 'ALL') {
             String itemDeptId = 'UNKNOWN';
@@ -1001,6 +1100,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           String? currentCatId = (categoryData?['id'] ?? categoryData?['_id'])?.toString();
           if (currentCatId != selectedCategoryId) continue;
         }
+        
+        // --- Product Filtering Logic ---
+        if (selectedProductId != 'ALL' && name != selectedProductId) continue;
         // --------------------------------
         
         if (!groupedAggregates.containsKey(departmentName)) {
@@ -1417,6 +1519,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                   _buildBranchFilter(),
                   _buildDepartmentFilter(),
                   _buildCategoryFilter(),
+                  _buildProductFilter(),
               ],
             ),
           ),
@@ -1459,6 +1562,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                 selectedBranchId = 'ALL';
                 selectedDepartmentId = 'ALL';
                 selectedCategoryId = 'ALL';
+                selectedProductId = 'ALL';
                 fromDate = DateTime.now();
                 toDate = DateTime.now();
               });
