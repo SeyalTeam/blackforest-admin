@@ -874,13 +874,39 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
           // --- Status Filtering Logic ---
           if (selectedStatus != 'ALL') {
+             double rQty = parseQty(item['requiredQty']);
+             double sQty = parseQty(item['sendingQty']);
+             double cQty = parseQty(item['confirmedQty']);
+             double pQty = parseQty(item['pickedQty']);
+             double recQty = parseQty(item['receivedQty']);
+             // Fallback for received if 'receivedQty' missing, use receivedAmount logic from before? 
+             // Actually aggregation uses receivedAmount, but for unit tracking we should ideally use Qty.
+             // If receivedQty is not reliable, we might need another check, but let's stick to receivedQty or 0.
+             // Wait, previous code used receivedAmount > 0. Let's check item keys availability.
+             // The Aggregation uses: cur['Rec'] = (cur['Rec']!) + parseQty(item['receivedQty']); 
+             // So receivedQty exists.
+
              bool match = false;
-             if (selectedStatus == 'Ordered' && parseQty(item['requiredQty']) > 0) match = true;
-             else if (selectedStatus == 'Sending' && parseQty(item['sendingQty']) > 0) match = true;
-             else if (selectedStatus == 'Confirmed' && parseQty(item['confirmedQty']) > 0) match = true;
-             else if (selectedStatus == 'Picked' && parseQty(item['pickedQty']) > 0) match = true;
-             // For Received, we check receivedAmount as we did in aggregation or receivedQty if meaningful
-             else if (selectedStatus == 'Received' && parseQty(item['receivedAmount']) > 0) match = true;
+             if (selectedStatus == 'Ordered') {
+               // Pending to Send: Ordered > Sent
+               if (rQty > sQty) match = true;
+             }
+             else if (selectedStatus == 'Sending') {
+               // Pending to Confirm: Sent > Confirmed
+               if (sQty > cQty) match = true;
+             }
+             else if (selectedStatus == 'Confirmed') {
+                // Pending to Pick: Confirmed > Picked
+                if (cQty > pQty) match = true;
+             }
+             else if (selectedStatus == 'Picked') {
+                // Pending to Receive: Picked > Received
+                if (pQty > recQty) match = true;
+             }
+             else if (selectedStatus == 'Received') {
+                // Already Received
+                if (recQty > 0) match = true;
+             }
              
              if (!match) continue;
           }
@@ -1150,15 +1176,30 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         
         // --- Status Filtering Logic ---
         if (selectedStatus != 'ALL') {
-           bool match = false;
-           if (selectedStatus == 'Ordered' && parseQty(item['requiredQty']) > 0) match = true;
-           else if (selectedStatus == 'Sending' && parseQty(item['sendingQty']) > 0) match = true;
-           else if (selectedStatus == 'Confirmed' && parseQty(item['confirmedQty']) > 0) match = true;
-           else if (selectedStatus == 'Picked' && parseQty(item['pickedQty']) > 0) match = true;
-           // Note: Product Summary doesn't usually show 'Received', but we filter anyway if requested
-           else if (selectedStatus == 'Received' && parseQty(item['receivedAmount']) > 0) match = true;
-           
-           if (!match) continue;
+             double rQty = parseQty(item['requiredQty']);
+             double sQty = parseQty(item['sendingQty']);
+             double cQty = parseQty(item['confirmedQty']);
+             double pQty = parseQty(item['pickedQty']);
+             double recQty = parseQty(item['receivedQty']);
+
+             bool match = false;
+             if (selectedStatus == 'Ordered') {
+               if (rQty > sQty) match = true;
+             }
+             else if (selectedStatus == 'Sending') {
+               if (sQty > cQty) match = true;
+             }
+             else if (selectedStatus == 'Confirmed') {
+                if (cQty > pQty) match = true;
+             }
+             else if (selectedStatus == 'Picked') {
+                if (pQty > recQty) match = true;
+             }
+             else if (selectedStatus == 'Received') {
+                if (recQty > 0) match = true;
+             }
+             
+             if (!match) continue;
         }
         // ------------------------------
         
