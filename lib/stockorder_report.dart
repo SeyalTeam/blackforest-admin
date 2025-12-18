@@ -1243,16 +1243,30 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         // Timestamp extraction
         if (order['createdAt'] != null) cur['OrdTime'] = order['createdAt'];
         
-        String? sTime = item['sendingAt']?.toString() ?? order['sendingAt']?.toString() ?? order['sentAt']?.toString();
+        String? sTime = item['sendingAt']?.toString() ?? order['sendingAt']?.toString() ?? order['sentAt']?.toString() ?? item['sendingTime']?.toString() ?? order['sendingTime']?.toString();
 
         if (sTime == null || sTime.isEmpty) {
           dynamic sentBy = item['sendingUpdatedBy'] ?? order['sendingUpdatedBy'];
+          
+          if (sentBy is List && sentBy.isNotEmpty) {
+             sentBy = sentBy.last;
+          }
+
           if (sentBy is Map) {
             // Check common timestamp keys
-            sTime = sentBy['date']?.toString() ?? sentBy['createdAt']?.toString() ?? sentBy['time']?.toString();
+            sTime = sentBy['date']?.toString() ?? sentBy['createdAt']?.toString() ?? sentBy['updatedAt']?.toString() ?? sentBy['time']?.toString() ?? sentBy['timestamp']?.toString();
           } else if (sentBy is String) {
-            // If it's a string, it might be the date itself
-            sTime = sentBy;
+            // If it's a string, it might be the date itself or a JSON string
+            if (sentBy.startsWith('{')) {
+               try {
+                 final map = jsonDecode(sentBy);
+                 if (map is Map) {
+                   sTime = map['date']?.toString() ?? map['createdAt']?.toString() ?? map['updatedAt']?.toString() ?? map['time']?.toString() ?? map['timestamp']?.toString();
+                 }
+               } catch (_) {}
+            } else {
+               sTime = sentBy;
+            }
           }
         }
 
