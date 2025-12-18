@@ -806,20 +806,35 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   }
 
   Widget _buildProductSummaryTable() {
-    final Map<String, Map<String, int>> productAggregates = {};
+    // Map<CategoryName, Map<ProductName, Stats>>
+    final Map<String, Map<String, Map<String, int>>> groupedAggregates = {};
 
     for (var order in stockOrders) {
       final items = (order['items'] as List?) ?? [];
       for (var item in items) {
         final name = item['name'] ?? 'Unknown Product';
         
-        if (!productAggregates.containsKey(name)) {
-          productAggregates[name] = {
+        // Extract Category
+        String categoryName = 'Unknown Category';
+        if (item['product'] is Map && item['product']['category'] != null) {
+          final cat = item['product']['category'];
+          categoryName = cat['name'] ?? 'Unknown Category';
+        } else if (item['category'] != null) {
+          final cat = item['category'];
+          categoryName = cat['name'] ?? 'Unknown Category';
+        }
+        
+        if (!groupedAggregates.containsKey(categoryName)) {
+          groupedAggregates[categoryName] = {};
+        }
+        
+        if (!groupedAggregates[categoryName]!.containsKey(name)) {
+          groupedAggregates[categoryName]![name] = {
             'Req': 0, 'Snt': 0, 'Con': 0, 'Pic': 0, 'Dif': 0,
           };
         }
 
-        final cur = productAggregates[name]!;
+        final cur = groupedAggregates[categoryName]![name]!;
         cur['Req'] = (cur['Req']!) + ((item['requiredQty'] ?? 0) as int);
         cur['Snt'] = (cur['Snt']!) + ((item['sendingQty'] ?? 0) as int);
         cur['Con'] = (cur['Con']!) + ((item['confirmedQty'] ?? 0) as int);
@@ -828,27 +843,48 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       }
     }
 
-    final sortedProducts = productAggregates.keys.toList()..sort();
+    final sortedCategories = groupedAggregates.keys.toList()..sort();
     
-    List<DataRow> productRows = [];
+    List<DataRow> rows = [];
     int pIndex = 0;
     
-    for (var pName in sortedProducts) {
-      final data = productAggregates[pName]!;
-      final bgColor = pIndex % 2 == 0 ? Colors.blue.withOpacity(0.05) : Colors.white;
-
-      productRows.add(DataRow(
-        color: MaterialStateProperty.all(bgColor),
+    for (var catName in sortedCategories) {
+      // Add Category Header Row
+      rows.add(DataRow(
+        color: MaterialStateProperty.all(Colors.blueGrey.shade100),
         cells: [
-          DataCell(Text(pName, style: const TextStyle(fontWeight: FontWeight.bold))),
-          DataCell(Text(data['Req'].toString())),
-          DataCell(Text(data['Snt'].toString())),
-          DataCell(Text(data['Con'].toString())),
-          DataCell(Text(data['Pic'].toString())),
-          DataCell(Text(data['Dif'].toString(), style: TextStyle(color: data['Dif']! != 0 ? Colors.red : Colors.black, fontWeight: FontWeight.bold))),
+          DataCell(Text(catName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15))),
+          const DataCell(Text('')),
+          const DataCell(Text('')),
+          const DataCell(Text('')),
+          const DataCell(Text('')),
+          const DataCell(Text('')),
         ],
       ));
-      pIndex++;
+
+      final productsMap = groupedAggregates[catName]!;
+      final sortedProducts = productsMap.keys.toList()..sort();
+
+      for (var pName in sortedProducts) {
+        final data = productsMap[pName]!;
+        final bgColor = pIndex % 2 == 0 ? Colors.blue.withOpacity(0.05) : Colors.white;
+
+        rows.add(DataRow(
+          color: MaterialStateProperty.all(bgColor),
+          cells: [
+            DataCell(Padding(
+              padding: const EdgeInsets.only(left: 16.0), // Indent products
+              child: Text(pName, style: const TextStyle(fontWeight: FontWeight.bold)),
+            )),
+            DataCell(Text(data['Req'].toString())),
+            DataCell(Text(data['Snt'].toString())),
+            DataCell(Text(data['Con'].toString())),
+            DataCell(Text(data['Pic'].toString())),
+            DataCell(Text(data['Dif'].toString(), style: TextStyle(color: data['Dif']! != 0 ? Colors.red : Colors.black, fontWeight: FontWeight.bold))),
+          ],
+        ));
+        pIndex++;
+      }
     }
 
     return Card(
@@ -865,7 +901,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           DataColumn(label: Text('Pic (Qty)')),
           DataColumn(label: Text('Dif (Qty)')),
         ],
-        rows: productRows,
+        rows: rows,
       ),
     );
   }
