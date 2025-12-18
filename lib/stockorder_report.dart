@@ -35,13 +35,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   DateTime? toDate;
   List<Map<String, String>> branches = [];
   String selectedBranchId = 'ALL';
-  String selectedDepartmentId = 'ALL';
-  String selectedCategoryId = 'ALL';
-  String selectedProductId = 'ALL';
   List<Map<String, dynamic>> stockOrders = [];
   List<Map<String, dynamic>> categories = [];
   List<Map<String, dynamic>> departments = [];
-  List<Map<String, String>> availableProducts = [];
   Map<String, dynamic>? _combinedOrder;
   final ScrollController _webVScroll = ScrollController();
   final ScrollController _webHScroll = ScrollController();
@@ -162,21 +158,6 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
         setState(() {
           stockOrders = docs.cast<Map<String, dynamic>>();
-          
-          // Populate available products from orders
-          final allProds = <Map<String, String>>[{'id': 'ALL', 'name': 'All Products'}];
-          final productNames = <String>{};
-          for (var order in stockOrders) {
-            final items = (order['items'] as List?) ?? [];
-            for (var item in items) {
-              final name = item['name']?.toString();
-              if (name != null && !productNames.contains(name)) {
-                productNames.add(name);
-                allProds.add({'id': name, 'name': name});
-              }
-            }
-          }
-          availableProducts = allProds;
 
           stockOrders.sort((a, b) {
             final dateA = DateTime.tryParse(a['createdAt'] ?? '');
@@ -642,92 +623,29 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   }
 
   Widget _buildBranchFilter() {
-    return _loadingBranches
-        ? const SizedBox(height: 40, width: 40, child: Center(child: CircularProgressIndicator()))
-        : SizedBox(
-            width: 200,
-            child: DropdownButtonFormField<String>(
-            value: selectedBranchId,
-            items: branches.map((b) {
-              return DropdownMenuItem<String>(
-                value: b['id'],
+    return SizedBox(
+      width: 200,
+      child: DropdownButtonFormField<String>(
+        decoration: InputDecoration(
+          labelText: 'Branch',
+          prefixIcon: const Icon(Icons.store),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        value: selectedBranchId,
+        items: [
+          const DropdownMenuItem(value: 'ALL', child: Text('All Branches')),
+          ...branches.map((b) => DropdownMenuItem(
+                value: b['id']!,
                 child: Text(b['name']!, overflow: TextOverflow.ellipsis),
-              );
-            }).toList(),
-            onChanged: (v) async {
-              if (v == null) return;
-              setState(() => selectedBranchId = v);
-              await _fetchStockOrders();
-            },
-            decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-              isDense: true,
-              labelText: 'Branch',
-            ),
-          ),
-        );
-  }
-
-  Widget _buildDepartmentFilter() {
-    final list = <Map<String, String>>[{'id': 'ALL', 'name': 'All Departments'}];
-    for (var d in departments) {
-      final id = (d['id'] ?? d['_id'])?.toString();
-      final name = d['name']?.toString();
-      if (id != null && name != null) list.add({'id': name, 'name': name});
-    }
-    return SizedBox(
-      width: 200,
-      child: DropdownButtonFormField<String>(
-        value: selectedDepartmentId,
-        items: list.map((d) => DropdownMenuItem(value: d['id'], child: Text(d['name']!, overflow: TextOverflow.ellipsis))).toList(),
-        onChanged: (v) => setState(() => selectedDepartmentId = v ?? 'ALL'),
-        decoration: InputDecoration(
-          contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-          isDense: true,
-          labelText: 'Department',
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCategoryFilter() {
-    final list = <Map<String, String>>[{'id': 'ALL', 'name': 'All Categories'}];
-    for (var c in categories) {
-      final id = (c['id'] ?? c['_id'])?.toString();
-      final name = c['name']?.toString();
-      if (id != null && name != null) list.add({'id': name, 'name': name});
-    }
-    return SizedBox(
-      width: 200,
-      child: DropdownButtonFormField<String>(
-        value: selectedCategoryId,
-        items: list.map((c) => DropdownMenuItem(value: c['id'], child: Text(c['name']!, overflow: TextOverflow.ellipsis))).toList(),
-        onChanged: (v) => setState(() => selectedCategoryId = v ?? 'ALL'),
-        decoration: InputDecoration(
-          contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-          isDense: true,
-          labelText: 'Category',
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProductFilter() {
-    return SizedBox(
-      width: 200,
-      child: DropdownButtonFormField<String>(
-        value: selectedProductId,
-        items: availableProducts.map((p) => DropdownMenuItem(value: p['id'], child: Text(p['name']!, overflow: TextOverflow.ellipsis))).toList(),
-        onChanged: (v) => setState(() => selectedProductId = v ?? 'ALL'),
-        decoration: InputDecoration(
-          contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-          isDense: true,
-          labelText: 'Product',
-        ),
+              )),
+        ],
+        onChanged: (val) {
+          if (val != null) {
+            setState(() => selectedBranchId = val);
+            _fetchStockOrders();
+          }
+        },
       ),
     );
   }
@@ -751,49 +669,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
       final items = (order['items'] as List?) ?? [];
       for (var item in items) {
-        final prodName = item['name']?.toString() ?? 'Unknown Product';
-        if (selectedProductId != 'ALL' && prodName != selectedProductId) continue;
-
-        // Resolve Category/Department for filtering
-        String dName = 'Unknown Department';
-        String cName = 'Unknown Category';
-        Map<String, dynamic>? catData;
-
-        // Extract categoryData using the same logic as summary table
-        final prodItem = item['product'];
-        if (prodItem is Map) {
-          final catItem = prodItem['category'];
-          if (catItem is Map) catData = catItem.cast<String, dynamic>();
-          else if (catItem is String) {
-            final found = categories.firstWhere((c) => c['id'] == catItem, orElse: () => {});
-            if (found.isNotEmpty) catData = found;
-          }
-        }
-        if (catData == null) {
-          final catItem = item['category'];
-          if (catItem is Map) catData = catItem.cast<String, dynamic>();
-          else if (catItem is String) {
-            final found = categories.firstWhere((c) => c['id'] == catItem, orElse: () => {});
-            if (found.isNotEmpty) catData = found;
-          }
-        }
-
-        if (catData != null) {
-          cName = catData['name']?.toString() ?? 'Unknown Category';
-          final deptObj = catData['department'];
-          if (deptObj is Map) dName = deptObj['name']?.toString() ?? 'Unknown Department';
-          else if (deptObj is String) {
-            final found = departments.firstWhere((d) => d['id'] == deptObj, orElse: () => {});
-            dName = found['name']?.toString() ?? deptObj;
-          }
-        }
-
-        if (selectedCategoryId != 'ALL' && cName != selectedCategoryId) continue;
-        if (selectedDepartmentId != 'ALL' && dName != selectedDepartmentId) continue;
-
         final cur = aggregates[bName]!;
 
-        final reqQty = (item['requiredQty'] ?? 0) is num ? (item['requiredQty'] as num).toDouble() : 0.0;
+        final reqQty = parseQty(item['requiredQty']);
         final reqAmt = (item['requiredAmount'] ?? 0).toDouble();
         final unitPrice = reqQty > 0 ? reqAmt / reqQty : 0.0;
 
@@ -932,9 +810,6 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         
         final name = item['name']?.toString() ?? 'Unknown Product';
         
-        // Product Filter
-        if (selectedProductId != 'ALL' && name != selectedProductId) continue;
-
         // Extract Category & Department safely
         String departmentName = 'Unknown Department';
         String categoryName = 'Unknown Category';
@@ -990,11 +865,6 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             departmentName = foundDept['name']?.toString() ?? dept;
           }
         }
-
-        // Category Filter (Repeated check after data is fully extracted)
-        if (selectedCategoryId != 'ALL' && categoryName != selectedCategoryId) continue;
-        // Department Filter (Repeated check after data is fully extracted)
-        if (selectedDepartmentId != 'ALL' && departmentName != selectedDepartmentId) continue;
         
         if (!groupedAggregates.containsKey(departmentName)) {
           groupedAggregates[departmentName] = {};
@@ -1405,11 +1275,8 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               spacing: 12,
               runSpacing: 12,
               children: [
-                 _buildDateSelector(),
-                 _buildBranchFilter(),
-                 _buildDepartmentFilter(),
-                 _buildCategoryFilter(),
-                 _buildProductFilter(),
+                  _buildDateSelector(),
+                  _buildBranchFilter(),
               ],
             ),
           ),
