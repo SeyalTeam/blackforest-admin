@@ -745,35 +745,71 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
       if (!aggregates.containsKey(bName)) {
         aggregates[bName] = {
-          'Req': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Rec': 0.0, 'Dif': 0.0,
+          'Ord': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Rec': 0.0, 'Dif': 0.0,
         };
       }
 
       final items = (order['items'] as List?) ?? [];
       for (var item in items) {
+        final prodName = item['name']?.toString() ?? 'Unknown Product';
+        if (selectedProductId != 'ALL' && prodName != selectedProductId) continue;
+
+        // Resolve Category/Department for filtering
+        String dName = 'Unknown Department';
+        String cName = 'Unknown Category';
+        Map<String, dynamic>? catData;
+
+        // Extract categoryData using the same logic as summary table
+        final prodItem = item['product'];
+        if (prodItem is Map) {
+          final catItem = prodItem['category'];
+          if (catItem is Map) catData = catItem.cast<String, dynamic>();
+          else if (catItem is String) {
+            final found = categories.firstWhere((c) => c['id'] == catItem, orElse: () => {});
+            if (found.isNotEmpty) catData = found;
+          }
+        }
+        if (catData == null) {
+          final catItem = item['category'];
+          if (catItem is Map) catData = catItem.cast<String, dynamic>();
+          else if (catItem is String) {
+            final found = categories.firstWhere((c) => c['id'] == catItem, orElse: () => {});
+            if (found.isNotEmpty) catData = found;
+          }
+        }
+
+        if (catData != null) {
+          cName = catData['name']?.toString() ?? 'Unknown Category';
+          final deptObj = catData['department'];
+          if (deptObj is Map) dName = deptObj['name']?.toString() ?? 'Unknown Department';
+          else if (deptObj is String) {
+            final found = departments.firstWhere((d) => d['id'] == deptObj, orElse: () => {});
+            dName = found['name']?.toString() ?? deptObj;
+          }
+        }
+
+        if (selectedCategoryId != 'ALL' && cName != selectedCategoryId) continue;
+        if (selectedDepartmentId != 'ALL' && dName != selectedDepartmentId) continue;
+
         final cur = aggregates[bName]!;
 
-        final reqQty = (item['requiredQty'] ?? 0) as int;
+        final reqQty = (item['requiredQty'] ?? 0) is num ? (item['requiredQty'] as num).toDouble() : 0.0;
         final reqAmt = (item['requiredAmount'] ?? 0).toDouble();
         final unitPrice = reqQty > 0 ? reqAmt / reqQty : 0.0;
 
-        final sentQty = (item['sendingQty'] ?? 0) as int;
-        final confQty = (item['confirmedQty'] ?? 0) as int;
-        final pickQty = (item['pickedQty'] ?? 0) as int;
-        final differenceQty = (item['differenceQty'] ?? 0) as int;
+        final sentQty = (item['sendingQty'] ?? 0) is num ? (item['sendingQty'] as num).toDouble() : 0.0;
+        final confQty = (item['confirmedQty'] ?? 0) is num ? (item['confirmedQty'] as num).toDouble() : 0.0;
+        final pickQty = (item['pickedQty'] ?? 0) is num ? (item['pickedQty'] as num).toDouble() : 0.0;
+        final differenceQty = (item['differenceQty'] ?? 0) is num ? (item['differenceQty'] as num).toDouble() : 0.0;
 
-        // Amounts calculation
-        // SntAmt & RecAmt might be available directly, but for consistency let's use logic or available fields
-        // Assuming sendingAmount and receivedAmount are available.
         final sentAmt = (item['sendingAmount'] ?? 0).toDouble();
         final recvAmt = (item['receivedAmount'] ?? 0).toDouble();
 
-        // For Confirmed, Picked, Difference, we calculate estimate
         final confAmt = confQty * unitPrice;
         final pickAmt = pickQty * unitPrice;
         final diffAmt = differenceQty * unitPrice;
 
-        cur['Req'] = (cur['Req']!) + reqAmt;
+        cur['Ord'] = (cur['Ord']!) + reqAmt;
         cur['Snt'] = (cur['Snt']!) + sentAmt;
         cur['Con'] = (cur['Con']!) + confAmt;
         cur['Pic'] = (cur['Pic']!) + pickAmt;
@@ -795,7 +831,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     int index = 0;
     for (var bName in sortedBranches) {
       final data = aggregates[bName]!;
-      totalReq += data['Req']!;
+      totalReq += data['Ord']!;
       totalSnt += data['Snt']!;
       totalCon += data['Con']!;
       totalPic += data['Pic']!;
@@ -808,7 +844,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         color: MaterialStateProperty.all(bgColor),
         cells: [
         DataCell(Text(bName, style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataCell(Text(data['Req']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(data['Ord']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
         DataCell(Text(data['Snt']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
         DataCell(Text(data['Con']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
         DataCell(Text(data['Pic']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -861,7 +897,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                         headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                         columns: const [
                           DataColumn(label: Text('Branch')),
-                          DataColumn(label: Text('Req Amt'), tooltip: 'Requested Amount'),
+                          DataColumn(label: Text('Ord Amt'), tooltip: 'Ordered Amount'),
                           DataColumn(label: Text('Snt Amt'), tooltip: 'Sent Amount'),
                           DataColumn(label: Text('Con Amt'), tooltip: 'Confirmed Amount'),
                           DataColumn(label: Text('Pic Amt'), tooltip: 'Picked Amount'),
@@ -904,11 +940,6 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         String categoryName = 'Unknown Category';
         
         Map<String, dynamic>? categoryData;
-        
-        // Category Filter
-        if (selectedCategoryId != 'ALL' && categoryName != selectedCategoryId) continue;
-        // Department Filter
-        if (selectedDepartmentId != 'ALL' && departmentName != selectedDepartmentId) continue;
         
         // Check product.category
         final prod = item['product'];
