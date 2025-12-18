@@ -240,28 +240,28 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           itemMap[name] = {
             'name': name,
             'category': categoryData,
-            'requiredQty': 0,
+            'requiredQty': 0.0,
             'requiredAmount': 0.0,
-            'sendingQty': 0,
+            'sendingQty': 0.0,
             'sendingAmount': 0.0,
-            'confirmedQty': 0,
-            'pickedQty': 0,
-            'receivedQty': 0,
+            'confirmedQty': 0.0,
+            'pickedQty': 0.0,
+            'receivedQty': 0.0,
             'receivedAmount': 0.0,
-            'differenceQty': 0,
+            'differenceQty': 0.0,
           };
         }
 
         final cur = itemMap[name]!;
-        cur['requiredQty'] = (cur['requiredQty'] as int) + ((item['requiredQty'] ?? 0) as int);
-        cur['requiredAmount'] = (cur['requiredAmount'] as double) + ((item['requiredAmount'] ?? 0) as num).toDouble();
-        cur['sendingQty'] = (cur['sendingQty'] as int) + ((item['sendingQty'] ?? 0) as int);
-        cur['sendingAmount'] = (cur['sendingAmount'] as double) + ((item['sendingAmount'] ?? 0) as num).toDouble();
-        cur['confirmedQty'] = (cur['confirmedQty'] as int) + ((item['confirmedQty'] ?? 0) as int);
-        cur['pickedQty'] = (cur['pickedQty'] as int) + ((item['pickedQty'] ?? 0) as int);
-        cur['receivedQty'] = (cur['receivedQty'] as int) + ((item['receivedQty'] ?? 0) as int);
-        cur['receivedAmount'] = (cur['receivedAmount'] as double) + ((item['receivedAmount'] ?? 0) as num).toDouble();
-        cur['differenceQty'] = (cur['differenceQty'] as int) + ((item['differenceQty'] ?? 0) as int);
+        cur['requiredQty'] = parseQty(cur['requiredQty']) + parseQty(item['requiredQty']);
+        cur['requiredAmount'] = parseQty(cur['requiredAmount']) + parseQty(item['requiredAmount']);
+        cur['sendingQty'] = parseQty(cur['sendingQty']) + parseQty(item['sendingQty']);
+        cur['sendingAmount'] = parseQty(cur['sendingAmount']) + parseQty(item['sendingAmount']);
+        cur['confirmedQty'] = parseQty(cur['confirmedQty']) + parseQty(item['confirmedQty']);
+        cur['pickedQty'] = parseQty(cur['pickedQty']) + parseQty(item['pickedQty']);
+        cur['receivedQty'] = parseQty(cur['receivedQty']) + parseQty(item['receivedQty']);
+        cur['receivedAmount'] = parseQty(cur['receivedAmount']) + parseQty(item['receivedAmount']);
+        cur['differenceQty'] = parseQty(cur['differenceQty']) + parseQty(item['differenceQty']);
         
         // Ensure category is set if missing in the first occurrence
         if (cur['category'] == null && categoryData != null) {
@@ -1013,12 +1013,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         final cur = groupedAggregates[departmentName]![categoryName]![name]!;
         
         // Safe numeric parsing
-        double parseQty(dynamic val) {
-          if (val == null) return 0.0;
-          if (val is num) return val.toDouble();
-          return double.tryParse(val.toString()) ?? 0.0;
-        }
-
+        // Safe numeric parsing
         cur['Ord'] = (cur['Ord']!) + parseQty(item['requiredQty']);
         cur['Snt'] = (cur['Snt']!) + parseQty(item['sendingQty']);
         cur['Con'] = (cur['Con']!) + parseQty(item['confirmedQty']);
@@ -1130,6 +1125,12 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         children: children,
       ),
     );
+  }
+
+  double parseQty(dynamic val) {
+    if (val == null) return 0.0;
+    if (val is num) return val.toDouble();
+    return double.tryParse(val.toString()) ?? 0.0;
   }
 
   Color _getStatusColor(String status) {
@@ -1292,14 +1293,14 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             }
 
             final name = item['name'] ?? 'Unknown';
-            final req = item['requiredQty'] ?? 0;
-            final reqAmount = (item['requiredAmount'] ?? 0).toDouble();
+            final req = parseQty(item['requiredQty']);
+            final reqAmount = parseQty(item['requiredAmount']);
             final price = req > 0 ? (reqAmount / req).round() : 0;
-            final sent = item['sendingQty'] ?? 0;
-            final conf = item['confirmedQty'] ?? 0;
-            final pick = item['pickedQty'] ?? 0;
-            final recv = item['receivedQty'] ?? 0;
-            final diff = item['differenceQty'] ?? 0;
+            final sent = parseQty(item['sendingQty']);
+            final conf = parseQty(item['confirmedQty']);
+            final pick = parseQty(item['pickedQty']);
+            final recv = parseQty(item['receivedQty']);
+            final diff = parseQty(item['differenceQty']);
             final bgColor = idx % 2 == 0 ? Colors.white : Colors.brown.shade50;
 
             return Container(
@@ -1309,30 +1310,30 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                 children: [
                   Expanded(flex: 3, child: Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
                   Expanded(flex: 1, child: Text(price.toString(), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
-                  Expanded(flex: 1, child: Text(req.toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-                  Expanded(flex: 1, child: Text(sent.toString(), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
-                  Expanded(flex: 1, child: Text(conf.toString(), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
-                  Expanded(flex: 1, child: Text(pick.toString(), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
-                  Expanded(flex: 1, child: Text(recv.toString(), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
-                  Expanded(flex: 1, child: Text(diff.toString(), style: TextStyle(fontSize: 11, color: diff != 0 ? Colors.red : Colors.black, fontWeight: diff != 0 ? FontWeight.bold : FontWeight.normal), textAlign: TextAlign.center)),
+                  Expanded(flex: 1, child: Text(req.round().toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                  Expanded(flex: 1, child: Text(sent.round().toString(), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                  Expanded(flex: 1, child: Text(conf.round().toString(), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                  Expanded(flex: 1, child: Text(pick.round().toString(), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                  Expanded(flex: 1, child: Text(recv.round().toString(), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                  Expanded(flex: 1, child: Text(diff.round().toString(), style: TextStyle(fontSize: 11, color: diff != 0 ? Colors.red : Colors.black, fontWeight: diff != 0 ? FontWeight.bold : FontWeight.normal), textAlign: TextAlign.center)),
                 ],
               ),
             );
           }).toList(),
           // Total Row
           Builder(builder: (context) {
-            int totalReq = 0, totalSent = 0, totalConf = 0, totalPick = 0, totalRecv = 0, totalDiff = 0;
+            double totalReq = 0, totalSent = 0, totalConf = 0, totalPick = 0, totalRecv = 0, totalDiff = 0;
             double totalReqAmt = 0, totalSntAmt = 0, totalRecAmt = 0;
             for (var item in items) {
-              totalReq += (item['requiredQty'] ?? 0) as int;
-              totalSent += (item['sendingQty'] ?? 0) as int;
-              totalConf += (item['confirmedQty'] ?? 0) as int;
-              totalPick += (item['pickedQty'] ?? 0) as int;
-              totalRecv += (item['receivedQty'] ?? 0) as int;
-              totalDiff += (item['differenceQty'] ?? 0) as int;
-              totalReqAmt += (item['requiredAmount'] ?? 0).toDouble();
-              totalSntAmt += (item['sendingAmount'] ?? 0).toDouble();
-              totalRecAmt += (item['receivedAmount'] ?? 0).toDouble();
+              totalReq += parseQty(item['requiredQty']);
+              totalSent += parseQty(item['sendingQty']);
+              totalConf += parseQty(item['confirmedQty']);
+              totalPick += parseQty(item['pickedQty']);
+              totalRecv += parseQty(item['receivedQty']);
+              totalDiff += parseQty(item['differenceQty']);
+              totalReqAmt += parseQty(item['requiredAmount']);
+              totalSntAmt += parseQty(item['sendingAmount']);
+              totalRecAmt += parseQty(item['receivedAmount']);
             }
             return Column(
               children: [
@@ -1344,12 +1345,12 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                     children: [
                       const Expanded(flex: 3, child: Text('Total', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white))),
                       const Expanded(flex: 1, child: Text('', style: TextStyle(fontSize: 11), textAlign: TextAlign.center)),
-                      Expanded(flex: 1, child: Text(totalReq.toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white), textAlign: TextAlign.center)),
-                      Expanded(flex: 1, child: Text(totalSent.toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white), textAlign: TextAlign.center)),
-                      Expanded(flex: 1, child: Text(totalConf.toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white), textAlign: TextAlign.center)),
-                      Expanded(flex: 1, child: Text(totalPick.toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white), textAlign: TextAlign.center)),
-                      Expanded(flex: 1, child: Text(totalRecv.toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white), textAlign: TextAlign.center)),
-                      Expanded(flex: 1, child: Text(totalDiff.toString(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: totalDiff != 0 ? Colors.yellow : Colors.white), textAlign: TextAlign.center)),
+                      Expanded(flex: 1, child: Text(totalReq.round().toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white), textAlign: TextAlign.center)),
+                      Expanded(flex: 1, child: Text(totalSent.round().toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white), textAlign: TextAlign.center)),
+                      Expanded(flex: 1, child: Text(totalConf.round().toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white), textAlign: TextAlign.center)),
+                      Expanded(flex: 1, child: Text(totalPick.round().toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white), textAlign: TextAlign.center)),
+                      Expanded(flex: 1, child: Text(totalRecv.round().toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white), textAlign: TextAlign.center)),
+                      Expanded(flex: 1, child: Text(totalDiff.round().toString(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: totalDiff != 0 ? Colors.yellow : Colors.white), textAlign: TextAlign.center)),
                     ],
                   ),
                 ),
