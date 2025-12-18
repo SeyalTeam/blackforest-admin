@@ -803,8 +803,8 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   }
 
   Widget _buildProductSummaryTable() {
-    // Map<DepartmentName, Map<CategoryName, Map<ProductName, Stats>>>
-    final Map<String, Map<String, Map<String, Map<String, double>>>> groupedAggregates = {};
+    // Map<CategoryName, Map<ProductName, Stats>>
+    final Map<String, Map<String, Map<String, double>>> groupedAggregates = {};
 
     for (var order in stockOrders) {
       final items = (order['items'] as List?) ?? [];
@@ -813,8 +813,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         
         final name = item['name']?.toString() ?? 'Unknown Product';
         
-        // Extract Category & Department safely
-        String departmentName = 'Unknown Department';
+        // Extract Category safely
         String categoryName = 'Unknown Category';
         
         Map<String, dynamic>? categoryData;
@@ -838,29 +837,19 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         
         if (categoryData != null) {
           categoryName = categoryData['name']?.toString() ?? 'Unknown Category';
-          final dept = categoryData['department'];
-          if (dept is Map) {
-            departmentName = dept['name']?.toString() ?? 'Unknown Department';
-          } else if (dept is String) {
-            departmentName = dept;
-          }
         }
         
-        if (!groupedAggregates.containsKey(departmentName)) {
-          groupedAggregates[departmentName] = {};
+        if (!groupedAggregates.containsKey(categoryName)) {
+          groupedAggregates[categoryName] = {};
         }
         
-        if (!groupedAggregates[departmentName]!.containsKey(categoryName)) {
-          groupedAggregates[departmentName]![categoryName] = {};
-        }
-        
-        if (!groupedAggregates[departmentName]![categoryName]!.containsKey(name)) {
-          groupedAggregates[departmentName]![categoryName]![name] = {
+        if (!groupedAggregates[categoryName]!.containsKey(name)) {
+          groupedAggregates[categoryName]![name] = {
             'Req': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Dif': 0.0,
           };
         }
 
-        final cur = groupedAggregates[departmentName]![categoryName]![name]!;
+        final cur = groupedAggregates[categoryName]![name]!;
         
         // Safe numeric parsing
         double parseQty(dynamic val) {
@@ -877,17 +866,17 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       }
     }
 
-    final sortedDepartments = groupedAggregates.keys.toList()..sort();
+    final sortedCategories = groupedAggregates.keys.toList()..sort();
     
     List<DataRow> rows = [];
     int pIndex = 0;
     
-    for (var deptName in sortedDepartments) {
-      // Add Department Header Row
+    for (var catName in sortedCategories) {
+      // Add Category Header Row
       rows.add(DataRow(
-        color: MaterialStateProperty.all(Colors.brown.shade400),
+        color: MaterialStateProperty.all(Colors.blueGrey.shade100),
         cells: [
-          DataCell(Text(deptName.toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16))),
+          DataCell(Text(catName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15))),
           const DataCell(Text('')),
           const DataCell(Text('')),
           const DataCell(Text('')),
@@ -896,49 +885,28 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         ],
       ));
 
-      final categoriesMap = groupedAggregates[deptName]!;
-      final sortedCategories = categoriesMap.keys.toList()..sort();
+      final productsMap = groupedAggregates[catName]!;
+      final sortedProducts = productsMap.keys.toList()..sort();
 
-      for (var catName in sortedCategories) {
-        // Add Category Header Row
+      for (var pName in sortedProducts) {
+        final data = productsMap[pName]!;
+        final bgColor = pIndex % 2 == 0 ? Colors.blue.withOpacity(0.05) : Colors.white;
+
         rows.add(DataRow(
-          color: MaterialStateProperty.all(Colors.blueGrey.shade100),
+          color: MaterialStateProperty.all(bgColor),
           cells: [
             DataCell(Padding(
-              padding: const EdgeInsets.only(left: 12.0),
-              child: Text(catName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              padding: const EdgeInsets.only(left: 16.0), // Normal indent
+              child: Text(pName, style: const TextStyle(fontWeight: FontWeight.bold)),
             )),
-            const DataCell(Text('')),
-            const DataCell(Text('')),
-            const DataCell(Text('')),
-            const DataCell(Text('')),
-            const DataCell(Text('')),
+            DataCell(Text(data['Req']!.round().toString())),
+            DataCell(Text(data['Snt']!.round().toString())),
+            DataCell(Text(data['Con']!.round().toString())),
+            DataCell(Text(data['Pic']!.round().toString())),
+            DataCell(Text(data['Dif']!.round().toString(), style: TextStyle(color: data['Dif']! != 0 ? Colors.red : Colors.black, fontWeight: FontWeight.bold))),
           ],
         ));
-
-        final productsMap = categoriesMap[catName]!;
-        final sortedProducts = productsMap.keys.toList()..sort();
-
-        for (var pName in sortedProducts) {
-          final data = productsMap[pName]!;
-          final bgColor = pIndex % 2 == 0 ? Colors.blue.withOpacity(0.05) : Colors.white;
-
-          rows.add(DataRow(
-            color: MaterialStateProperty.all(bgColor),
-            cells: [
-              DataCell(Padding(
-                padding: const EdgeInsets.only(left: 24.0), // Indent products further
-                child: Text(pName, style: const TextStyle(fontWeight: FontWeight.bold)),
-              )),
-              DataCell(Text(data['Req']!.round().toString())),
-              DataCell(Text(data['Snt']!.round().toString())),
-              DataCell(Text(data['Con']!.round().toString())),
-              DataCell(Text(data['Pic']!.round().toString())),
-              DataCell(Text(data['Dif']!.round().toString(), style: TextStyle(color: data['Dif']! != 0 ? Colors.red : Colors.black, fontWeight: FontWeight.bold))),
-            ],
-          ));
-          pIndex++;
-        }
+        pIndex++;
       }
     }
 
