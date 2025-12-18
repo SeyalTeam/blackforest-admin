@@ -905,18 +905,19 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     // Fixed column widths to ensure alignment across multiple DataTables
     const double nameColWidth = 350;
     const double dataColWidth = 100;
+    const double hMargin = 12; // Matching DataTable horizontalMargin
+    const double totalTableWidth = nameColWidth + (dataColWidth * 5) + (hMargin * 2);
 
     List<Widget> children = [];
     int pIndex = 0;
     
     for (var deptName in sortedDepartments) {
-      // Add Department Header Widget (Not a DataRow, so it can be centered across the whole row)
+      // Add Department Header Widget
       children.add(
         Container(
-          width: nameColWidth + (dataColWidth * 5) + 40, // Match table width
+          width: totalTableWidth,
           color: Colors.brown.shade400,
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-          margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           child: Center(
             child: Text(
               deptName.toUpperCase(),
@@ -930,13 +931,12 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       final sortedCategories = categoriesMap.keys.toList()..sort();
 
       for (var catName in sortedCategories) {
-        // Add Category Header Widget (Centered across the whole row)
+        // Add Category Header Widget
         children.add(
           Container(
-            width: nameColWidth + (dataColWidth * 5) + 40,
+            width: totalTableWidth,
             color: Colors.blueGrey.shade100,
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            margin: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+            padding: const EdgeInsets.symmetric(vertical: 8),
             child: Center(
               child: Text(
                 catName,
@@ -975,35 +975,33 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         }
 
         children.add(
-          Card(
-            elevation: 4,
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero), // Flat card for seamless transition
-            child: DataTable(
-              horizontalMargin: 12,
-              columnSpacing: 0,
-              headingRowColor: MaterialStateProperty.all(Colors.blueGrey.shade700),
-              headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              columns: [
-                DataColumn(label: SizedBox(width: nameColWidth, child: const Text('Product Name'))),
-                DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Req'))),
-                DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Snt'))),
-                DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Con'))),
-                DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Pic'))),
-                DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Dif'))),
-              ],
-              rows: productRows,
-            ),
+          DataTable(
+            horizontalMargin: hMargin,
+            columnSpacing: 0,
+            headingRowColor: MaterialStateProperty.all(Colors.blueGrey.shade700),
+            headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            columns: [
+              DataColumn(label: SizedBox(width: nameColWidth, child: const Text('Product Name'))),
+              DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Req'))),
+              DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Snt'))),
+              DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Con'))),
+              DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Pic'))),
+              DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Dif'))),
+            ],
+            rows: productRows,
           ),
         );
-        
-        children.add(const SizedBox(height: 10));
       }
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: children,
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.all(12),
+      clipBehavior: Clip.antiAlias, // Ensures background colors don't bleed out of card corners
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
     );
   }
 
