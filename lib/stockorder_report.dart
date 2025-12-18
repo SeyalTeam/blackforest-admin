@@ -46,6 +46,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   String selectedDepartmentId = 'ALL';
   String selectedCategoryId = 'ALL';
   String selectedProductId = 'ALL';
+  String selectedStatus = 'ALL';
 
   @override
   void initState() {
@@ -652,6 +653,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               selectedDepartmentId = 'ALL';
               selectedCategoryId = 'ALL';
               selectedProductId = 'ALL';
+              selectedStatus = 'ALL';
             });
             _fetchStockOrders();
           }
@@ -818,6 +820,34 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     );
   }
 
+  Widget _buildStatusFilter() {
+    return SizedBox(
+      width: 200,
+      child: DropdownButtonFormField<String>(
+        decoration: InputDecoration(
+          labelText: 'Status',
+          prefixIcon: const Icon(Icons.info_outline),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        value: selectedStatus,
+        items: const [
+          DropdownMenuItem(value: 'ALL', child: Text('All Status')),
+          DropdownMenuItem(value: 'Ordered', child: Text('Ordered')),
+          DropdownMenuItem(value: 'Sending', child: Text('Sending')),
+          DropdownMenuItem(value: 'Confirmed', child: Text('Confirmed')),
+          DropdownMenuItem(value: 'Picked', child: Text('Picked')),
+          DropdownMenuItem(value: 'Received', child: Text('Received')),
+        ],
+        onChanged: (val) {
+          if (val != null) {
+            setState(() => selectedStatus = val);
+          }
+        },
+      ),
+    );
+  }
+
   Widget _buildWebTable() {
     final Map<String, Map<String, double>> aggregates = {};
 
@@ -840,6 +870,20 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           // --- Product Filtering Logic ---
           final name = item['name']?.toString() ?? 'Unknown Product';
           if (selectedProductId != 'ALL' && name != selectedProductId) continue;
+          // ------------------------------
+
+          // --- Status Filtering Logic ---
+          if (selectedStatus != 'ALL') {
+             bool match = false;
+             if (selectedStatus == 'Ordered' && parseQty(item['requiredQty']) > 0) match = true;
+             else if (selectedStatus == 'Sending' && parseQty(item['sendingQty']) > 0) match = true;
+             else if (selectedStatus == 'Confirmed' && parseQty(item['confirmedQty']) > 0) match = true;
+             else if (selectedStatus == 'Picked' && parseQty(item['pickedQty']) > 0) match = true;
+             // For Received, we check receivedAmount as we did in aggregation or receivedQty if meaningful
+             else if (selectedStatus == 'Received' && parseQty(item['receivedAmount']) > 0) match = true;
+             
+             if (!match) continue;
+          }
           // ------------------------------
 
           // --- Department Filtering Logic ---
@@ -1103,7 +1147,20 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         
         // --- Product Filtering Logic ---
         if (selectedProductId != 'ALL' && name != selectedProductId) continue;
-        // --------------------------------
+        
+        // --- Status Filtering Logic ---
+        if (selectedStatus != 'ALL') {
+           bool match = false;
+           if (selectedStatus == 'Ordered' && parseQty(item['requiredQty']) > 0) match = true;
+           else if (selectedStatus == 'Sending' && parseQty(item['sendingQty']) > 0) match = true;
+           else if (selectedStatus == 'Confirmed' && parseQty(item['confirmedQty']) > 0) match = true;
+           else if (selectedStatus == 'Picked' && parseQty(item['pickedQty']) > 0) match = true;
+           // Note: Product Summary doesn't usually show 'Received', but we filter anyway if requested
+           else if (selectedStatus == 'Received' && parseQty(item['receivedAmount']) > 0) match = true;
+           
+           if (!match) continue;
+        }
+        // ------------------------------
         
         if (!groupedAggregates.containsKey(departmentName)) {
           groupedAggregates[departmentName] = {};
@@ -1520,6 +1577,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                   _buildDepartmentFilter(),
                   _buildCategoryFilter(),
                   _buildProductFilter(),
+                  _buildStatusFilter(),
               ],
             ),
           ),
@@ -1563,6 +1621,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                 selectedDepartmentId = 'ALL';
                 selectedCategoryId = 'ALL';
                 selectedProductId = 'ALL';
+                selectedStatus = 'ALL';
                 fromDate = DateTime.now();
                 toDate = DateTime.now();
               });
