@@ -1088,9 +1088,20 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     );
   }
 
+  String _formatTime(String? isoDate) {
+    if (isoDate == null || isoDate.isEmpty) return '';
+    try {
+      final dt = DateTime.parse(isoDate).add(const Duration(hours: 5, minutes: 30)); // UTC to IST
+      // 24-hour format HH:mm
+      return DateFormat('HH:mm').format(dt);
+    } catch (e) {
+      return '';
+    }
+  }
+
   Widget _buildProductSummaryTable() {
     // Map<DepartmentName, Map<CategoryName, Map<ProductName, Stats>>>
-    final Map<String, Map<String, Map<String, Map<String, double>>>> groupedAggregates = {};
+    final Map<String, Map<String, Map<String, Map<String, dynamic>>>> groupedAggregates = {};
 
     for (var order in stockOrders) {
       final items = (order['items'] as List?) ?? [];
@@ -1214,6 +1225,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         if (!groupedAggregates[departmentName]![categoryName]!.containsKey(name)) {
           groupedAggregates[departmentName]![categoryName]![name] = {
             'Ord': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Rec': 0.0, 'Dif': 0.0,
+            'OrdTime': '', 'SntTime': '', 'ConTime': '', 'PicTime': '', 'RecTime': '',
           };
         }
 
@@ -1227,6 +1239,21 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         cur['Pic'] = (cur['Pic']!) + parseQty(item['pickedQty']);
         cur['Rec'] = (cur['Rec']!) + parseQty(item['receivedQty']);
         cur['Dif'] = (cur['Dif']!) + parseQty(item['differenceQty']);
+
+        // Timestamp extraction
+        if (order['createdAt'] != null) cur['OrdTime'] = order['createdAt'];
+        
+        String? sTime = item['sendingAt']?.toString() ?? order['sendingAt']?.toString() ?? order['sentAt']?.toString();
+        if (sTime != null && sTime.isNotEmpty) cur['SntTime'] = sTime;
+
+        String? cTime = item['confirmedAt']?.toString() ?? order['confirmedAt']?.toString();
+        if (cTime != null && cTime.isNotEmpty) cur['ConTime'] = cTime;
+
+        String? pTime = item['pickedAt']?.toString() ?? order['pickedAt']?.toString();
+        if (pTime != null && pTime.isNotEmpty) cur['PicTime'] = pTime;
+
+        String? rTime = item['receivedAt']?.toString() ?? order['receivedAt']?.toString();
+        if (rTime != null && rTime.isNotEmpty) cur['RecTime'] = rTime;
       }
     }
 
@@ -1295,11 +1322,26 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                   child: Text(pName, style: const TextStyle(fontWeight: FontWeight.bold)),
                 ),
               )),
-              DataCell(SizedBox(width: dataColWidth, child: Text(data['Ord']!.round().toString()))),
-              DataCell(SizedBox(width: dataColWidth, child: Text(data['Snt']!.round().toString()))),
-              DataCell(SizedBox(width: dataColWidth, child: Text(data['Con']!.round().toString()))),
-              DataCell(SizedBox(width: dataColWidth, child: Text(data['Pic']!.round().toString()))),
-              DataCell(SizedBox(width: dataColWidth, child: Text(data['Rec']!.round().toString()))),
+              DataCell(SizedBox(width: dataColWidth, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text(data['Ord']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(_formatTime(data['OrdTime']), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+              ]))),
+              DataCell(SizedBox(width: dataColWidth, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text(data['Snt']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(_formatTime(data['SntTime']), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+              ]))),
+              DataCell(SizedBox(width: dataColWidth, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text(data['Con']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(_formatTime(data['ConTime']), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+              ]))),
+              DataCell(SizedBox(width: dataColWidth, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text(data['Pic']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(_formatTime(data['PicTime']), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+              ]))),
+              DataCell(SizedBox(width: dataColWidth, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text(data['Rec']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(_formatTime(data['RecTime']), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+              ]))),
               DataCell(SizedBox(width: dataColWidth, child: Text(data['Dif']!.round().toString(), style: TextStyle(color: data['Dif']! != 0 ? Colors.red : Colors.black, fontWeight: FontWeight.bold)))),
             ],
           ));
