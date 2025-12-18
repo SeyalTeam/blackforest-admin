@@ -902,82 +902,108 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
     final sortedDepartments = groupedAggregates.keys.toList()..sort();
     
-    List<DataRow> rows = [];
+    // Fixed column widths to ensure alignment across multiple DataTables
+    const double nameColWidth = 350;
+    const double dataColWidth = 100;
+
+    List<Widget> children = [];
     int pIndex = 0;
     
     for (var deptName in sortedDepartments) {
-      // Add Department Header Row
-      rows.add(DataRow(
-        color: MaterialStateProperty.all(Colors.brown.shade400),
-        cells: [
-          DataCell(Center(child: Text(deptName.toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)))),
-          const DataCell(Text('')),
-          const DataCell(Text('')),
-          const DataCell(Text('')),
-          const DataCell(Text('')),
-          const DataCell(Text('')),
-        ],
-      ));
+      // Add Department Header Widget (Not a DataRow, so it can be centered across the whole row)
+      children.add(
+        Container(
+          width: nameColWidth + (dataColWidth * 5) + 40, // Match table width
+          color: Colors.brown.shade400,
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+          margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+          child: Center(
+            child: Text(
+              deptName.toUpperCase(),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ),
+        ),
+      );
 
       final categoriesMap = groupedAggregates[deptName]!;
       final sortedCategories = categoriesMap.keys.toList()..sort();
 
       for (var catName in sortedCategories) {
-        // Add Category Header Row
-        rows.add(DataRow(
-          color: MaterialStateProperty.all(Colors.blueGrey.shade100),
-          cells: [
-            DataCell(Center(child: Text(catName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)))),
-            const DataCell(Text('')),
-            const DataCell(Text('')),
-            const DataCell(Text('')),
-            const DataCell(Text('')),
-            const DataCell(Text('')),
-          ],
-        ));
+        // Add Category Header Widget (Centered across the whole row)
+        children.add(
+          Container(
+            width: nameColWidth + (dataColWidth * 5) + 40,
+            color: Colors.blueGrey.shade100,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            margin: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+            child: Center(
+              child: Text(
+                catName,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+            ),
+          ),
+        );
 
         final productsMap = categoriesMap[catName]!;
         final sortedProducts = productsMap.keys.toList()..sort();
-
+        
+        List<DataRow> productRows = [];
         for (var pName in sortedProducts) {
           final data = productsMap[pName]!;
           final bgColor = pIndex % 2 == 0 ? Colors.blue.withOpacity(0.05) : Colors.white;
 
-          rows.add(DataRow(
+          productRows.add(DataRow(
             color: MaterialStateProperty.all(bgColor),
             cells: [
-              DataCell(Padding(
-                padding: const EdgeInsets.only(left: 24.0), // Indent products further
-                child: Text(pName, style: const TextStyle(fontWeight: FontWeight.bold)),
+              DataCell(SizedBox(
+                width: nameColWidth,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 24.0),
+                  child: Text(pName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                ),
               )),
-              DataCell(Text(data['Req']!.round().toString())),
-              DataCell(Text(data['Snt']!.round().toString())),
-              DataCell(Text(data['Con']!.round().toString())),
-              DataCell(Text(data['Pic']!.round().toString())),
-              DataCell(Text(data['Dif']!.round().toString(), style: TextStyle(color: data['Dif']! != 0 ? Colors.red : Colors.black, fontWeight: FontWeight.bold))),
+              DataCell(SizedBox(width: dataColWidth, child: Text(data['Req']!.round().toString()))),
+              DataCell(SizedBox(width: dataColWidth, child: Text(data['Snt']!.round().toString()))),
+              DataCell(SizedBox(width: dataColWidth, child: Text(data['Con']!.round().toString()))),
+              DataCell(SizedBox(width: dataColWidth, child: Text(data['Pic']!.round().toString()))),
+              DataCell(SizedBox(width: dataColWidth, child: Text(data['Dif']!.round().toString(), style: TextStyle(color: data['Dif']! != 0 ? Colors.red : Colors.black, fontWeight: FontWeight.bold)))),
             ],
           ));
           pIndex++;
         }
+
+        children.add(
+          Card(
+            elevation: 4,
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero), // Flat card for seamless transition
+            child: DataTable(
+              horizontalMargin: 12,
+              columnSpacing: 0,
+              headingRowColor: MaterialStateProperty.all(Colors.blueGrey.shade700),
+              headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              columns: [
+                DataColumn(label: SizedBox(width: nameColWidth, child: const Text('Product Name'))),
+                DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Req'))),
+                DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Snt'))),
+                DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Con'))),
+                DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Pic'))),
+                DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Dif'))),
+              ],
+              rows: productRows,
+            ),
+          ),
+        );
+        
+        children.add(const SizedBox(height: 10));
       }
     }
 
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-      child: DataTable(
-        headingRowColor: MaterialStateProperty.all(Colors.blueGrey.shade700),
-        headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        columns: const [
-          DataColumn(label: Text('Product Name')),
-          DataColumn(label: Text('Req (Qty)')),
-          DataColumn(label: Text('Snt (Qty)')),
-          DataColumn(label: Text('Con (Qty)')),
-          DataColumn(label: Text('Pic (Qty)')),
-          DataColumn(label: Text('Dif (Qty)')),
-        ],
-        rows: rows,
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
     );
   }
 
