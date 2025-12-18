@@ -39,6 +39,8 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   List<Map<String, dynamic>> categories = [];
   List<Map<String, dynamic>> departments = [];
   Map<String, dynamic>? _combinedOrder;
+  final ScrollController _webVScroll = ScrollController();
+  final ScrollController _webHScroll = ScrollController();
 
   @override
   void initState() {
@@ -747,30 +749,26 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       ],
     ));
 
-    final vScroll = ScrollController();
-    final hScroll = ScrollController();
-    
     return Align(
       alignment: Alignment.topLeft,
       child: Scrollbar(
-        controller: vScroll,
+        controller: _webVScroll,
         thumbVisibility: true,
         trackVisibility: true,
         child: SingleChildScrollView(
-          controller: vScroll,
+          controller: _webVScroll,
           scrollDirection: Axis.vertical,
           child: Scrollbar(
-            controller: hScroll,
+            controller: _webHScroll,
             thumbVisibility: true,
             trackVisibility: true,
             notificationPredicate: (notif) => notif.depth == 1,
             child: SingleChildScrollView(
-              controller: hScroll,
+              controller: _webHScroll,
               scrollDirection: Axis.horizontal,
-              child: IntrinsicWidth(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                     // Branch Table
                     Card(
                       elevation: 4,
@@ -793,10 +791,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
                     const SizedBox(height: 20),
                     
-                    // Product Table
-                    _buildProductSummaryTable(),
-                  ],
-                ),
+                  // Product Table
+                  _buildProductSummaryTable(),
+                ],
               ),
             ),
           ),
@@ -812,24 +809,40 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     for (var order in stockOrders) {
       final items = (order['items'] as List?) ?? [];
       for (var item in items) {
-        final name = item['name'] ?? 'Unknown Product';
+        if (item is! Map) continue;
         
-        // Extract Category & Department
+        final name = item['name']?.toString() ?? 'Unknown Product';
+        
+        // Extract Category & Department safely
         String departmentName = 'Unknown Department';
         String categoryName = 'Unknown Category';
         
         Map<String, dynamic>? categoryData;
-        if (item['product'] is Map && item['product']['category'] != null) {
-          categoryData = item['product']['category'];
-        } else if (item['category'] != null) {
-          categoryData = item['category'];
+        
+        // Check product.category
+        final prod = item['product'];
+        if (prod is Map) {
+          final cat = prod['category'];
+          if (cat is Map) {
+            categoryData = cat.cast<String, dynamic>();
+          }
+        }
+        
+        // Fallback to item.category
+        if (categoryData == null) {
+          final cat = item['category'];
+          if (cat is Map) {
+            categoryData = cat.cast<String, dynamic>();
+          }
         }
         
         if (categoryData != null) {
-          categoryName = categoryData['name'] ?? 'Unknown Category';
-          if (categoryData['department'] != null) {
-             final dept = categoryData['department'];
-             departmentName = dept['name'] ?? 'Unknown Department';
+          categoryName = categoryData['name']?.toString() ?? 'Unknown Category';
+          final dept = categoryData['department'];
+          if (dept is Map) {
+            departmentName = dept['name']?.toString() ?? 'Unknown Department';
+          } else if (dept is String) {
+            departmentName = dept;
           }
         }
         
@@ -848,11 +861,19 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         }
 
         final cur = groupedAggregates[departmentName]![categoryName]![name]!;
-        cur['Req'] = (cur['Req']!) + (item['requiredQty'] ?? 0).toDouble();
-        cur['Snt'] = (cur['Snt']!) + (item['sendingQty'] ?? 0).toDouble();
-        cur['Con'] = (cur['Con']!) + (item['confirmedQty'] ?? 0).toDouble();
-        cur['Pic'] = (cur['Pic']!) + (item['pickedQty'] ?? 0).toDouble();
-        cur['Dif'] = (cur['Dif']!) + (item['differenceQty'] ?? 0).toDouble();
+        
+        // Safe numeric parsing
+        double parseQty(dynamic val) {
+          if (val == null) return 0.0;
+          if (val is num) return val.toDouble();
+          return double.tryParse(val.toString()) ?? 0.0;
+        }
+
+        cur['Req'] = (cur['Req']!) + parseQty(item['requiredQty']);
+        cur['Snt'] = (cur['Snt']!) + parseQty(item['sendingQty']);
+        cur['Con'] = (cur['Con']!) + parseQty(item['confirmedQty']);
+        cur['Pic'] = (cur['Pic']!) + parseQty(item['pickedQty']);
+        cur['Dif'] = (cur['Dif']!) + parseQty(item['differenceQty']);
       }
     }
 
@@ -1186,6 +1207,20 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       ),
     ),
     );
+  }
+
+  @override
+  void dispose() {
+    _webVScroll.dispose();
+    _webHScroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  void dispose() {
+    _webVScroll.dispose();
+    _webHScroll.dispose();
+    super.dispose();
   }
 
   @override
