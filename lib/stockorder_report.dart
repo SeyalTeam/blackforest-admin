@@ -807,7 +807,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
   Widget _buildProductSummaryTable() {
     // Map<DepartmentName, Map<CategoryName, Map<ProductName, Stats>>>
-    final Map<String, Map<String, Map<String, Map<String, int>>>> groupedAggregates = {};
+    final Map<String, Map<String, Map<String, Map<String, double>>>> groupedAggregates = {};
 
     for (var order in stockOrders) {
       final items = (order['items'] as List?) ?? [];
@@ -843,16 +843,16 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         
         if (!groupedAggregates[departmentName]![categoryName]!.containsKey(name)) {
           groupedAggregates[departmentName]![categoryName]![name] = {
-            'Req': 0, 'Snt': 0, 'Con': 0, 'Pic': 0, 'Dif': 0,
+            'Req': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Dif': 0.0,
           };
         }
 
         final cur = groupedAggregates[departmentName]![categoryName]![name]!;
-        cur['Req'] = (cur['Req']!) + ((item['requiredQty'] ?? 0) as int);
-        cur['Snt'] = (cur['Snt']!) + ((item['sendingQty'] ?? 0) as int);
-        cur['Con'] = (cur['Con']!) + ((item['confirmedQty'] ?? 0) as int);
-        cur['Pic'] = (cur['Pic']!) + ((item['pickedQty'] ?? 0) as int);
-        cur['Dif'] = (cur['Dif']!) + ((item['differenceQty'] ?? 0) as int);
+        cur['Req'] = (cur['Req']!) + (item['requiredQty'] ?? 0).toDouble();
+        cur['Snt'] = (cur['Snt']!) + (item['sendingQty'] ?? 0).toDouble();
+        cur['Con'] = (cur['Con']!) + (item['confirmedQty'] ?? 0).toDouble();
+        cur['Pic'] = (cur['Pic']!) + (item['pickedQty'] ?? 0).toDouble();
+        cur['Dif'] = (cur['Dif']!) + (item['differenceQty'] ?? 0).toDouble();
       }
     }
 
@@ -909,11 +909,11 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                 padding: const EdgeInsets.only(left: 24.0), // Indent products further
                 child: Text(pName, style: const TextStyle(fontWeight: FontWeight.bold)),
               )),
-              DataCell(Text(data['Req'].toString())),
-              DataCell(Text(data['Snt'].toString())),
-              DataCell(Text(data['Con'].toString())),
-              DataCell(Text(data['Pic'].toString())),
-              DataCell(Text(data['Dif'].toString(), style: TextStyle(color: data['Dif']! != 0 ? Colors.red : Colors.black, fontWeight: FontWeight.bold))),
+              DataCell(Text(data['Req']!.round().toString())),
+              DataCell(Text(data['Snt']!.round().toString())),
+              DataCell(Text(data['Con']!.round().toString())),
+              DataCell(Text(data['Pic']!.round().toString())),
+              DataCell(Text(data['Dif']!.round().toString(), style: TextStyle(color: data['Dif']! != 0 ? Colors.red : Colors.black, fontWeight: FontWeight.bold))),
             ],
           ));
           pIndex++;
