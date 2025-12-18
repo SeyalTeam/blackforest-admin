@@ -35,9 +35,13 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   DateTime? toDate;
   List<Map<String, String>> branches = [];
   String selectedBranchId = 'ALL';
+  String selectedDepartmentId = 'ALL';
+  String selectedCategoryId = 'ALL';
+  String selectedProductId = 'ALL';
   List<Map<String, dynamic>> stockOrders = [];
   List<Map<String, dynamic>> categories = [];
   List<Map<String, dynamic>> departments = [];
+  List<Map<String, String>> availableProducts = [];
   Map<String, dynamic>? _combinedOrder;
   final ScrollController _webVScroll = ScrollController();
   final ScrollController _webHScroll = ScrollController();
@@ -158,6 +162,22 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
         setState(() {
           stockOrders = docs.cast<Map<String, dynamic>>();
+          
+          // Populate available products from orders
+          final allProds = <Map<String, String>>[{'id': 'ALL', 'name': 'All Products'}];
+          final productNames = <String>{};
+          for (var order in stockOrders) {
+            final items = (order['items'] as List?) ?? [];
+            for (var item in items) {
+              final name = item['name']?.toString();
+              if (name != null && !productNames.contains(name)) {
+                productNames.add(name);
+                allProds.add({'id': name, 'name': name});
+              }
+            }
+          }
+          availableProducts = allProds;
+
           stockOrders.sort((a, b) {
             final dateA = DateTime.tryParse(a['createdAt'] ?? '');
             final dateB = DateTime.tryParse(b['createdAt'] ?? '');
@@ -625,7 +645,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     return _loadingBranches
         ? const SizedBox(height: 40, width: 40, child: Center(child: CircularProgressIndicator()))
         : SizedBox(
-            width: 250,
+            width: 200,
             child: DropdownButtonFormField<String>(
             value: selectedBranchId,
             items: branches.map((b) {
@@ -647,6 +667,69 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             ),
           ),
         );
+  }
+
+  Widget _buildDepartmentFilter() {
+    final list = <Map<String, String>>[{'id': 'ALL', 'name': 'All Departments'}];
+    for (var d in departments) {
+      final id = (d['id'] ?? d['_id'])?.toString();
+      final name = d['name']?.toString();
+      if (id != null && name != null) list.add({'id': name, 'name': name});
+    }
+    return SizedBox(
+      width: 200,
+      child: DropdownButtonFormField<String>(
+        value: selectedDepartmentId,
+        items: list.map((d) => DropdownMenuItem(value: d['id'], child: Text(d['name']!, overflow: TextOverflow.ellipsis))).toList(),
+        onChanged: (v) => setState(() => selectedDepartmentId = v ?? 'ALL'),
+        decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+          isDense: true,
+          labelText: 'Department',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryFilter() {
+    final list = <Map<String, String>>[{'id': 'ALL', 'name': 'All Categories'}];
+    for (var c in categories) {
+      final id = (c['id'] ?? c['_id'])?.toString();
+      final name = c['name']?.toString();
+      if (id != null && name != null) list.add({'id': name, 'name': name});
+    }
+    return SizedBox(
+      width: 200,
+      child: DropdownButtonFormField<String>(
+        value: selectedCategoryId,
+        items: list.map((c) => DropdownMenuItem(value: c['id'], child: Text(c['name']!, overflow: TextOverflow.ellipsis))).toList(),
+        onChanged: (v) => setState(() => selectedCategoryId = v ?? 'ALL'),
+        decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+          isDense: true,
+          labelText: 'Category',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductFilter() {
+    return SizedBox(
+      width: 200,
+      child: DropdownButtonFormField<String>(
+        value: selectedProductId,
+        items: availableProducts.map((p) => DropdownMenuItem(value: p['id'], child: Text(p['name']!, overflow: TextOverflow.ellipsis))).toList(),
+        onChanged: (v) => setState(() => selectedProductId = v ?? 'ALL'),
+        decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+          isDense: true,
+          labelText: 'Product',
+        ),
+      ),
+    );
   }
 
   Widget _buildWebTable() {
@@ -813,11 +896,19 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         
         final name = item['name']?.toString() ?? 'Unknown Product';
         
+        // Product Filter
+        if (selectedProductId != 'ALL' && name != selectedProductId) continue;
+
         // Extract Category & Department safely
         String departmentName = 'Unknown Department';
         String categoryName = 'Unknown Category';
         
         Map<String, dynamic>? categoryData;
+        
+        // Category Filter
+        if (selectedCategoryId != 'ALL' && categoryName != selectedCategoryId) continue;
+        // Department Filter
+        if (selectedDepartmentId != 'ALL' && departmentName != selectedDepartmentId) continue;
         
         // Check product.category
         final prod = item['product'];
@@ -868,6 +959,11 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             departmentName = foundDept['name']?.toString() ?? dept;
           }
         }
+
+        // Category Filter (Repeated check after data is fully extracted)
+        if (selectedCategoryId != 'ALL' && categoryName != selectedCategoryId) continue;
+        // Department Filter (Repeated check after data is fully extracted)
+        if (selectedDepartmentId != 'ALL' && departmentName != selectedDepartmentId) continue;
         
         if (!groupedAggregates.containsKey(departmentName)) {
           groupedAggregates[departmentName] = {};
@@ -879,7 +975,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         
         if (!groupedAggregates[departmentName]![categoryName]!.containsKey(name)) {
           groupedAggregates[departmentName]![categoryName]![name] = {
-            'Req': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Dif': 0.0,
+            'Ord': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Dif': 0.0,
           };
         }
 
@@ -892,7 +988,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           return double.tryParse(val.toString()) ?? 0.0;
         }
 
-        cur['Req'] = (cur['Req']!) + parseQty(item['requiredQty']);
+        cur['Ord'] = (cur['Ord']!) + parseQty(item['requiredQty']);
         cur['Snt'] = (cur['Snt']!) + parseQty(item['sendingQty']);
         cur['Con'] = (cur['Con']!) + parseQty(item['confirmedQty']);
         cur['Pic'] = (cur['Pic']!) + parseQty(item['pickedQty']);
@@ -964,7 +1060,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                   child: Text(pName, style: const TextStyle(fontWeight: FontWeight.bold)),
                 ),
               )),
-              DataCell(SizedBox(width: dataColWidth, child: Text(data['Req']!.round().toString()))),
+              DataCell(SizedBox(width: dataColWidth, child: Text(data['Ord']!.round().toString()))),
               DataCell(SizedBox(width: dataColWidth, child: Text(data['Snt']!.round().toString()))),
               DataCell(SizedBox(width: dataColWidth, child: Text(data['Con']!.round().toString()))),
               DataCell(SizedBox(width: dataColWidth, child: Text(data['Pic']!.round().toString()))),
@@ -982,7 +1078,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             columns: [
               DataColumn(label: SizedBox(width: nameColWidth, child: const Text('Product Name'))),
-              DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Req'))),
+              DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Ord'))),
               DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Snt'))),
               DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Con'))),
               DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Pic'))),
@@ -1279,7 +1375,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               children: [
                  _buildDateSelector(),
                  _buildBranchFilter(),
-                 // Could add more filters or stats here
+                 _buildDepartmentFilter(),
+                 _buildCategoryFilter(),
+                 _buildProductFilter(),
               ],
             ),
           ),
