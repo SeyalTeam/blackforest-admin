@@ -1243,43 +1243,40 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         // Timestamp extraction
         if (order['createdAt'] != null) cur['OrdTime'] = order['createdAt'];
         
-        String? sTime = item['sendingAt']?.toString() ?? order['sendingAt']?.toString() ?? order['sentAt']?.toString() ?? item['sendingTime']?.toString() ?? order['sendingTime']?.toString();
-
-        if (sTime == null || sTime.isEmpty) {
-          dynamic sentBy = item['sendingUpdatedBy'] ?? order['sendingUpdatedBy'];
-          
-          if (sentBy is List && sentBy.isNotEmpty) {
-             sentBy = sentBy.last;
+        // Timestamp Extraction Helper
+        String? getTs(List<String> keys, List<String> objKeys) {
+          for (var k in keys) {
+            final v = item[k]?.toString() ?? order[k]?.toString();
+            if (v != null && v.isNotEmpty) return v;
           }
-
-          if (sentBy is Map) {
-            // Check common timestamp keys
-            sTime = sentBy['date']?.toString() ?? sentBy['createdAt']?.toString() ?? sentBy['updatedAt']?.toString() ?? sentBy['time']?.toString() ?? sentBy['timestamp']?.toString();
-          } else if (sentBy is String) {
-            // If it's a string, it might be the date itself or a JSON string
-            if (sentBy.startsWith('{')) {
-               try {
-                 final map = jsonDecode(sentBy);
-                 if (map is Map) {
-                   sTime = map['date']?.toString() ?? map['createdAt']?.toString() ?? map['updatedAt']?.toString() ?? map['time']?.toString() ?? map['timestamp']?.toString();
-                 }
-               } catch (_) {}
-            } else {
-               sTime = sentBy;
+          for (var k in objKeys) {
+            dynamic v = item[k] ?? order[k];
+            if (v is List && v.isNotEmpty) v = v.last;
+            if (v is Map) {
+              return v['date']?.toString() ?? v['createdAt']?.toString() ?? v['updatedAt']?.toString() ?? v['time']?.toString() ?? v['timestamp']?.toString();
+            } else if (v is String) {
+               if (v.startsWith('{')) {
+                 try {
+                   final m = jsonDecode(v);
+                   if (m is Map) return m['date']?.toString() ?? m['createdAt']?.toString() ?? m['updatedAt']?.toString() ?? m['time']?.toString() ?? m['timestamp']?.toString();
+                 } catch (_) {}
+               } else if (v.isNotEmpty) { return v; }
             }
           }
+          return null;
         }
 
-        if (sTime != null && sTime.isNotEmpty) cur['SntTime'] = sTime;
+        final sTime = getTs(['sendingAt', 'sentAt', 'sendingTime'], ['sendingUpdatedBy']);
+        if (sTime != null) cur['SntTime'] = sTime;
 
-        String? cTime = item['confirmedAt']?.toString() ?? order['confirmedAt']?.toString();
-        if (cTime != null && cTime.isNotEmpty) cur['ConTime'] = cTime;
+        final cTime = getTs(['confirmedAt', 'confirmedTime'], ['confirmedUpdatedBy']);
+        if (cTime != null) cur['ConTime'] = cTime;
 
-        String? pTime = item['pickedAt']?.toString() ?? order['pickedAt']?.toString();
-        if (pTime != null && pTime.isNotEmpty) cur['PicTime'] = pTime;
+        final pTime = getTs(['pickedAt', 'pickedTime'], ['pickedUpdatedBy']);
+        if (pTime != null) cur['PicTime'] = pTime;
 
-        String? rTime = item['receivedAt']?.toString() ?? order['receivedAt']?.toString();
-        if (rTime != null && rTime.isNotEmpty) cur['RecTime'] = rTime;
+        final rTime = getTs(['receivedAt', 'receivedTime'], ['receivedUpdatedBy']);
+        if (rTime != null) cur['RecTime'] = rTime;
       }
     }
 
