@@ -42,10 +42,6 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   final ScrollController _webVScroll = ScrollController();
   final ScrollController _webHScroll = ScrollController();
 
-  String selectedDepartmentId = 'ALL';
-  String selectedCategoryId = 'ALL';
-  String selectedProductId = 'ALL';
-
   @override
   void initState() {
     super.initState();
@@ -646,136 +642,8 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         ],
         onChanged: (val) {
           if (val != null) {
-            setState(() {
-              selectedBranchId = val;
-              // Reset downstream filters if branch changes? 
-              // Usually branches don't strictly contain depts, but we'll reset for safety.
-              selectedDepartmentId = 'ALL';
-              selectedCategoryId = 'ALL';
-              selectedProductId = 'ALL';
-            });
+            setState(() => selectedBranchId = val);
             _fetchStockOrders();
-          }
-        },
-      ),
-    );
-  }
-
-  Widget _buildDepartmentFilter() {
-    return SizedBox(
-      width: 200,
-      child: DropdownButtonFormField<String>(
-        decoration: InputDecoration(
-          labelText: 'Department',
-          prefixIcon: const Icon(Icons.business),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        ),
-        value: selectedDepartmentId,
-        items: [
-          const DropdownMenuItem(value: 'ALL', child: Text('All Departments')),
-          ...departments.map((d) => DropdownMenuItem(
-                value: (d['id'] ?? d['_id'])?.toString() ?? '',
-                child: Text(d['name']?.toString() ?? 'Unknown', overflow: TextOverflow.ellipsis),
-              )),
-        ],
-        onChanged: (val) {
-          if (val != null) {
-            setState(() {
-              selectedDepartmentId = val;
-              selectedCategoryId = 'ALL';
-              selectedProductId = 'ALL';
-            });
-          }
-        },
-      ),
-    );
-  }
-
-  Widget _buildCategoryFilter() {
-    // Cascade: filter categories by selected department if needed
-    List<Map<String, dynamic>> filteredCategories = categories;
-    if (selectedDepartmentId != 'ALL') {
-      filteredCategories = categories.where((c) {
-        final dept = c['department'];
-        final deptId = dept is Map ? (dept['id'] ?? dept['_id']) : dept;
-        return deptId?.toString() == selectedDepartmentId;
-      }).toList();
-    }
-
-    return SizedBox(
-      width: 200,
-      child: DropdownButtonFormField<String>(
-        decoration: InputDecoration(
-          labelText: 'Category',
-          prefixIcon: const Icon(Icons.category),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        ),
-        value: selectedCategoryId,
-        items: [
-          const DropdownMenuItem(value: 'ALL', child: Text('All Categories')),
-          ...filteredCategories.map((c) => DropdownMenuItem(
-                value: (c['id'] ?? c['_id'])?.toString() ?? '',
-                child: Text(c['name']?.toString() ?? 'Unknown', overflow: TextOverflow.ellipsis),
-              )),
-        ],
-        onChanged: (val) {
-          if (val != null) {
-            setState(() {
-              selectedCategoryId = val;
-              selectedProductId = 'ALL';
-            });
-          }
-        },
-      ),
-    );
-  }
-
-  Widget _buildProductFilter() {
-    // Collect unique products from stockOrders (optionally filtered by Dept/Cat)
-    final Set<String> productNames = {};
-    for (var order in stockOrders) {
-      final items = (order['items'] as List?) ?? [];
-      for (var item in items) {
-        final name = item['name']?.toString();
-        if (name == null) continue;
-
-        // Apply Dept/Cat filters to the list of available products in the dropdown
-        bool matches = true;
-        if (selectedCategoryId != 'ALL' || selectedDepartmentId != 'ALL') {
-           // We need to check if this item belongs to the selected Cat/Dept
-           // This is slightly expensive in a loop but necessary for a clean UI
-           // For now, let's just show all active products found in the current orders
-           // to make it easier for the user to find what they see.
-        }
-        
-        productNames.add(name);
-      }
-    }
-
-    final sortedProducts = productNames.toList()..sort();
-
-    return SizedBox(
-      width: 250,
-      child: DropdownButtonFormField<String>(
-        decoration: InputDecoration(
-          labelText: 'Product',
-          prefixIcon: const Icon(Icons.inventory),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        ),
-        value: selectedProductId,
-        items: [
-          const DropdownMenuItem(value: 'ALL', child: Text('All Products')),
-          ...sortedProducts.map((p) => DropdownMenuItem(
-                value: p,
-                child: Text(p, overflow: TextOverflow.ellipsis),
-              )),
-        ],
-        onChanged: (val) {
-          if (val != null) {
-            setState(() => selectedProductId = val);
           }
         },
       ),
@@ -801,37 +669,6 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
       final items = (order['items'] as List?) ?? [];
       for (var item in items) {
-        // --- Local Filtering Logic ---
-        final name = item['name']?.toString() ?? 'Unknown Product';
-        if (selectedProductId != 'ALL' && name != selectedProductId) continue;
-
-        // Determine Category/Dept for this item
-        String itemDeptId = 'UNKNOWN';
-        String itemCatId = 'UNKNOWN';
-
-        Map<String, dynamic>? catData;
-        final prod = item['product'];
-        if (prod is Map && prod['category'] != null) {
-          final cat = prod['category'];
-          if (cat is Map) catData = cat.cast<String, dynamic>();
-          else if (cat is String) itemCatId = cat;
-        }
-        if (catData == null && item['category'] != null) {
-          final cat = item['category'];
-          if (cat is Map) catData = cat.cast<String, dynamic>();
-          else if (cat is String) itemCatId = cat;
-        }
-
-        if (catData != null) {
-          itemCatId = (catData['id'] ?? catData['_id'])?.toString() ?? 'UNKNOWN';
-          final dept = catData['department'];
-          itemDeptId = (dept is Map ? (dept['id'] ?? dept['_id']) : dept)?.toString() ?? 'UNKNOWN';
-        }
-
-        if (selectedDepartmentId != 'ALL' && itemDeptId != selectedDepartmentId) continue;
-        if (selectedCategoryId != 'ALL' && itemCatId != selectedCategoryId) continue;
-        // -----------------------------
-
         final cur = aggregates[bName]!;
 
         final reqQty = parseQty(item['requiredQty']);
@@ -973,10 +810,6 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         
         final name = item['name']?.toString() ?? 'Unknown Product';
         
-        // --- Local Filtering Logic ---
-        if (selectedProductId != 'ALL' && name != selectedProductId) continue;
-        // -----------------------------
-
         // Extract Category & Department safely
         String departmentName = 'Unknown Department';
         String categoryName = 'Unknown Category';
@@ -1032,23 +865,6 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             departmentName = foundDept['name']?.toString() ?? dept;
           }
         }
-        
-        // --- Local Filtering Logic (Dept/Cat IDs) ---
-        // Since groupedAggregates uses Names as keys, we filter by comparing IDs manually here.
-        if (selectedDepartmentId != 'ALL') {
-          String? currentDeptId;
-          if (categoryData != null) {
-            final dept = categoryData['department'];
-            currentDeptId = (dept is Map ? (dept['id'] ?? dept['_id']) : dept)?.toString();
-          }
-          if (currentDeptId != selectedDepartmentId) continue;
-        }
-        
-        if (selectedCategoryId != 'ALL') {
-          String? currentCatId = (categoryData?['id'] ?? categoryData?['_id'])?.toString();
-          if (currentCatId != selectedCategoryId) continue;
-        }
-        // --------------------------------------------
         
         if (!groupedAggregates.containsKey(departmentName)) {
           groupedAggregates[departmentName] = {};
@@ -1462,9 +1278,6 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               children: [
                   _buildDateSelector(),
                   _buildBranchFilter(),
-                  _buildDepartmentFilter(),
-                  _buildCategoryFilter(),
-                  _buildProductFilter(),
               ],
             ),
           ),
@@ -1505,9 +1318,6 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             onPressed: () {
               setState(() {
                 selectedBranchId = 'ALL';
-                selectedDepartmentId = 'ALL';
-                selectedCategoryId = 'ALL';
-                selectedProductId = 'ALL';
                 fromDate = DateTime.now();
                 toDate = DateTime.now();
               });
