@@ -44,6 +44,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   final ScrollController _webHScroll = ScrollController();
 
   String selectedDepartmentId = 'ALL';
+  String selectedCategoryId = 'ALL';
 
   @override
   void initState() {
@@ -648,6 +649,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             setState(() {
               selectedBranchId = val;
               selectedDepartmentId = 'ALL';
+              selectedCategoryId = 'ALL';
             });
             _fetchStockOrders();
           }
@@ -676,7 +678,46 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         ],
         onChanged: (val) {
           if (val != null) {
-            setState(() => selectedDepartmentId = val);
+            setState(() {
+              selectedDepartmentId = val;
+              selectedCategoryId = 'ALL';
+            });
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildCategoryFilter() {
+    List<Map<String, dynamic>> filteredCategories = categories;
+    if (selectedDepartmentId != 'ALL') {
+      filteredCategories = categories.where((c) {
+        final dept = c['department'];
+        final deptId = dept is Map ? (dept['id'] ?? dept['_id']) : dept;
+        return deptId?.toString() == selectedDepartmentId;
+      }).toList();
+    }
+
+    return SizedBox(
+      width: 200,
+      child: DropdownButtonFormField<String>(
+        decoration: InputDecoration(
+          labelText: 'Category',
+          prefixIcon: const Icon(Icons.category),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        value: selectedCategoryId,
+        items: [
+          const DropdownMenuItem(value: 'ALL', child: Text('All Categories')),
+          ...filteredCategories.map((c) => DropdownMenuItem(
+                value: (c['id'] ?? c['_id'])?.toString() ?? '',
+                child: Text(c['name']?.toString() ?? 'Unknown', overflow: TextOverflow.ellipsis),
+              )),
+        ],
+        onChanged: (val) {
+          if (val != null) {
+            setState(() => selectedCategoryId = val);
           }
         },
       ),
@@ -723,6 +764,28 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             }
             
             if (itemDeptId != selectedDepartmentId) continue;
+          }
+           // --- Category Filtering Logic ---
+          if (selectedCategoryId != 'ALL') {
+             String itemCatId = 'UNKNOWN';
+             Map<String, dynamic>? catData;
+             dynamic catSource = (item['product'] is Map) ? item['product']['category'] : null;
+             if (catSource == null) catSource = item['category'];
+
+             if (catSource is Map) {
+                catData = catSource.cast<String, dynamic>();
+             } else if (catSource is String) {
+                // If we already looked up for dept logic, reuse? 
+                // We'll just maintain safety and re-check or reuse if we had a var scope (not easily available here without refactor)
+                // Just use simple check
+                itemCatId = catSource;
+             }
+             
+             if (catData != null) {
+               itemCatId = (catData['id'] ?? catData['_id'])?.toString() ?? 'UNKNOWN';
+             }
+             
+             if (itemCatId != selectedCategoryId) continue;
           }
           // ----------------------------------
 
@@ -932,8 +995,14 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           }
           if (currentDeptId != selectedDepartmentId) continue;
         }
-        // ----------------------------------
-
+        
+        // --- Category Filtering Logic ---
+        if (selectedCategoryId != 'ALL') {
+          String? currentCatId = (categoryData?['id'] ?? categoryData?['_id'])?.toString();
+          if (currentCatId != selectedCategoryId) continue;
+        }
+        // --------------------------------
+        
         if (!groupedAggregates.containsKey(departmentName)) {
           groupedAggregates[departmentName] = {};
         }
@@ -1347,6 +1416,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                   _buildDateSelector(),
                   _buildBranchFilter(),
                   _buildDepartmentFilter(),
+                  _buildCategoryFilter(),
               ],
             ),
           ),
@@ -1388,6 +1458,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               setState(() {
                 selectedBranchId = 'ALL';
                 selectedDepartmentId = 'ALL';
+                selectedCategoryId = 'ALL';
                 fromDate = DateTime.now();
                 toDate = DateTime.now();
               });
