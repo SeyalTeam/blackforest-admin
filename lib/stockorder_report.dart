@@ -1244,6 +1244,18 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         if (order['createdAt'] != null) cur['OrdTime'] = order['createdAt'];
         
         String? sTime = item['sendingAt']?.toString() ?? order['sendingAt']?.toString() ?? order['sentAt']?.toString();
+
+        if (sTime == null || sTime.isEmpty) {
+          dynamic sentBy = item['sendingUpdatedBy'] ?? order['sendingUpdatedBy'];
+          if (sentBy is Map) {
+            // Check common timestamp keys
+            sTime = sentBy['date']?.toString() ?? sentBy['createdAt']?.toString() ?? sentBy['time']?.toString();
+          } else if (sentBy is String) {
+            // If it's a string, it might be the date itself
+            sTime = sentBy;
+          }
+        }
+
         if (sTime != null && sTime.isNotEmpty) cur['SntTime'] = sTime;
 
         String? cTime = item['confirmedAt']?.toString() ?? order['confirmedAt']?.toString();
