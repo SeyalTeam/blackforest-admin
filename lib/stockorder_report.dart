@@ -825,6 +825,15 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           final cat = prod['category'];
           if (cat is Map) {
             categoryData = cat.cast<String, dynamic>();
+          } else if (cat is String) {
+            // Lookup category by ID
+            final foundCat = categories.firstWhere(
+              (c) => c['id'] == cat,
+              orElse: () => {},
+            );
+            if (foundCat.isNotEmpty) {
+              categoryData = foundCat;
+            }
           }
         }
         
@@ -833,6 +842,15 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           final cat = item['category'];
           if (cat is Map) {
             categoryData = cat.cast<String, dynamic>();
+          } else if (cat is String) {
+            // Lookup category by ID
+            final foundCat = categories.firstWhere(
+              (c) => c['id'] == cat,
+              orElse: () => {},
+            );
+            if (foundCat.isNotEmpty) {
+              categoryData = foundCat;
+            }
           }
         }
         
@@ -842,7 +860,12 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           if (dept is Map) {
             departmentName = dept['name']?.toString() ?? 'Unknown Department';
           } else if (dept is String) {
-            departmentName = dept;
+            // Lookup department name by ID
+            final foundDept = departments.firstWhere(
+              (d) => d['id'] == dept,
+              orElse: () => {},
+            );
+            departmentName = foundDept['name']?.toString() ?? dept;
           }
         }
         
