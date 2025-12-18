@@ -397,18 +397,18 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     final groupedItems = _groupItemsWithHeaders(items);
 
     // Calculate Totals
-    int totalReq = 0, totalSent = 0, totalConf = 0, totalPick = 0, totalRecv = 0, totalDiff = 0;
+    double totalReq = 0, totalSent = 0, totalConf = 0, totalPick = 0, totalRecv = 0, totalDiff = 0;
     double totalReqAmt = 0, totalSntAmt = 0, totalRecAmt = 0;
     for (var item in items) {
-      totalReq += (item['requiredQty'] ?? 0) as int;
-      totalSent += (item['sendingQty'] ?? 0) as int;
-      totalConf += (item['confirmedQty'] ?? 0) as int;
-      totalPick += (item['pickedQty'] ?? 0) as int;
-      totalRecv += (item['receivedQty'] ?? 0) as int;
-      totalDiff += (item['differenceQty'] ?? 0) as int;
-      totalReqAmt += (item['requiredAmount'] ?? 0).toDouble();
-      totalSntAmt += (item['sendingAmount'] ?? 0).toDouble();
-      totalRecAmt += (item['receivedAmount'] ?? 0).toDouble();
+      totalReq += parseQty(item['requiredQty']);
+      totalSent += parseQty(item['sendingQty']);
+      totalConf += parseQty(item['confirmedQty']);
+      totalPick += parseQty(item['pickedQty']);
+      totalRecv += parseQty(item['receivedQty']);
+      totalDiff += parseQty(item['differenceQty']);
+      totalReqAmt += parseQty(item['requiredAmount']);
+      totalSntAmt += parseQty(item['sendingAmount']);
+      totalRecAmt += parseQty(item['receivedAmount']);
     }
 
     pdf.addPage(
@@ -500,14 +500,14 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               }
 
               final name = item['name'] ?? 'Unknown';
-              final req = item['requiredQty'] ?? 0;
-              final reqAmount = (item['requiredAmount'] ?? 0).toDouble();
+              final req = parseQty(item['requiredQty']);
+              final reqAmount = parseQty(item['requiredAmount']);
               final price = req > 0 ? (reqAmount / req).round() : 0;
-              final sent = item['sendingQty'] ?? 0;
-              final conf = item['confirmedQty'] ?? 0;
-              final pick = item['pickedQty'] ?? 0;
-              final recv = item['receivedQty'] ?? 0;
-              final diff = item['differenceQty'] ?? 0;
+              final sent = parseQty(item['sendingQty']);
+              final conf = parseQty(item['confirmedQty']);
+              final pick = parseQty(item['pickedQty']);
+              final recv = parseQty(item['receivedQty']);
+              final diff = parseQty(item['differenceQty']);
               final bgColor = idx % 2 == 0 ? PdfColors.white : brown50;
 
               return pw.Container(
@@ -537,12 +537,12 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                  children: [
                    pw.Expanded(flex: 3, child: pw.Text('Total', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white))),
                    pw.Expanded(flex: 1, child: pw.Text('', style: const pw.TextStyle(fontSize: 10), textAlign: pw.TextAlign.center)),
-                   pw.Expanded(flex: 1, child: pw.Text(totalReq.toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white), textAlign: pw.TextAlign.center)),
-                   pw.Expanded(flex: 1, child: pw.Text(totalSent.toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white), textAlign: pw.TextAlign.center)),
-                   pw.Expanded(flex: 1, child: pw.Text(totalConf.toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white), textAlign: pw.TextAlign.center)),
-                   pw.Expanded(flex: 1, child: pw.Text(totalPick.toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white), textAlign: pw.TextAlign.center)),
-                   pw.Expanded(flex: 1, child: pw.Text(totalRecv.toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white), textAlign: pw.TextAlign.center)),
-                   pw.Expanded(flex: 1, child: pw.Text(totalDiff.toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: totalDiff != 0 ? PdfColors.yellow : PdfColors.white), textAlign: pw.TextAlign.center)),
+                   pw.Expanded(flex: 1, child: pw.Text(totalReq.round().toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white), textAlign: pw.TextAlign.center)),
+                   pw.Expanded(flex: 1, child: pw.Text(totalSent.round().toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white), textAlign: pw.TextAlign.center)),
+                   pw.Expanded(flex: 1, child: pw.Text(totalConf.round().toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white), textAlign: pw.TextAlign.center)),
+                   pw.Expanded(flex: 1, child: pw.Text(totalPick.round().toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white), textAlign: pw.TextAlign.center)),
+                   pw.Expanded(flex: 1, child: pw.Text(totalRecv.round().toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.white), textAlign: pw.TextAlign.center)),
+                   pw.Expanded(flex: 1, child: pw.Text(totalDiff.round().toString(), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: totalDiff != 0 ? PdfColors.yellow : PdfColors.white), textAlign: pw.TextAlign.center)),
                  ],
                ),
              ),
@@ -667,25 +667,25 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         };
       }
 
-      final items = (order['items'] as List?) ?? [];
-      for (var item in items) {
-        final cur = aggregates[bName]!;
+        final items = (order['items'] as List?) ?? [];
+        for (var item in items) {
+          final cur = aggregates[bName]!;
 
-        final reqQty = parseQty(item['requiredQty']);
-        final reqAmt = (item['requiredAmount'] ?? 0).toDouble();
-        final unitPrice = reqQty > 0 ? reqAmt / reqQty : 0.0;
+          final reqQty = parseQty(item['requiredQty']);
+          final reqAmt = parseQty(item['requiredAmount']);
+          final unitPrice = reqQty > 0 ? reqAmt / reqQty : 0.0;
 
-        final sentQty = (item['sendingQty'] ?? 0) is num ? (item['sendingQty'] as num).toDouble() : 0.0;
-        final confQty = (item['confirmedQty'] ?? 0) is num ? (item['confirmedQty'] as num).toDouble() : 0.0;
-        final pickQty = (item['pickedQty'] ?? 0) is num ? (item['pickedQty'] as num).toDouble() : 0.0;
-        final differenceQty = (item['differenceQty'] ?? 0) is num ? (item['differenceQty'] as num).toDouble() : 0.0;
+          final sentQty = parseQty(item['sendingQty']);
+          final confQty = parseQty(item['confirmedQty']);
+          final pickQty = parseQty(item['pickedQty']);
+          final differenceQty = parseQty(item['differenceQty']);
 
-        final sentAmt = (item['sendingAmount'] ?? 0).toDouble();
-        final recvAmt = (item['receivedAmount'] ?? 0).toDouble();
+          final sentAmt = parseQty(item['sendingAmount']);
+          final recvAmt = parseQty(item['receivedAmount']);
 
-        final confAmt = confQty * unitPrice;
-        final pickAmt = pickQty * unitPrice;
-        final diffAmt = differenceQty * unitPrice;
+          final confAmt = confQty * unitPrice;
+          final pickAmt = pickQty * unitPrice;
+          final diffAmt = differenceQty * unitPrice;
 
         cur['Ord'] = (cur['Ord']!) + reqAmt;
         cur['Snt'] = (cur['Snt']!) + sentAmt;
@@ -1094,8 +1094,8 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           builder: (context) {
             double totalReqAmt = 0, totalSntAmt = 0;
             for (var item in items) {
-              totalReqAmt += (item['requiredAmount'] ?? 0).toDouble();
-              totalSntAmt += (item['sendingAmount'] ?? 0).toDouble();
+              totalReqAmt += parseQty(item['requiredAmount']);
+              totalSntAmt += parseQty(item['sendingAmount']);
             }
             return Padding(
               padding: const EdgeInsets.only(top: 8.0),
