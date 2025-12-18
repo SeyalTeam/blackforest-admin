@@ -40,7 +40,10 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   List<Map<String, dynamic>> departments = [];
   Map<String, dynamic>? _combinedOrder;
   final ScrollController _webVScroll = ScrollController();
+
   final ScrollController _webHScroll = ScrollController();
+
+  String selectedDepartmentId = 'ALL';
 
   @override
   void initState() {
@@ -642,8 +645,38 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         ],
         onChanged: (val) {
           if (val != null) {
-            setState(() => selectedBranchId = val);
+            setState(() {
+              selectedBranchId = val;
+              selectedDepartmentId = 'ALL';
+            });
             _fetchStockOrders();
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildDepartmentFilter() {
+    return SizedBox(
+      width: 200,
+      child: DropdownButtonFormField<String>(
+        decoration: InputDecoration(
+          labelText: 'Department',
+          prefixIcon: const Icon(Icons.business),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        value: selectedDepartmentId,
+        items: [
+          const DropdownMenuItem(value: 'ALL', child: Text('All Departments')),
+          ...departments.map((d) => DropdownMenuItem(
+                value: (d['id'] ?? d['_id'])?.toString() ?? '',
+                child: Text(d['name']?.toString() ?? 'Unknown', overflow: TextOverflow.ellipsis),
+              )),
+        ],
+        onChanged: (val) {
+          if (val != null) {
+            setState(() => selectedDepartmentId = val);
           }
         },
       ),
@@ -669,6 +702,30 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
         final items = (order['items'] as List?) ?? [];
         for (var item in items) {
+          // --- Department Filtering Logic ---
+          if (selectedDepartmentId != 'ALL') {
+            String itemDeptId = 'UNKNOWN';
+            Map<String, dynamic>? catData;
+            
+            dynamic catSource = (item['product'] is Map) ? item['product']['category'] : null;
+            if (catSource == null) catSource = item['category'];
+
+            if (catSource is Map) {
+              catData = catSource.cast<String, dynamic>();
+            } else if (catSource is String) {
+               final found = categories.firstWhere((c) => c['id'] == catSource || c['_id'] == catSource, orElse: () => {});
+               if (found.isNotEmpty) catData = found;
+            }
+
+            if (catData != null) {
+              final dept = catData['department'];
+              itemDeptId = (dept is Map ? (dept['id'] ?? dept['_id']) : dept)?.toString() ?? 'UNKNOWN';
+            }
+            
+            if (itemDeptId != selectedDepartmentId) continue;
+          }
+          // ----------------------------------
+
           final cur = aggregates[bName]!;
 
           final reqQty = parseQty(item['requiredQty']);
@@ -866,6 +923,17 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           }
         }
         
+        // --- Department Filtering Logic ---
+        if (selectedDepartmentId != 'ALL') {
+          String? currentDeptId;
+          if (categoryData != null) {
+            final dept = categoryData['department'];
+            currentDeptId = (dept is Map ? (dept['id'] ?? dept['_id']) : dept)?.toString();
+          }
+          if (currentDeptId != selectedDepartmentId) continue;
+        }
+        // ----------------------------------
+
         if (!groupedAggregates.containsKey(departmentName)) {
           groupedAggregates[departmentName] = {};
         }
@@ -1278,6 +1346,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               children: [
                   _buildDateSelector(),
                   _buildBranchFilter(),
+                  _buildDepartmentFilter(),
               ],
             ),
           ),
@@ -1318,6 +1387,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             onPressed: () {
               setState(() {
                 selectedBranchId = 'ALL';
+                selectedDepartmentId = 'ALL';
                 fromDate = DateTime.now();
                 toDate = DateTime.now();
               });
