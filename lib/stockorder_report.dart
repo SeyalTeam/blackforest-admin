@@ -1246,8 +1246,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         // Timestamp Extraction Helper
         String? getTs(List<String> keys, List<String> objKeys) {
           for (var k in keys) {
-            final v = item[k]?.toString() ?? order[k]?.toString();
-            if (v != null && v.isNotEmpty) return v;
+            dynamic v = item[k] ?? order[k];
+            if (v is Map && v['\$date'] != null) return v['\$date'].toString();            
+            if (v != null && v.toString().isNotEmpty) return v.toString();
           }
           for (var k in objKeys) {
             dynamic v = item[k] ?? order[k];
@@ -1266,16 +1267,16 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           return null;
         }
 
-        final sTime = getTs(['sendingAt', 'sentAt', 'sendingTime'], ['sendingUpdatedBy']);
+        final sTime = getTs(['sendingDate', 'sendingAt', 'sentAt', 'sendingTime'], ['sendingUpdatedBy']);
         if (sTime != null) cur['SntTime'] = sTime;
 
-        final cTime = getTs(['confirmedAt', 'confirmedTime'], ['confirmedUpdatedBy']);
+        final cTime = getTs(['confirmedDate', 'confirmedAt', 'confirmedTime'], ['confirmedUpdatedBy']);
         if (cTime != null) cur['ConTime'] = cTime;
 
-        final pTime = getTs(['pickedAt', 'pickedTime'], ['pickedUpdatedBy']);
+        final pTime = getTs(['pickedDate', 'pickedAt', 'pickedTime'], ['pickedUpdatedBy']);
         if (pTime != null) cur['PicTime'] = pTime;
 
-        final rTime = getTs(['receivedAt', 'receivedTime'], ['receivedUpdatedBy']);
+        final rTime = getTs(['receivedDate', 'receivedAt', 'receivedTime'], ['receivedUpdatedBy']);
         if (rTime != null) cur['RecTime'] = rTime;
       }
     }
