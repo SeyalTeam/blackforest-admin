@@ -270,8 +270,8 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   List<Map<String, dynamic>> _groupItemsWithHeaders(List<dynamic> items) {
     if (items.isEmpty) return [];
 
-    // Structure: DeptName -> { CatName -> [Items] }
-    final Map<String, Map<String, List<Map<String, dynamic>>>> hierarchyMap = {};
+    // Structure: DeptName -> { 'items': { CatName -> [Items] }, 'totalOrd': 0.0, 'totalSnt': 0.0 }
+    final Map<String, Map<String, dynamic>> deptMap = {};
 
     for (var item in items) {
       // 1. Determine Category Name and Object
@@ -362,28 +362,62 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       }
 
       // 3. Populate Map
-      if (!hierarchyMap.containsKey(deptName)) {
-        hierarchyMap[deptName] = {};
+      if (!deptMap.containsKey(deptName)) {
+        deptMap[deptName] = {
+          'cats': <String, Map<String, dynamic>>{},
+          'totalOrd': 0.0,
+          'totalSnt': 0.0,
+        };
       }
-      if (!hierarchyMap[deptName]!.containsKey(categoryName)) {
-        hierarchyMap[deptName]![categoryName] = [];
+      
+      final dInfo = deptMap[deptName]!;
+      final Map<String, Map<String, dynamic>> catMap = dInfo['cats'];
+
+      if (!catMap.containsKey(categoryName)) {
+        catMap[categoryName] = {
+          'items': <Map<String, dynamic>>[],
+          'totalOrd': 0.0,
+          'totalSnt': 0.0,
+        };
       }
-      hierarchyMap[deptName]![categoryName]!.add(item as Map<String, dynamic>);
+
+      final cInfo = catMap[categoryName]!;
+      cInfo['items'].add(item as Map<String, dynamic>);
+      
+      final ord = parseQty(item['requiredAmount']);
+      final snt = parseQty(item['sendingAmount']);
+      
+      cInfo['totalOrd'] += ord;
+      cInfo['totalSnt'] += snt;
+      dInfo['totalOrd'] += ord;
+      dInfo['totalSnt'] += snt;
     }
 
     // 4. Flatten to List
     final List<Map<String, dynamic>> finalItems = [];
-    final sortedDepts = hierarchyMap.keys.toList()..sort();
+    final sortedDepts = deptMap.keys.toList()..sort();
 
     for (var dept in sortedDepts) {
-      finalItems.add({'type': 'dept_header', 'name': dept});
+      final dInfo = deptMap[dept]!;
+      finalItems.add({
+        'type': 'dept_header', 
+        'name': dept, 
+        'totalOrd': dInfo['totalOrd'],
+        'totalSnt': dInfo['totalSnt'],
+      });
       
-      final catMap = hierarchyMap[dept]!;
+      final catMap = dInfo['cats'] as Map<String, Map<String, dynamic>>;
       final sortedCats = catMap.keys.toList()..sort();
       
       for (var cat in sortedCats) {
-        finalItems.add({'type': 'cat_header', 'name': cat});
-        final products = catMap[cat]!;
+        final cInfo = catMap[cat]!;
+        finalItems.add({
+          'type': 'cat_header', 
+          'name': cat,
+          'totalOrd': cInfo['totalOrd'],
+          'totalSnt': cInfo['totalSnt'],
+        });
+        final products = cInfo['items'] as List<Map<String, dynamic>>;
         products.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
         finalItems.addAll(products);
       }
@@ -475,8 +509,8 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                   padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                   margin: const pw.EdgeInsets.only(top: 8),
                   child: pw.Text(
-                    (item['name'] ?? '').toUpperCase(),
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12, color: PdfColors.white),
+                    '${(item['name'] ?? '').toUpperCase()} (Ord: ${item['totalOrd']?.toInt() ?? 0} | Snt: ${item['totalSnt']?.toInt() ?? 0})',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColors.white),
                     textAlign: pw.TextAlign.center,
                   ),
                 );
@@ -489,8 +523,8 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                       color: grey300,
                       padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
                       child: pw.Text(
-                        (item['name'] ?? '').toUpperCase(),
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                        '${(item['name'] ?? '').toUpperCase()} (Ord: ${item['totalOrd']?.toInt() ?? 0} | Snt: ${item['totalSnt']?.toInt() ?? 0})',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
                         textAlign: pw.TextAlign.center,
                       ),
                     ),
@@ -1239,6 +1273,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         if (!groupedAggregates[departmentName]![categoryName]!.containsKey(name)) {
           groupedAggregates[departmentName]![categoryName]![name] = {
             'Ord': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Rec': 0.0, 'Dif': 0.0,
+            'OrdAmt': 0.0, 'SntAmt': 0.0,
             'OrdTime': '', 'SntTime': '', 'ConTime': '', 'PicTime': '', 'RecTime': '',
           };
         }
@@ -1253,6 +1288,8 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         cur['Pic'] = (cur['Pic']!) + parseQty(item['pickedQty']);
         cur['Rec'] = (cur['Rec']!) + parseQty(item['receivedQty']);
         cur['Dif'] = (cur['Dif']!) + parseQty(item['differenceQty']);
+        cur['OrdAmt'] = (cur['OrdAmt']!) + parseQty(item['requiredAmount']);
+        cur['SntAmt'] = (cur['SntAmt']!) + parseQty(item['sendingAmount']);
 
         // Timestamp extraction
         if (order['createdAt'] != null) cur['OrdTime'] = order['createdAt'];
@@ -1308,6 +1345,16 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     int pIndex = 0;
     
     for (var deptName in sortedDepartments) {
+      final categoriesMap = groupedAggregates[deptName]!;
+      
+      double dOrd = 0, dSnt = 0;
+      for (var cat in categoriesMap.values) {
+        for (var prod in cat.values) {
+          dOrd += (prod['OrdAmt'] ?? 0.0);
+          dSnt += (prod['SntAmt'] ?? 0.0);
+        }
+      }
+
       // Add Department Header Widget
       children.add(
         Container(
@@ -1316,17 +1363,22 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: Center(
             child: Text(
-              deptName.toUpperCase(),
+              '${deptName.toUpperCase()} (Ord: ${dOrd.toInt()} | Snt: ${dSnt.toInt()})',
               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),
         ),
       );
-
-      final categoriesMap = groupedAggregates[deptName]!;
       final sortedCategories = categoriesMap.keys.toList()..sort();
 
       for (var catName in sortedCategories) {
+        final productsMap = categoriesMap[catName]!;
+        double cOrd = 0, cSnt = 0;
+        for (var prod in productsMap.values) {
+          cOrd += (prod['OrdAmt'] ?? 0.0);
+          cSnt += (prod['SntAmt'] ?? 0.0);
+        }
+
         // Add Category Header Widget
         children.add(
           Container(
@@ -1335,14 +1387,12 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Center(
               child: Text(
-                catName,
+                '$catName (Ord: ${cOrd.toInt()} | Snt: ${cSnt.toInt()})',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
             ),
           ),
         );
-
-        final productsMap = categoriesMap[catName]!;
         final sortedProducts = productsMap.keys.toList()..sort();
         
         List<DataRow> productRows = [];
@@ -1596,8 +1646,8 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                 margin: const EdgeInsets.only(top: 8),
                 child: Text(
-                  (item['name'] ?? '').toUpperCase(),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+                  '${(item['name'] ?? '').toUpperCase()} (Ord: ${item['totalOrd']?.toInt() ?? 0} | Snt: ${item['totalSnt']?.toInt() ?? 0})',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white),
                   textAlign: TextAlign.center,
                 ),
               );
@@ -1610,8 +1660,8 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                     color: Colors.grey[300],
                     padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                     child: Text(
-                      (item['name'] ?? '').toUpperCase(),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      '${(item['name'] ?? '').toUpperCase()} (Ord: ${item['totalOrd']?.toInt() ?? 0} | Snt: ${item['totalSnt']?.toInt() ?? 0})',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                       textAlign: TextAlign.center,
                     ),
                   ),
