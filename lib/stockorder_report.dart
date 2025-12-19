@@ -83,9 +83,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final docs = data['docs'] ?? [];
-        final list = <Map<String, String>>[
-          {'id': 'ALL', 'name': 'All Branches'}
-        ];
+        final list = <Map<String, String>>[];
         for (var b in docs) {
           final id = (b['id'] ?? b['_id'])?.toString();
           final name = (b['name'] ?? 'Unnamed Branch').toString();
@@ -321,34 +319,45 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       // 2. Determine Department Name from Category
       String deptName = 'Unknown Department';
       if (categoryObj != null) {
-        // Check local category object first (if populated)
-        if (categoryObj['department'] != null) {
-          final dept = categoryObj['department'];
+        // Safe lookup helper
+        String? getName(dynamic obj) {
+          if (obj is Map) return (obj['name'] ?? obj['title'])?.toString();
+          return null;
+        }
+
+        // Try to get from category directly
+        final dept = categoryObj['department'];
+        if (dept != null) {
           if (dept is Map) {
-            deptName = dept['name'] ?? 'Unknown Department';
+            deptName = getName(dept) ?? 'Unknown Department';
           } else if (dept is String) {
-             // Look up in fetched departments
-             final foundDept = departments.firstWhere((d) => d['id'] == dept || d['_id'] == dept, orElse: () => {});
-             if (foundDept.isNotEmpty) {
-               deptName = foundDept['name'];
-             }
+            final foundDept = departments.firstWhere((d) => d['id'] == dept || d['_id'] == dept, orElse: () => {});
+            if (foundDept.isNotEmpty) {
+              deptName = getName(foundDept) ?? 'Unknown Department';
+            } else {
+              deptName = dept; // Fallback to ID if not found
+            }
           }
-        } else {
-           // If categoryObj came from 'product.category' which might be partial
-           // Try to find the full category object in our fetched list to get department
-           final catId = categoryObj['id'] ?? categoryObj['_id'];
-           if (catId != null) {
-             final fullCat = categories.firstWhere((c) => c['id'] == catId || c['_id'] == catId, orElse: () => {});
-             if (fullCat.isNotEmpty && fullCat['department'] != null) {
-                final dept = fullCat['department'];
-                if (dept is Map) {
-                  deptName = dept['name'] ?? 'Unknown Department';
-                } else if (dept is String) {
-                   final foundDept = departments.firstWhere((d) => d['id'] == dept || d['_id'] == dept, orElse: () => {});
-                   if (foundDept.isNotEmpty) deptName = foundDept['name'];
-                }
-             }
-           }
+        } 
+        
+        // Double check if we still have a fallback and try finding full category
+        if (deptName == 'Unknown Department') {
+          final catId = categoryObj['id'] ?? categoryObj['_id'];
+          if (catId != null) {
+            final fullCat = categories.firstWhere((c) => c['id'] == catId || c['_id'] == catId, orElse: () => {});
+            if (fullCat.isNotEmpty) {
+               categoryName = getName(fullCat) ?? categoryName;
+               final fDept = fullCat['department'];
+               if (fDept != null) {
+                 if (fDept is Map) {
+                   deptName = getName(fDept) ?? deptName;
+                 } else if (fDept is String) {
+                   final foundDept = departments.firstWhere((d) => d['id'] == fDept || d['_id'] == fDept, orElse: () => {});
+                   if (foundDept.isNotEmpty) deptName = getName(foundDept) ?? deptName;
+                 }
+               }
+            }
+          }
         }
       }
 
@@ -630,7 +639,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
   Widget _buildBranchFilter() {
     return SizedBox(
-      width: 200,
+      width: 180,
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           labelText: 'Branch',
@@ -639,6 +648,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
         value: selectedBranchId,
+        isExpanded: true,
         items: [
           const DropdownMenuItem(value: 'ALL', child: Text('All Branches')),
           ...branches.map((b) => DropdownMenuItem(
@@ -664,7 +674,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
   Widget _buildDepartmentFilter() {
     return SizedBox(
-      width: 200,
+      width: 180,
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           labelText: 'Department',
@@ -673,6 +683,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
         value: selectedDepartmentId,
+        isExpanded: true,
         items: [
           const DropdownMenuItem(value: 'ALL', child: Text('All Departments')),
           ...departments.map((d) => DropdownMenuItem(
@@ -704,7 +715,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     }
 
     return SizedBox(
-      width: 200,
+      width: 180,
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           labelText: 'Category',
@@ -713,6 +724,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
         value: selectedCategoryId,
+        isExpanded: true,
         items: [
           const DropdownMenuItem(value: 'ALL', child: Text('All Categories')),
           ...filteredCategories.map((c) => DropdownMenuItem(
@@ -795,7 +807,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     final sortedProducts = productNames.toList()..sort();
 
     return SizedBox(
-      width: 250,
+      width: 180,
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           labelText: 'Product',
@@ -804,6 +816,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
         value: selectedProductId,
+        isExpanded: true,
         items: [
           const DropdownMenuItem(value: 'ALL', child: Text('All Products')),
           ...sortedProducts.map((p) => DropdownMenuItem(
@@ -822,7 +835,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
   Widget _buildStatusFilter() {
     return SizedBox(
-      width: 200,
+      width: 180,
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           labelText: 'Status',
@@ -831,6 +844,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
         value: selectedStatus,
+        isExpanded: true,
         items: const [
           DropdownMenuItem(value: 'ALL', child: Text('All Status')),
           DropdownMenuItem(value: 'Ordered', child: Text('Ordered')),
@@ -888,20 +902,20 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
              bool match = false;
              if (selectedStatus == 'Ordered') {
-               // Pending to Send: Ordered > Sent
-               if (rQty > sQty) match = true;
+               // Only Ordered: Req > 0 and Snt == 0
+               if (rQty > 0 && sQty == 0) match = true;
              }
              else if (selectedStatus == 'Sending') {
-               // Pending to Confirm: Sent > Confirmed
-               if (sQty > cQty) match = true;
+               // Pending to Confirm: Sent > 0 and Confirmed == 0
+               if (sQty > 0 && cQty == 0) match = true;
              }
              else if (selectedStatus == 'Confirmed') {
-                // Pending to Pick: Confirmed > Picked
-                if (cQty > pQty) match = true;
+                // Pending to Pick: Confirmed > 0 and Picked == 0
+                if (cQty > 0 && pQty == 0) match = true;
              }
              else if (selectedStatus == 'Picked') {
-                // Pending to Receive: Picked > Received
-                if (pQty > recQty) match = true;
+                // Pending to Receive: Picked > 0 and Received == 0
+                if (pQty > 0 && recQty == 0) match = true;
              }
              else if (selectedStatus == 'Received') {
                 // Already Received
@@ -1152,17 +1166,17 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         }
         
         if (categoryData != null) {
-          categoryName = categoryData['name']?.toString() ?? 'Unknown Category';
+          categoryName = (categoryData['name'] ?? categoryData['title'])?.toString() ?? 'Unknown Category';
           final dept = categoryData['department'];
           if (dept is Map) {
-            departmentName = dept['name']?.toString() ?? 'Unknown Department';
+            departmentName = (dept['name'] ?? dept['title'])?.toString() ?? 'Unknown Department';
           } else if (dept is String) {
             // Lookup department name by ID
             final foundDept = departments.firstWhere(
-              (d) => d['id'] == dept,
+              (d) => d['id'] == dept || d['_id'] == dept,
               orElse: () => {},
             );
-            departmentName = foundDept['name']?.toString() ?? dept;
+            departmentName = (foundDept['name'] ?? foundDept['title'])?.toString() ?? dept;
           }
         }
         
@@ -1195,16 +1209,16 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
              bool match = false;
              if (selectedStatus == 'Ordered') {
-               if (rQty > sQty) match = true;
+               if (rQty > 0 && sQty == 0) match = true;
              }
              else if (selectedStatus == 'Sending') {
-               if (sQty > cQty) match = true;
+               if (sQty > 0 && cQty == 0) match = true;
              }
              else if (selectedStatus == 'Confirmed') {
-                if (cQty > pQty) match = true;
+                if (cQty > 0 && pQty == 0) match = true;
              }
              else if (selectedStatus == 'Picked') {
-                if (pQty > recQty) match = true;
+                if (pQty > 0 && recQty == 0) match = true;
              }
              else if (selectedStatus == 'Received') {
                 if (recQty > 0) match = true;
@@ -1408,6 +1422,58 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     if (val == null) return 0.0;
     if (val is num) return val.toDouble();
     return double.tryParse(val.toString()) ?? 0.0;
+  }
+
+  bool _isItemMatch(Map<String, dynamic> item) {
+    // 1. Product Filter
+    final name = item['name']?.toString() ?? 'Unknown Product';
+    if (selectedProductId != 'ALL' && name != selectedProductId) return false;
+
+    // 2. Status Filter
+    if (selectedStatus != 'ALL') {
+      double rQty = parseQty(item['requiredQty']);
+      double sQty = parseQty(item['sendingQty']);
+      double cQty = parseQty(item['confirmedQty']);
+      double pQty = parseQty(item['pickedQty']);
+      double recQty = parseQty(item['receivedQty']);
+
+      bool match = false;
+      if (selectedStatus == 'Ordered' && rQty > 0 && sQty == 0) match = true;
+      else if (selectedStatus == 'Sending' && sQty > 0 && cQty == 0) match = true;
+      else if (selectedStatus == 'Confirmed' && cQty > 0 && pQty == 0) match = true;
+      else if (selectedStatus == 'Picked' && pQty > 0 && recQty == 0) match = true;
+      else if (selectedStatus == 'Received' && recQty > 0) match = true;
+      
+      if (!match) return false;
+    }
+
+    // 3. Department & Category Filter
+    Map<String, dynamic>? categoryData;
+    dynamic catSource = (item['product'] is Map) ? item['product']['category'] : null;
+    if (catSource == null) catSource = item['category'];
+
+    if (catSource is Map) {
+      categoryData = catSource.cast<String, dynamic>();
+    } else if (catSource is String) {
+      final found = categories.firstWhere((c) => c['id'] == catSource || c['_id'] == catSource, orElse: () => {});
+      if (found.isNotEmpty) categoryData = found;
+    }
+
+    if (selectedDepartmentId != 'ALL') {
+      String? itemDeptId;
+      if (categoryData != null) {
+        final dept = categoryData['department'];
+        itemDeptId = (dept is Map ? (dept['id'] ?? dept['_id']) : dept)?.toString();
+      }
+      if (itemDeptId != selectedDepartmentId) return false;
+    }
+
+    if (selectedCategoryId != 'ALL') {
+      String? itemCatId = (categoryData?['id'] ?? categoryData?['_id'])?.toString();
+      if (itemCatId != selectedCategoryId) return false;
+    }
+
+    return true;
   }
 
   Color _getStatusColor(String status) {
@@ -1670,49 +1736,104 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     final width = MediaQuery.of(context).size.width;
     final isDesktop = width >= 1024;
 
+    // Calculate Filtered Orders for Mobile View
+    List<Map<String, dynamic>> filteredOrders = [];
+    Map<String, dynamic>? filteredCombined;
+
+    if (!kIsWeb) {
+      filteredOrders = stockOrders.map((order) {
+        final items = (order['items'] as List?) ?? [];
+        final filteredItems = items.where((i) => _isItemMatch(i as Map<String, dynamic>)).toList();
+        return {
+          ...order,
+          'items': filteredItems,
+        };
+      }).where((order) => (order['items'] as List).isNotEmpty).toList();
+
+      if (_combinedOrder != null) {
+          final cItems = (_combinedOrder!['items'] as List?) ?? [];
+          final filteredCItems = cItems.where((i) => _isItemMatch(i as Map<String, dynamic>)).toList();
+          if (filteredCItems.isNotEmpty) {
+            filteredCombined = {
+              ..._combinedOrder!,
+              'items': filteredCItems,
+            };
+          }
+      }
+    }
+
+    final List<Widget> filterChildren = [
+      _buildDateSelector(),
+      const SizedBox(width: 12),
+      _buildBranchFilter(),
+      const SizedBox(width: 12),
+      _buildDepartmentFilter(),
+      const SizedBox(width: 12),
+      _buildCategoryFilter(),
+      const SizedBox(width: 12),
+      _buildProductFilter(),
+      const SizedBox(width: 12),
+      _buildStatusFilter(),
+      const SizedBox(width: 12),
+      IconButton(
+        icon: const Icon(Icons.filter_alt_off_outlined, color: Colors.red),
+        onPressed: () {
+          setState(() {
+            selectedBranchId = 'ALL';
+            selectedDepartmentId = 'ALL';
+            selectedCategoryId = 'ALL';
+            selectedProductId = 'ALL';
+            selectedStatus = 'ALL';
+          });
+        },
+        tooltip: 'Reset Filters',
+      ),
+    ];
+
     Widget mainContent = Column(
       children: [
         // Filters
-        Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                  _buildDateSelector(),
-                  _buildBranchFilter(),
-                  _buildDepartmentFilter(),
-                  _buildCategoryFilter(),
-                  _buildProductFilter(),
-                  _buildStatusFilter(),
-              ],
-            ),
-          ),
+        Container(
+          color: Colors.grey.shade50,
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: isDesktop
+              ? Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: filterChildren,
+                )
+              : SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: filterChildren,
+                  ),
+                ),
         ),
+        const Divider(height: 1),
         // List
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator())
-              : stockOrders.isEmpty
-                  ? const Center(child: Text('No stock orders found'))
+              : (kIsWeb ? stockOrders : filteredOrders).isEmpty
+                  ? const Center(child: Text('No matching stock orders found'))
                   : kIsWeb
                       ? _buildWebTable()
                       : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      itemCount: stockOrders.length + (_combinedOrder != null ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (_combinedOrder != null) {
-                          if (index == 0) {
-                            return _buildStockOrderCard(_combinedOrder!);
-                          }
-                          return _buildStockOrderCard(stockOrders[index - 1]);
-                        }
-                        return _buildStockOrderCard(stockOrders[index]);
-                      },
-                    ),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          itemCount: filteredOrders.length + (filteredCombined != null ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (filteredCombined != null) {
+                              if (index == 0) {
+                                return _buildStockOrderCard(filteredCombined!);
+                              }
+                              return _buildStockOrderCard(filteredOrders[index - 1]);
+                            }
+                            return _buildStockOrderCard(filteredOrders[index]);
+                          },
+                        ),
         ),
       ],
     );
