@@ -1416,10 +1416,13 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
       for (var catName in sortedCategories) {
         final productsMap = categoriesMap[catName]!;
-        double cOrd = 0, cSnt = 0;
+        double cOrd = 0, cSnt = 0, cCon = 0, cPic = 0, cRec = 0;
         for (var prod in productsMap.values) {
           cOrd += (prod['OrdAmt'] ?? 0.0);
           cSnt += (prod['SntAmt'] ?? 0.0);
+          cCon += (prod['ConAmt'] ?? 0.0);
+          cPic += (prod['PicAmt'] ?? 0.0);
+          cRec += (prod['RecAmt'] ?? 0.0);
         }
 
         // Add Category Header Widget
@@ -1438,15 +1441,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         );
         final sortedProducts = productsMap.keys.toList()..sort();
         
-        double cOrd = 0, cSnt = 0, cCon = 0, cPic = 0, cRec = 0;
         List<DataRow> productRows = [];
         for (var pName in sortedProducts) {
           final data = productsMap[pName]!;
-          cOrd += (data['OrdAmt'] ?? 0.0);
-          cSnt += (data['SntAmt'] ?? 0.0);
-          cCon += (data['ConAmt'] ?? 0.0);
-          cPic += (data['PicAmt'] ?? 0.0);
-          cRec += (data['RecAmt'] ?? 0.0);
           
           final bgColor = pIndex % 2 == 0 ? Colors.blue.withOpacity(0.05) : Colors.white;
 
