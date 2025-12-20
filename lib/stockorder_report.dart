@@ -726,10 +726,6 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           if (val != null) {
             setState(() {
               selectedBranchId = val;
-              selectedDepartmentId = 'ALL';
-              selectedCategoryId = 'ALL';
-              selectedProductId = 'ALL';
-              selectedStatus = 'ALL';
             });
             _fetchStockOrders();
           }
