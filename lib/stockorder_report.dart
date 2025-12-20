@@ -321,7 +321,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       if (categoryObj != null) {
         // Safe lookup helper
         String? getName(dynamic obj) {
-          if (obj is Map) return (obj['name'] ?? obj['title'])?.toString();
+          if (obj is Map) return (obj['name'] ?? obj['title'] ?? obj['title'])?.toString();
           return null;
         }
 
@@ -331,7 +331,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           if (dept is Map) {
             deptName = getName(dept) ?? 'Unknown Department';
           } else if (dept is String) {
-            final foundDept = departments.firstWhere((d) => d['id'] == dept || d['_id'] == dept, orElse: () => {});
+            final foundDept = departments.firstWhere((d) => (d['id'] ?? d['_id']) == dept, orElse: () => {});
             if (foundDept.isNotEmpty) {
               deptName = getName(foundDept) ?? 'Unknown Department';
             } else {
@@ -341,10 +341,10 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         } 
         
         // Double check if we still have a fallback and try finding full category
-        if (deptName == 'Unknown Department') {
+        if (deptName == 'Unknown Department' || deptName.length == 24) { // Check if it looks like an ID
           final catId = categoryObj['id'] ?? categoryObj['_id'];
           if (catId != null) {
-            final fullCat = categories.firstWhere((c) => c['id'] == catId || c['_id'] == catId, orElse: () => {});
+            final fullCat = categories.firstWhere((c) => (c['id'] ?? c['_id']) == catId, orElse: () => {});
             if (fullCat.isNotEmpty) {
                categoryName = getName(fullCat) ?? categoryName;
                final fDept = fullCat['department'];
@@ -352,7 +352,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                  if (fDept is Map) {
                    deptName = getName(fDept) ?? deptName;
                  } else if (fDept is String) {
-                   final foundDept = departments.firstWhere((d) => d['id'] == fDept || d['_id'] == fDept, orElse: () => {});
+                   final foundDept = departments.firstWhere((d) => (d['id'] ?? d['_id']) == fDept, orElse: () => {});
                    if (foundDept.isNotEmpty) deptName = getName(foundDept) ?? deptName;
                  }
                }
@@ -542,7 +542,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                   margin: const pw.EdgeInsets.only(top: 8),
                   child: pw.Text(
                     '${(item['name'] ?? '').toUpperCase()} (Ord: ${item['totalOrd']?.toInt() ?? 0} | Snt: ${item['totalSnt']?.toInt() ?? 0})',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColors.white),
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColors.white),
                     textAlign: pw.TextAlign.center,
                   ),
                 );
@@ -556,7 +556,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                       padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
                       child: pw.Text(
                         '${(item['name'] ?? '').toUpperCase()} (Ord: ${item['totalOrd']?.toInt() ?? 0} | Snt: ${item['totalSnt']?.toInt() ?? 0})',
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11),
                         textAlign: pw.TextAlign.center,
                       ),
                     ),
@@ -1235,15 +1235,24 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           categoryName = (categoryData['name'] ?? categoryData['title'])?.toString() ?? 'Unknown Category';
           final dept = categoryData['department'];
           if (dept is Map) {
-            departmentName = (dept['name'] ?? dept['title'])?.toString() ?? 'Unknown Department';
+            departmentName = (dept['name'] ?? dept['title'] ?? dept['title'])?.toString() ?? 'Unknown Department';
           } else if (dept is String) {
             // Lookup department name by ID
             final foundDept = departments.firstWhere(
-              (d) => d['id'] == dept || d['_id'] == dept,
+              (d) => (d['id'] ?? d['_id']) == dept,
               orElse: () => {},
             );
             departmentName = (foundDept['name'] ?? foundDept['title'])?.toString() ?? dept;
           }
+        }
+        
+        // Final fallback to clean up potential ID values
+        if (departmentName.length == 24 && departmentName == categoryData?['department']?.toString()) {
+           final foundDept = departments.firstWhere(
+              (d) => (d['id'] ?? d['_id']) == departmentName,
+              orElse: () => {},
+            );
+            if (foundDept.isNotEmpty) departmentName = (foundDept['name'] ?? foundDept['title'])?.toString() ?? departmentName;
         }
         
         // --- Department Filtering Logic ---
@@ -1485,9 +1494,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
         // Add Category Total Row
         productRows.add(DataRow(
-          color: MaterialStateProperty.all(Colors.blueGrey.shade100),
+          color: MaterialStateProperty.all(Colors.teal.shade50),
           cells: [
-            DataCell(SizedBox(width: nameColWidth, child: const Padding(padding: EdgeInsets.only(left: 24.0), child: Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold))))),
+            DataCell(SizedBox(width: nameColWidth, child: const Padding(padding: EdgeInsets.only(left: 24.0), child: Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.teal))))),
             DataCell(SizedBox(width: dataColWidth, child: Text(cOrd.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold)))),
             DataCell(SizedBox(width: dataColWidth, child: Text(cSnt.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold)))),
             DataCell(SizedBox(width: dataColWidth, child: Text(cCon.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold)))),
@@ -1715,11 +1724,11 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               return Container(
                 width: double.infinity,
                 color: Colors.brown[300],
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
                 margin: const EdgeInsets.only(top: 8),
                 child: Text(
                   '${(item['name'] ?? '').toUpperCase()} (Ord: ${item['totalOrd']?.toInt() ?? 0} | Snt: ${item['totalSnt']?.toInt() ?? 0})',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
                   textAlign: TextAlign.center,
                 ),
               );
@@ -1730,10 +1739,10 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                   Container(
                     width: double.infinity,
                     color: Colors.grey[300],
-                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                     child: Text(
                       '${(item['name'] ?? '').toUpperCase()} (Ord: ${item['totalOrd']?.toInt() ?? 0} | Snt: ${item['totalSnt']?.toInt() ?? 0})',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                       textAlign: TextAlign.center,
                     ),
                   ),
