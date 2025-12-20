@@ -270,7 +270,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   List<Map<String, dynamic>> _groupItemsWithHeaders(List<dynamic> items) {
     if (items.isEmpty) return [];
 
-    // Structure: DeptName -> { 'items': { CatName -> [Items] }, 'totalOrd': 0.0, 'totalSnt': 0.0 }
+    // Structure: DeptName -> { 'items': { CatName -> [Items] }, 'totalOrd': 0.0, 'totalSnt': 0.0, ... }
     final Map<String, Map<String, dynamic>> deptMap = {};
 
     for (var item in items) {
@@ -367,6 +367,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           'cats': <String, Map<String, dynamic>>{},
           'totalOrd': 0.0,
           'totalSnt': 0.0,
+          'totalCon': 0.0,
+          'totalPic': 0.0,
+          'totalRec': 0.0,
         };
       }
       
@@ -378,19 +381,37 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           'items': <Map<String, dynamic>>[],
           'totalOrd': 0.0,
           'totalSnt': 0.0,
+          'totalCon': 0.0,
+          'totalPic': 0.0,
+          'totalRec': 0.0,
         };
       }
 
       final cInfo = catMap[categoryName]!;
       cInfo['items'].add(item as Map<String, dynamic>);
       
-      final ord = parseQty(item['requiredAmount']);
-      final snt = parseQty(item['sendingAmount']);
+      final double rQty = parseQty(item['requiredQty']);
+      final double rAmt = parseQty(item['requiredAmount']);
+      final double unitPrice = rQty > 0 ? (rAmt / rQty) : 0.0;
       
-      cInfo['totalOrd'] += ord;
-      cInfo['totalSnt'] += snt;
-      dInfo['totalOrd'] += ord;
-      dInfo['totalSnt'] += snt;
+      final double sAmt = parseQty(item['sendingAmount']);
+      final double cAmt = parseQty(item['confirmedQty']) * unitPrice;
+      final double pAmt = parseQty(item['pickedQty']) * unitPrice;
+      
+      double recAmt = parseQty(item['receivedAmount']);
+      if (recAmt == 0) recAmt = parseQty(item['receivedQty']) * unitPrice;
+      
+      cInfo['totalOrd'] += rAmt;
+      cInfo['totalSnt'] += sAmt;
+      cInfo['totalCon'] += cAmt;
+      cInfo['totalPic'] += pAmt;
+      cInfo['totalRec'] += recAmt;
+
+      dInfo['totalOrd'] += rAmt;
+      dInfo['totalSnt'] += sAmt;
+      dInfo['totalCon'] += cAmt;
+      dInfo['totalPic'] += pAmt;
+      dInfo['totalRec'] += recAmt;
     }
 
     // 4. Flatten to List
@@ -420,6 +441,17 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         final products = cInfo['items'] as List<Map<String, dynamic>>;
         products.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
         finalItems.addAll(products);
+
+        // Add Category Summary for amounts
+        finalItems.add({
+          'type': 'cat_summary',
+          'name': cat,
+          'totalOrd': cInfo['totalOrd'],
+          'totalSnt': cInfo['totalSnt'],
+          'totalCon': cInfo['totalCon'],
+          'totalPic': cInfo['totalPic'],
+          'totalRec': cInfo['totalRec'],
+        });
       }
     }
     return finalItems;
@@ -1273,7 +1305,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         if (!groupedAggregates[departmentName]![categoryName]!.containsKey(name)) {
           groupedAggregates[departmentName]![categoryName]![name] = {
             'Ord': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Rec': 0.0, 'Dif': 0.0,
-            'OrdAmt': 0.0, 'SntAmt': 0.0,
+            'OrdAmt': 0.0, 'SntAmt': 0.0, 'ConAmt': 0.0, 'PicAmt': 0.0, 'RecAmt': 0.0,
             'OrdTime': '', 'SntTime': '', 'ConTime': '', 'PicTime': '', 'RecTime': '',
           };
         }
@@ -1288,8 +1320,19 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         cur['Pic'] = (cur['Pic']!) + parseQty(item['pickedQty']);
         cur['Rec'] = (cur['Rec']!) + parseQty(item['receivedQty']);
         cur['Dif'] = (cur['Dif']!) + parseQty(item['differenceQty']);
-        cur['OrdAmt'] = (cur['OrdAmt']!) + parseQty(item['requiredAmount']);
+        
+        final double rQty = parseQty(item['requiredQty']);
+        final double rAmt = parseQty(item['requiredAmount']);
+        final double unitPrice = rQty > 0 ? (rAmt / rQty) : 0.0;
+
+        cur['OrdAmt'] = (cur['OrdAmt']!) + rAmt;
         cur['SntAmt'] = (cur['SntAmt']!) + parseQty(item['sendingAmount']);
+        cur['ConAmt'] = (cur['ConAmt']!) + (parseQty(item['confirmedQty']) * unitPrice);
+        cur['PicAmt'] = (cur['PicAmt']!) + (parseQty(item['pickedQty']) * unitPrice);
+        
+        double recAmt = parseQty(item['receivedAmount']);
+        if (recAmt == 0) recAmt = parseQty(item['receivedQty']) * unitPrice;
+        cur['RecAmt'] = (cur['RecAmt']!) + recAmt;
 
         // Timestamp extraction
         if (order['createdAt'] != null) cur['OrdTime'] = order['createdAt'];
@@ -1337,7 +1380,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     
     // Fixed column widths to ensure alignment across multiple DataTables
     const double nameColWidth = 330;
-    const double dataColWidth = 85;
+    const double dataColWidth = 110;
     const double hMargin = 12; // Matching DataTable horizontalMargin
     const double totalTableWidth = nameColWidth + (dataColWidth * 6) + (hMargin * 2);
 
@@ -1395,9 +1438,16 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         );
         final sortedProducts = productsMap.keys.toList()..sort();
         
+        double cOrd = 0, cSnt = 0, cCon = 0, cPic = 0, cRec = 0;
         List<DataRow> productRows = [];
         for (var pName in sortedProducts) {
           final data = productsMap[pName]!;
+          cOrd += (data['OrdAmt'] ?? 0.0);
+          cSnt += (data['SntAmt'] ?? 0.0);
+          cCon += (data['ConAmt'] ?? 0.0);
+          cPic += (data['PicAmt'] ?? 0.0);
+          cRec += (data['RecAmt'] ?? 0.0);
+          
           final bgColor = pIndex % 2 == 0 ? Colors.blue.withOpacity(0.05) : Colors.white;
 
           productRows.add(DataRow(
@@ -1435,6 +1485,20 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           ));
           pIndex++;
         }
+
+        // Add Category Total Row
+        productRows.add(DataRow(
+          color: MaterialStateProperty.all(Colors.blueGrey.shade100),
+          cells: [
+            DataCell(SizedBox(width: nameColWidth, child: const Padding(padding: EdgeInsets.only(left: 24.0), child: Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold))))),
+            DataCell(SizedBox(width: dataColWidth, child: Text(cOrd.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold)))),
+            DataCell(SizedBox(width: dataColWidth, child: Text(cSnt.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold)))),
+            DataCell(SizedBox(width: dataColWidth, child: Text(cCon.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold)))),
+            DataCell(SizedBox(width: dataColWidth, child: Text(cPic.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold)))),
+            DataCell(SizedBox(width: dataColWidth, child: Text(cRec.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold)))),
+            DataCell(SizedBox(width: dataColWidth, child: const Text(''))),
+          ],
+        ));
 
         children.add(
           DataTable(
@@ -1551,6 +1615,17 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         status.toUpperCase(),
         style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
       ),
+    );
+  }
+
+  Widget _buildSummaryItem(String label, dynamic value) {
+    final double val = parseQty(value);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('$label-', style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+        Text(val.toInt().toString(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+      ],
     );
   }
 
@@ -1682,6 +1757,29 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                     ),
                   ),
                 ],
+              );
+            }
+            if (item['type'] == 'cat_summary') {
+              return Container(
+                width: double.infinity,
+                color: Colors.brown.shade50,
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildSummaryItem('Ord', item['totalOrd']),
+                      const SizedBox(width: 12),
+                      _buildSummaryItem('Snt', item['totalSnt']),
+                      const SizedBox(width: 12),
+                      _buildSummaryItem('Con', item['totalCon']),
+                      const SizedBox(width: 12),
+                      _buildSummaryItem('Pic', item['totalPic']),
+                      const SizedBox(width: 12),
+                      _buildSummaryItem('Rec', item['totalRec']),
+                    ],
+                  ),
+                ),
               );
             }
 
