@@ -1115,12 +1115,12 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       ],
     ));
 
-    return Align(
-      alignment: Alignment.topLeft,
+    return SizedBox.expand(
       child: Scrollbar(
         controller: _webVScroll,
         thumbVisibility: true,
         trackVisibility: true,
+        notificationPredicate: (notif) => notif.depth == 0,
         child: SingleChildScrollView(
           controller: _webVScroll,
           scrollDirection: Axis.vertical,
@@ -1416,7 +1416,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           child: Center(
             child: Text(
               '${deptName.toUpperCase()} (Ord: ${dOrd.toInt()} | Snt: ${dSnt.toInt()})',
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
             ),
           ),
         ),
@@ -1443,7 +1443,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             child: Center(
               child: Text(
                 '$catName (Ord: ${cOrd.toInt()} | Snt: ${cSnt.toInt()})',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
           ),
@@ -1496,12 +1496,12 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         productRows.add(DataRow(
           color: MaterialStateProperty.all(Colors.teal.shade50),
           cells: [
-            DataCell(SizedBox(width: nameColWidth, child: const Padding(padding: EdgeInsets.only(left: 24.0), child: Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.teal))))),
-            DataCell(SizedBox(width: dataColWidth, child: Text(cOrd.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold)))),
-            DataCell(SizedBox(width: dataColWidth, child: Text(cSnt.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold)))),
-            DataCell(SizedBox(width: dataColWidth, child: Text(cCon.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold)))),
-            DataCell(SizedBox(width: dataColWidth, child: Text(cPic.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold)))),
-            DataCell(SizedBox(width: dataColWidth, child: Text(cRec.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold)))),
+            DataCell(SizedBox(width: nameColWidth, child: const Padding(padding: EdgeInsets.only(left: 24.0), child: Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.teal))))),
+            DataCell(SizedBox(width: dataColWidth, child: Text(cOrd.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)))),
+            DataCell(SizedBox(width: dataColWidth, child: Text(cSnt.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)))),
+            DataCell(SizedBox(width: dataColWidth, child: Text(cCon.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)))),
+            DataCell(SizedBox(width: dataColWidth, child: Text(cPic.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)))),
+            DataCell(SizedBox(width: dataColWidth, child: Text(cRec.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)))),
             DataCell(SizedBox(width: dataColWidth, child: const Text(''))),
           ],
         ));
