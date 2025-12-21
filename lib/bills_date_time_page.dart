@@ -74,7 +74,7 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
       final token = await storage.read(key: 'token');
       if (token == null) return;
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/companies?limit=1000'),
+        Uri.parse('https://admin.theblackforestcakes.com/api/companies?limit=3000'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -139,7 +139,7 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
       final token = await storage.read(key: 'token');
       if (token == null) return;
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/branches?limit=1000'),
+        Uri.parse('https://admin.theblackforestcakes.com/api/branches?limit=3000'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -168,7 +168,7 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
       final token = await storage.read(key: 'token');
       if (token == null) return;
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/users?limit=1000'),
+        Uri.parse('https://admin.theblackforestcakes.com/api/users?limit=3000'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -208,7 +208,7 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
       final endStr = end.toUtc().toIso8601String();
 
       String url =
-          'https://admin.theblackforestcakes.com/api/billings?limit=1000&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr';
+          'https://admin.theblackforestcakes.com/api/billings?limit=3000&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr';
 
       if (selectedBranchId != 'ALL') {
         url += '&where[branch][equals]=$selectedBranchId';
