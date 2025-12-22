@@ -1175,6 +1175,150 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     }
   }
 
+  String _formatDateTimeLong(String? isoDate) {
+    if (isoDate == null || isoDate.isEmpty) return '';
+    try {
+      final dt = DateTime.parse(isoDate).add(const Duration(hours: 5, minutes: 30)); // UTC to IST
+      // Format: 21.12.25- 19.05
+      return DateFormat('dd.MM.yy- HH.mm').format(dt);
+    } catch (e) {
+      return '';
+    }
+  }
+
+  void _showProductDetailPopup(String pName) {
+    // Collect data per branch for this specific product
+    final Map<String, Map<String, dynamic>> branchData = {};
+
+    for (var order in stockOrders) {
+      String bName = 'Unknown Branch';
+      if (order['branch'] is Map && order['branch']['name'] != null) {
+        bName = order['branch']['name'].toString();
+      } else if (order['branch'] is String) {
+        bName = order['branch'];
+      }
+
+      final items = (order['items'] as List?) ?? [];
+      for (var item in items) {
+        if (item is! Map) continue;
+        final name = item['name']?.toString() ?? 'Unknown Product';
+        if (name != pName) continue;
+
+        if (!branchData.containsKey(bName)) {
+          branchData[bName] = {
+            'Ord': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Rec': 0.0, 'Dif': 0.0,
+            'OrdTime': '', 'SntTime': '', 'ConTime': '', 'PicTime': '', 'RecTime': '',
+          };
+        }
+
+        final data = branchData[bName]!;
+
+        // Quantity Aggregation
+        data['Ord'] = (data['Ord']!) + parseQty(item['requiredQty']);
+        data['Snt'] = (data['Snt']!) + parseQty(item['sendingQty']);
+        data['Con'] = (data['Con']!) + parseQty(item['confirmedQty']);
+        data['Pic'] = (data['Pic']!) + parseQty(item['pickedQty']);
+        data['Rec'] = (data['Rec']!) + parseQty(item['receivedQty']);
+        data['Dif'] = (data['Dif']!) + parseQty(item['differenceQty']);
+
+        // Helper for timestamp extraction (mirroring _buildProductSummaryTable logic)
+        String? getTsLocal(List<String> keys, List<String> objKeys) {
+          for (var k in keys) {
+            dynamic v = item[k] ?? order[k];
+            if (v is Map && v['\$date'] != null) return v['\$date'].toString();            
+            if (v != null && v.toString().isNotEmpty) return v.toString();
+          }
+          for (var k in objKeys) {
+            dynamic v = item[k] ?? order[k];
+            if (v is List && v.isNotEmpty) v = v.last;
+            if (v is Map) {
+              return v['date']?.toString() ?? v['createdAt']?.toString() ?? v['updatedAt']?.toString() ?? v['time']?.toString() ?? v['timestamp']?.toString();
+            } else if (v is String) {
+              if (v.startsWith('{')) {
+                try {
+                  final m = jsonDecode(v);
+                  if (m is Map) return m['date']?.toString() ?? m['createdAt']?.toString() ?? m['updatedAt']?.toString() ?? m['time']?.toString() ?? m['timestamp']?.toString();
+                } catch (_) {}
+              } else if (v.isNotEmpty) { return v; }
+            }
+          }
+          return null;
+        }
+
+        if (order['createdAt'] != null) data['OrdTime'] = order['createdAt'];
+
+        final sTime = getTsLocal(['sendingDate', 'sendingAt', 'sentAt', 'sendingTime'], ['sendingUpdatedBy']);
+        if (sTime != null) data['SntTime'] = sTime;
+
+        final cTime = getTsLocal(['confirmedDate', 'confirmedAt', 'confirmedTime'], ['confirmedUpdatedBy']);
+        if (cTime != null) data['ConTime'] = cTime;
+
+        final pTime = getTsLocal(['pickedDate', 'pickedAt', 'pickedTime'], ['pickedUpdatedBy']);
+        if (pTime != null) data['PicTime'] = pTime;
+
+        final rTime = getTsLocal(['receivedDate', 'receivedAt', 'receivedTime'], ['receivedUpdatedBy']);
+        if (rTime != null) data['RecTime'] = rTime;
+      }
+    }
+
+    final sortedBranches = branchData.keys.toList()..sort();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(pName, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: SizedBox(
+          width: 900,
+          child: SingleChildScrollView(
+            child: DataTable(
+              headingRowColor: MaterialStateProperty.all(Colors.brown.shade300),
+              headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              columns: const [
+                DataColumn(label: Text('Branch Name')),
+                DataColumn(label: Text('ORD')),
+                DataColumn(label: Text('SNT')),
+                DataColumn(label: Text('CON')),
+                DataColumn(label: Text('PIC')),
+                DataColumn(label: Text('REC')),
+                DataColumn(label: Text('DIF')),
+              ],
+              rows: sortedBranches.map((bName) {
+                final d = branchData[bName]!;
+                return DataRow(cells: [
+                  DataCell(Text(bName, style: const TextStyle(fontWeight: FontWeight.bold))),
+                  DataCell(Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Text(d['Ord'].round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    if (d['OrdTime'].isNotEmpty) Text(_formatDateTimeLong(d['OrdTime']), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                  ])),
+                  DataCell(Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Text(d['Snt'].round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    if (d['SntTime'].isNotEmpty) Text(_formatDateTimeLong(d['SntTime']), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                  ])),
+                  DataCell(Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Text(d['Con'].round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    if (d['ConTime'].isNotEmpty) Text(_formatDateTimeLong(d['ConTime']), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                  ])),
+                  DataCell(Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Text(d['Pic'].round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    if (d['PicTime'].isNotEmpty) Text(_formatDateTimeLong(d['PicTime']), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                  ])),
+                  DataCell(Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Text(d['Rec'].round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    if (d['RecTime'].isNotEmpty) Text(_formatDateTimeLong(d['RecTime']), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                  ])),
+                  DataCell(Text(d['Dif'].round().toString(), style: TextStyle(color: d['Dif'] != 0 ? Colors.red : Colors.black, fontWeight: FontWeight.bold))),
+                ]);
+              }).toList(),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CLOSE')),
+        ],
+      ),
+    );
+  }
+
   Widget _buildProductSummaryTable() {
     // Map<DepartmentName, Map<CategoryName, Map<ProductName, Stats>>>
     final Map<String, Map<String, Map<String, Map<String, dynamic>>>> groupedAggregates = {};
@@ -1459,7 +1603,10 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                 width: nameColWidth,
                 child: Padding(
                   padding: const EdgeInsets.only(left: 24.0),
-                  child: Text(pName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  child: InkWell(
+                    onTap: () => _showProductDetailPopup(pName),
+                    child: Text(pName, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, decoration: TextDecoration.underline)),
+                  ),
                 ),
               )),
               DataCell(SizedBox(width: dataColWidth, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
