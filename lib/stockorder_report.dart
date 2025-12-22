@@ -77,7 +77,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     try {
       final token = await _getToken();
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/branches?limit=1000'),
+        Uri.parse('https://admin.theblackforestcakes.com/api/branches?limit=3000'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -102,7 +102,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     try {
       final token = await _getToken();
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/departments?limit=1000'),
+        Uri.parse('https://admin.theblackforestcakes.com/api/departments?limit=3000'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -121,7 +121,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     try {
       final token = await _getToken();
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/categories?limit=1000&depth=1'),
+        Uri.parse('https://admin.theblackforestcakes.com/api/categories?limit=3000&depth=1'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -146,7 +146,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59)
           : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
 
-      var url = 'https://admin.theblackforestcakes.com/api/stock-orders?limit=1000&depth=2'
+      var url = 'https://admin.theblackforestcakes.com/api/stock-orders?limit=3000&depth=2'
           '&where[deliveryDate][greater_than]=${start.toUtc().toIso8601String()}'
           '&where[deliveryDate][less_than]=${end.toUtc().toIso8601String()}';
 

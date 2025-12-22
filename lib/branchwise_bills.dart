@@ -104,7 +104,7 @@ class _BranchwiseBillsPageState extends State<BranchwiseBillsPage> {
 
       final response = await http.get(
         Uri.parse(
-            'https://admin.theblackforestcakes.com/api/billings?limit=1000&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr'),
+            'https://admin.theblackforestcakes.com/api/billings?limit=3000&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr'),
         headers: {'Authorization': 'Bearer $token'},
       );
 

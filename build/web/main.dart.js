@@ -43809,7 +43809,7 @@ case 7:m=a4
 if(m==null){s=1
 break}d=t.N
 s=8
-return A.r(A.dt(A.c8("https://admin.theblackforestcakes.com/api/companies?limit=1000"),A.X(["Authorization","Bearer "+m],d,d)),$async$uc)
+return A.r(A.dt(A.c8("https://admin.theblackforestcakes.com/api/companies?limit=3000"),A.X(["Authorization","Bearer "+m],d,d)),$async$uc)
 case 8:l=a4
 if(l.b===200){c=l
 k=B.L.cH(0,A.d3(A.d2(c.e)).bA(0,c.w),null)
@@ -43877,7 +43877,7 @@ if(l==null){n=[1]
 s=5
 break}c=t.N
 s=8
-return A.r(A.dt(A.c8(u.s),A.X(["Authorization","Bearer "+l],c,c)),$async$tI)
+return A.r(A.dt(A.c8("https://admin.theblackforestcakes.com/api/branches?limit=3000"),A.X(["Authorization","Bearer "+l],c,c)),$async$tI)
 case 8:k=a5
 if(k.b===200){b=k
 j=B.L.cH(0,A.d3(A.d2(b.e)).bA(0,b.w),null)
@@ -43916,7 +43916,7 @@ case 7:m=a4
 if(m==null){s=1
 break}d=t.N
 s=8
-return A.r(A.dt(A.c8(u.u),A.X(["Authorization","Bearer "+m],d,d)),$async$ug)
+return A.r(A.dt(A.c8("https://admin.theblackforestcakes.com/api/users?limit=3000"),A.X(["Authorization","Bearer "+m],d,d)),$async$ug)
 case 8:l=a4
 if(l.b===200){d=l
 k=B.L.cH(0,A.d3(A.d2(d.e)).bA(0,d.w),null)
@@ -43962,7 +43962,7 @@ a1.toString
 a2=A.aN(A.ao(a1),A.aC(a1),A.aQ(a1),23,59,59,0)}j=a2
 i=k.cK().cC()
 h=j.cK().cC()
-g=u.C+A.j(i)+"&where[createdAt][less_than]="+A.j(h)
+g="https://admin.theblackforestcakes.com/api/billings?limit=3000&where[createdAt][greater_than]="+A.j(i)+"&where[createdAt][less_than]="+A.j(h)
 a1=m.as
 if(a1!=="ALL")g=J.bB(g,"&where[branch][equals]="+a1)
 a1=t.N

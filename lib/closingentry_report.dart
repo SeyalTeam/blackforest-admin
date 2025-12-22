@@ -67,7 +67,7 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString("token");
       final url = Uri.parse(
-          "https://admin.theblackforestcakes.com/api/branches?limit=1000");
+          "https://admin.theblackforestcakes.com/api/branches?limit=3000");
       final res = await http.get(url, headers: {"Authorization": "Bearer $token"});
       final data = jsonDecode(res.body);
       final docs = data["docs"] ?? [];

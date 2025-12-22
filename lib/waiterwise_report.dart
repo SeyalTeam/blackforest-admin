@@ -67,7 +67,7 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
       final token = await _getToken();
       if (token == null) return;
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/branches?limit=1000'),
+        Uri.parse('https://admin.theblackforestcakes.com/api/branches?limit=3000'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -94,7 +94,7 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
       final token = await _getToken();
       if (token == null) return;
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/users?limit=1000'),
+        Uri.parse('https://admin.theblackforestcakes.com/api/users?limit=3000'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -177,7 +177,7 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
       if (token == null) return;
       final start = DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
       final end = toDate != null ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59) : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
-      var baseUrl = 'https://admin.theblackforestcakes.com/api/billings?limit=1000&where[createdAt][greater_than]=${start.toUtc().toIso8601String()}&where[createdAt][less_than]=${end.toUtc().toIso8601String()}&sort=createdAt';
+      var baseUrl = 'https://admin.theblackforestcakes.com/api/billings?limit=3000&where[createdAt][greater_than]=${start.toUtc().toIso8601String()}&where[createdAt][less_than]=${end.toUtc().toIso8601String()}&sort=createdAt';
       if (selectedBranchId != 'ALL') {
         baseUrl += '&where[branch][equals]=$selectedBranchId';
       }
@@ -393,7 +393,7 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
       if (token == null) return [];
       final start = DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
       final end = toDate != null ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59) : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
-      var baseUrl = 'https://admin.theblackforestcakes.com/api/billings?limit=1000&where[createdAt][greater_than]=${start.toUtc().toIso8601String()}&where[createdAt][less_than]=${end.toUtc().toIso8601String()}&where[createdBy][equals]=$waiterId&sort=createdAt';
+      var baseUrl = 'https://admin.theblackforestcakes.com/api/billings?limit=3000&where[createdAt][greater_than]=${start.toUtc().toIso8601String()}&where[createdAt][less_than]=${end.toUtc().toIso8601String()}&where[createdBy][equals]=$waiterId&sort=createdAt';
       if (selectedBranchId != 'ALL') {
         baseUrl += '&where[branch][equals]=$selectedBranchId';
       }

@@ -247,7 +247,7 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       final token = await storage.read(key: 'token');
       if (token == null) return;
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/branches?limit=1000'),
+        Uri.parse('https://admin.theblackforestcakes.com/api/branches?limit=3000'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -275,7 +275,7 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       final token = await storage.read(key: 'token');
       if (token == null) return;
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/users?limit=1000'),
+        Uri.parse('https://admin.theblackforestcakes.com/api/users?limit=3000'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
