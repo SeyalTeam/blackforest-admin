@@ -1547,9 +1547,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     final sortedDepartments = groupedAggregates.keys.toList()..sort();
     
     // Fixed column widths to ensure alignment across multiple DataTables
-    const double nameColWidth = 330;
+    const double nameColWidth = 220;
     const double dataColWidth = 110;
-    const double prcColWidth = 60;
+    const double prcColWidth = 50;
     const double hMargin = 12; // Matching DataTable horizontalMargin
     const double totalTableWidth = nameColWidth + prcColWidth + (dataColWidth * 6) + (hMargin * 2);
 
