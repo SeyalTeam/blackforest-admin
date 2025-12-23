@@ -1549,8 +1549,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     // Fixed column widths to ensure alignment across multiple DataTables
     const double nameColWidth = 330;
     const double dataColWidth = 110;
+    const double prcColWidth = 60;
     const double hMargin = 12; // Matching DataTable horizontalMargin
-    const double totalTableWidth = nameColWidth + (dataColWidth * 7) + (hMargin * 2);
+    const double totalTableWidth = nameColWidth + prcColWidth + (dataColWidth * 6) + (hMargin * 2);
 
     List<Widget> children = [];
     int pIndex = 0;
@@ -1628,7 +1629,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                   ),
                 ),
               )),
-              DataCell(SizedBox(width: dataColWidth, child: InkWell(
+              DataCell(SizedBox(width: prcColWidth, child: InkWell(
                 onTap: () => _showProductDetailPopup(pName),
                 child: Text(data['Prc']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1B5E20))),
               ))),
@@ -1663,7 +1664,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           color: MaterialStateProperty.all(Colors.teal.shade50),
           cells: [
             DataCell(SizedBox(width: nameColWidth, child: const Padding(padding: EdgeInsets.only(left: 24.0), child: Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.teal))))),
-            DataCell(SizedBox(width: dataColWidth, child: const Text(''))),
+            DataCell(SizedBox(width: prcColWidth, child: const Text(''))),
             DataCell(SizedBox(width: dataColWidth, child: Text(cOrd.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)))),
             DataCell(SizedBox(width: dataColWidth, child: Text(cSnt.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)))),
             DataCell(SizedBox(width: dataColWidth, child: Text(cCon.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)))),
@@ -1681,7 +1682,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             columns: [
               DataColumn(label: SizedBox(width: nameColWidth, child: const Text('Product Name'))),
-              DataColumn(label: SizedBox(width: dataColWidth, child: const Text('PRC'))),
+              DataColumn(label: SizedBox(width: prcColWidth, child: const Text('PRC'))),
               DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Ord'))),
               DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Snt'))),
               DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Con'))),
