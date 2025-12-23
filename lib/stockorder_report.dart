@@ -1188,6 +1188,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
   void _showProductDetailPopup(String pName) {
     // Collect data per branch for this specific product
+    // We'll store invoices as a Set to avoid duplicates if multiple orders exist for same branch
     final Map<String, Map<String, dynamic>> branchData = {};
 
     for (var order in stockOrders) {
@@ -1208,10 +1209,17 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           branchData[bName] = {
             'Ord': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Rec': 0.0, 'Dif': 0.0,
             'OrdTime': '', 'SntTime': '', 'ConTime': '', 'PicTime': '', 'RecTime': '',
+            'Invoices': <String>{},
           };
         }
 
         final data = branchData[bName]!;
+        
+        // Add invoice number
+        final inv = order['invoiceNumber']?.toString();
+        if (inv != null && inv.isNotEmpty) {
+          (data['Invoices'] as Set<String>).add(inv);
+        }
 
         // Quantity Aggregation
         data['Ord'] = (data['Ord']!) + parseQty(item['requiredQty']);
@@ -1268,7 +1276,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       builder: (context) => AlertDialog(
         title: Text(pName, style: const TextStyle(fontWeight: FontWeight.bold)),
         content: SizedBox(
-          width: 900,
+          width: 1000,
           child: SingleChildScrollView(
             child: DataTable(
               headingRowColor: MaterialStateProperty.all(Colors.brown.shade300),
@@ -1284,8 +1292,12 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               ],
               rows: sortedBranches.map((bName) {
                 final d = branchData[bName]!;
+                final invoices = (d['Invoices'] as Set<String>).join(', ');
                 return DataRow(cells: [
-                  DataCell(Text(bName, style: const TextStyle(fontWeight: FontWeight.bold))),
+                  DataCell(Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Text(bName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    if (invoices.isNotEmpty) Text(invoices, style: const TextStyle(fontSize: 10, color: Colors.blueGrey)),
+                  ])),
                   DataCell(Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
                     Text(d['Ord'].round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     if (d['OrdTime'].isNotEmpty) Text(_formatDateTimeLong(d['OrdTime']), style: const TextStyle(fontSize: 10, color: Colors.grey)),
