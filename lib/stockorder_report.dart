@@ -1624,13 +1624,13 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                   padding: const EdgeInsets.only(left: 24.0),
                   child: InkWell(
                     onTap: () => _showProductDetailPopup(pName),
-                    child: Text(pName, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, decoration: TextDecoration.underline)),
+                    child: Text(pName, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
                   ),
                 ),
               )),
               DataCell(SizedBox(width: dataColWidth, child: InkWell(
                 onTap: () => _showProductDetailPopup(pName),
-                child: Text(data['Prc']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue, decoration: TextDecoration.underline)),
+                child: Text(data['Prc']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1B5E20))),
               ))),
               DataCell(SizedBox(width: dataColWidth, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
                 Text(data['Ord']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
@@ -1976,7 +1976,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                   Expanded(flex: 3, child: Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
                   Expanded(flex: 1, child: InkWell(
                     onTap: () => _showProductDetailPopup(name),
-                    child: Text(price.toString(), style: const TextStyle(fontSize: 11, color: Colors.blue, decoration: TextDecoration.underline), textAlign: TextAlign.center),
+                    child: Text(price.toString(), style: const TextStyle(fontSize: 11, color: Color(0xFF1B5E20), fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                   )),
                   Expanded(flex: 1, child: Text(req.round().toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
                   Expanded(flex: 1, child: Text(sent.round().toString(), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
