@@ -1207,7 +1207,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
         if (!branchData.containsKey(bName)) {
           branchData[bName] = {
-            'Ord': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Rec': 0.0, 'Dif': 0.0,
+            'Ord': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Rec': 0.0, 'Dif': 0.0, 'Prc': 0.0,
             'OrdTime': '', 'SntTime': '', 'ConTime': '', 'PicTime': '', 'RecTime': '',
             'Invoices': <String>{},
           };
@@ -1228,6 +1228,10 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         data['Pic'] = (data['Pic']!) + parseQty(item['pickedQty']);
         data['Rec'] = (data['Rec']!) + parseQty(item['receivedQty']);
         data['Dif'] = (data['Dif']!) + parseQty(item['differenceQty']);
+
+        final rQtyForPrc = parseQty(item['requiredQty']);
+        final rAmtForPrc = parseQty(item['requiredAmount']);
+        if (rQtyForPrc > 0) data['Prc'] = rAmtForPrc / rQtyForPrc;
 
         // Helper for timestamp extraction (mirroring _buildProductSummaryTable logic)
         String? getTsLocal(List<String> keys, List<String> objKeys) {
@@ -1283,6 +1287,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
               columns: const [
                 DataColumn(label: Text('Branch Name')),
+                DataColumn(label: Text('PRC')),
                 DataColumn(label: Text('ORD')),
                 DataColumn(label: Text('SNT')),
                 DataColumn(label: Text('CON')),
@@ -1298,6 +1303,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                     Text(bName, style: const TextStyle(fontWeight: FontWeight.bold)),
                     if (invoices.isNotEmpty) Text(invoices, style: const TextStyle(fontSize: 10, color: Colors.blueGrey)),
                   ])),
+                  DataCell(Text(d['Prc'].round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
                   DataCell(Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
                     Text(d['Ord'].round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     if (d['OrdTime'].isNotEmpty) Text(_formatDateTimeLong(d['OrdTime']), style: const TextStyle(fontSize: 10, color: Colors.grey)),
@@ -1465,7 +1471,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         
         if (!groupedAggregates[departmentName]![categoryName]!.containsKey(name)) {
           groupedAggregates[departmentName]![categoryName]![name] = {
-            'Ord': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Rec': 0.0, 'Dif': 0.0,
+            'Ord': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Rec': 0.0, 'Dif': 0.0, 'Prc': 0.0,
             'OrdAmt': 0.0, 'SntAmt': 0.0, 'ConAmt': 0.0, 'PicAmt': 0.0, 'RecAmt': 0.0,
             'OrdTime': '', 'SntTime': '', 'ConTime': '', 'PicTime': '', 'RecTime': '',
           };
@@ -1485,6 +1491,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         final double rQty = parseQty(item['requiredQty']);
         final double rAmt = parseQty(item['requiredAmount']);
         final double unitPrice = rQty > 0 ? (rAmt / rQty) : 0.0;
+        if (unitPrice > 0) cur['Prc'] = unitPrice;
 
         cur['OrdAmt'] = (cur['OrdAmt']!) + rAmt;
         cur['SntAmt'] = (cur['SntAmt']!) + parseQty(item['sendingAmount']);
@@ -1543,7 +1550,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     const double nameColWidth = 330;
     const double dataColWidth = 110;
     const double hMargin = 12; // Matching DataTable horizontalMargin
-    const double totalTableWidth = nameColWidth + (dataColWidth * 6) + (hMargin * 2);
+    const double totalTableWidth = nameColWidth + (dataColWidth * 7) + (hMargin * 2);
 
     List<Widget> children = [];
     int pIndex = 0;
@@ -1621,6 +1628,10 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                   ),
                 ),
               )),
+              DataCell(SizedBox(width: dataColWidth, child: InkWell(
+                onTap: () => _showProductDetailPopup(pName),
+                child: Text(data['Prc']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue, decoration: TextDecoration.underline)),
+              ))),
               DataCell(SizedBox(width: dataColWidth, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
                 Text(data['Ord']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 Text(_formatTime(data['OrdTime']), style: const TextStyle(fontSize: 10, color: Colors.grey)),
@@ -1652,6 +1663,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           color: MaterialStateProperty.all(Colors.teal.shade50),
           cells: [
             DataCell(SizedBox(width: nameColWidth, child: const Padding(padding: EdgeInsets.only(left: 24.0), child: Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.teal))))),
+            DataCell(SizedBox(width: dataColWidth, child: const Text(''))),
             DataCell(SizedBox(width: dataColWidth, child: Text(cOrd.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)))),
             DataCell(SizedBox(width: dataColWidth, child: Text(cSnt.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)))),
             DataCell(SizedBox(width: dataColWidth, child: Text(cCon.toInt().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)))),
@@ -1669,6 +1681,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             columns: [
               DataColumn(label: SizedBox(width: nameColWidth, child: const Text('Product Name'))),
+              DataColumn(label: SizedBox(width: dataColWidth, child: const Text('PRC'))),
               DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Ord'))),
               DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Snt'))),
               DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Con'))),
@@ -1907,7 +1920,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                     child: Row(
                       children: const [
                         Expanded(flex: 3, child: Text('Name', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Expanded(flex: 1, child: Text('Prc', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                        Expanded(flex: 1, child: Text('PRC', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
                         Expanded(flex: 1, child: Text('Req', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
                         Expanded(flex: 1, child: Text('Snt', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
                         Expanded(flex: 1, child: Text('Con', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
@@ -1961,7 +1974,10 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               child: Row(
                 children: [
                   Expanded(flex: 3, child: Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
-                  Expanded(flex: 1, child: Text(price.toString(), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                  Expanded(flex: 1, child: InkWell(
+                    onTap: () => _showProductDetailPopup(name),
+                    child: Text(price.toString(), style: const TextStyle(fontSize: 11, color: Colors.blue, decoration: TextDecoration.underline), textAlign: TextAlign.center),
+                  )),
                   Expanded(flex: 1, child: Text(req.round().toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
                   Expanded(flex: 1, child: Text(sent.round().toString(), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
                   Expanded(flex: 1, child: Text(conf.round().toString(), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
