@@ -937,7 +937,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
       if (!aggregates.containsKey(bName)) {
         aggregates[bName] = {
-          'Ord': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Rec': 0.0, 'Dif': 0.0,
+          'Ord': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Rec': 0.0, 'Dif': 0.0, 'Live': 0.0,
         };
       }
 
@@ -1052,6 +1052,22 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           final pickAmt = pickQty * unitPrice;
           final diffAmt = differenceQty * unitPrice;
 
+          bool isLive = false;
+          final createdAtStr = order['createdAt']?.toString();
+          final deliveryDateStr = order['deliveryDate']?.toString();
+          if (createdAtStr != null && deliveryDateStr != null) {
+            final cDt = DateTime.tryParse(createdAtStr);
+            final dDt = DateTime.tryParse(deliveryDateStr);
+            if (cDt != null && dDt != null) {
+              final istC = cDt.add(const Duration(hours: 5, minutes: 30));
+              final istD = dDt.add(const Duration(hours: 5, minutes: 30));
+              if (istC.year == istD.year && istC.month == istD.month && istC.day == istD.day) {
+                isLive = true;
+              }
+            }
+          }
+
+        if (isLive) cur['Live'] = (cur['Live']!) + reqAmt;
         cur['Ord'] = (cur['Ord']!) + reqAmt;
         cur['Snt'] = (cur['Snt']!) + sentAmt;
         cur['Con'] = (cur['Con']!) + confAmt;
@@ -1064,6 +1080,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     final sortedBranches = aggregates.keys.toList()..sort();
 
     double totalReq = 0;
+    double totalLive = 0;
     double totalSnt = 0;
     double totalCon = 0;
     double totalPic = 0;
@@ -1075,6 +1092,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     for (var bName in sortedBranches) {
       final data = aggregates[bName]!;
       totalReq += data['Ord']!;
+      totalLive += data['Live']!;
       totalSnt += data['Snt']!;
       totalCon += data['Con']!;
       totalPic += data['Pic']!;
@@ -1087,6 +1105,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         color: MaterialStateProperty.all(bgColor),
         cells: [
         DataCell(Text(bName, style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(data['Live']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange))),
         DataCell(Text(data['Ord']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
         DataCell(Text(data['Snt']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
         DataCell(Text(data['Con']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -1102,6 +1121,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       color: MaterialStateProperty.all(Colors.grey.shade300),
       cells: [
         const DataCell(Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold))),
+        DataCell(Text(totalLive.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange))),
         DataCell(Text(totalReq.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
         DataCell(Text(totalSnt.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
         DataCell(Text(totalCon.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -1140,6 +1160,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                         headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                         columns: const [
                           DataColumn(label: Text('Branch')),
+                          DataColumn(label: Text('Live Amt'), tooltip: 'Ordered & Delivered on Same Day'),
                           DataColumn(label: Text('Ord Amt'), tooltip: 'Ordered Amount'),
                           DataColumn(label: Text('Snt Amt'), tooltip: 'Sent Amount'),
                           DataColumn(label: Text('Con Amt'), tooltip: 'Confirmed Amount'),
@@ -1205,13 +1226,11 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         final name = item['name']?.toString() ?? 'Unknown Product';
         if (name != pName) continue;
 
-        if (!branchData.containsKey(bName)) {
           branchData[bName] = {
-            'Ord': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Rec': 0.0, 'Dif': 0.0, 'Prc': 0.0,
+            'Ord': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Rec': 0.0, 'Dif': 0.0, 'Prc': 0.0, 'Live': 0.0,
             'OrdTime': '', 'SntTime': '', 'ConTime': '', 'PicTime': '', 'RecTime': '',
             'Invoices': <String>{},
           };
-        }
 
         final data = branchData[bName]!;
         
@@ -1232,6 +1251,22 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         final rQtyForPrc = parseQty(item['requiredQty']);
         final rAmtForPrc = parseQty(item['requiredAmount']);
         if (rQtyForPrc > 0) data['Prc'] = rAmtForPrc / rQtyForPrc;
+
+        bool isLive = false;
+        final createdAtStr = order['createdAt']?.toString();
+        final deliveryDateStr = order['deliveryDate']?.toString();
+        if (createdAtStr != null && deliveryDateStr != null) {
+          final cDt = DateTime.tryParse(createdAtStr);
+          final dDt = DateTime.tryParse(deliveryDateStr);
+          if (cDt != null && dDt != null) {
+            final istC = cDt.add(const Duration(hours: 5, minutes: 30));
+            final istD = dDt.add(const Duration(hours: 5, minutes: 30));
+            if (istC.year == istD.year && istC.month == istD.month && istC.day == istD.day) {
+              isLive = true;
+            }
+          }
+        }
+        if (isLive) data['Live'] = (data['Live']!) + rAmtForPrc;
 
         // Helper for timestamp extraction (mirroring _buildProductSummaryTable logic)
         String? getTsLocal(List<String> keys, List<String> objKeys) {
@@ -1288,6 +1323,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               columns: const [
                 DataColumn(label: Text('Branch Name')),
                 DataColumn(label: Text('PRC')),
+                DataColumn(label: Text('LIVE')),
                 DataColumn(label: Text('ORD')),
                 DataColumn(label: Text('SNT')),
                 DataColumn(label: Text('CON')),
@@ -1304,6 +1340,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                     if (invoices.isNotEmpty) Text(invoices, style: const TextStyle(fontSize: 10, color: Colors.blueGrey)),
                   ])),
                   DataCell(Text(d['Prc'].round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                  DataCell(Text(d['Live'].round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.deepOrange))),
                   DataCell(Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
                     Text(d['Ord'].round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     if (d['OrdTime'].isNotEmpty) Text(_formatDateTimeLong(d['OrdTime']), style: const TextStyle(fontSize: 10, color: Colors.grey)),
@@ -1472,7 +1509,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         if (!groupedAggregates[departmentName]![categoryName]!.containsKey(name)) {
           groupedAggregates[departmentName]![categoryName]![name] = {
             'Ord': 0.0, 'Snt': 0.0, 'Con': 0.0, 'Pic': 0.0, 'Rec': 0.0, 'Dif': 0.0, 'Prc': 0.0,
-            'OrdAmt': 0.0, 'SntAmt': 0.0, 'ConAmt': 0.0, 'PicAmt': 0.0, 'RecAmt': 0.0,
+            'OrdAmt': 0.0, 'LiveAmt': 0.0, 'SntAmt': 0.0, 'ConAmt': 0.0, 'PicAmt': 0.0, 'RecAmt': 0.0,
             'OrdTime': '', 'SntTime': '', 'ConTime': '', 'PicTime': '', 'RecTime': '',
           };
         }
@@ -1492,6 +1529,22 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         final double rAmt = parseQty(item['requiredAmount']);
         final double unitPrice = rQty > 0 ? (rAmt / rQty) : 0.0;
         if (unitPrice > 0) cur['Prc'] = unitPrice;
+
+        bool isLive = false;
+        final createdAtStr = order['createdAt']?.toString();
+        final deliveryDateStr = order['deliveryDate']?.toString();
+        if (createdAtStr != null && deliveryDateStr != null) {
+          final cDt = DateTime.tryParse(createdAtStr);
+          final dDt = DateTime.tryParse(deliveryDateStr);
+          if (cDt != null && dDt != null) {
+            final istC = cDt.add(const Duration(hours: 5, minutes: 30));
+            final istD = dDt.add(const Duration(hours: 5, minutes: 30));
+            if (istC.year == istD.year && istC.month == istD.month && istC.day == istD.day) {
+              isLive = true;
+            }
+          }
+        }
+        if (isLive) cur['LiveAmt'] = (cur['LiveAmt']!) + rAmt;
 
         cur['OrdAmt'] = (cur['OrdAmt']!) + rAmt;
         cur['SntAmt'] = (cur['SntAmt']!) + parseQty(item['sendingAmount']);
@@ -1551,7 +1604,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     const double dataColWidth = 110;
     const double prcColWidth = 50;
     const double hMargin = 12; // Matching DataTable horizontalMargin
-    const double totalTableWidth = nameColWidth + prcColWidth + (dataColWidth * 6) + (hMargin * 2);
+    const double totalTableWidth = nameColWidth + (prcColWidth * 2) + (dataColWidth * 6) + (hMargin * 2);
 
     List<Widget> children = [];
     int pIndex = 0;
@@ -1559,10 +1612,11 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     for (var deptName in sortedDepartments) {
       final categoriesMap = groupedAggregates[deptName]!;
       
-      double dOrd = 0, dSnt = 0;
+      double dOrd = 0, dLive = 0, dSnt = 0;
       for (var cat in categoriesMap.values) {
         for (var prod in cat.values) {
           dOrd += (prod['OrdAmt'] ?? 0.0);
+          dLive += (prod['LiveAmt'] ?? 0.0);
           dSnt += (prod['SntAmt'] ?? 0.0);
         }
       }
@@ -1575,7 +1629,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: Center(
             child: Text(
-              '${deptName.toUpperCase()} (Ord: ${dOrd.toInt()} | Snt: ${dSnt.toInt()})',
+              '${deptName.toUpperCase()} (Live: ${dLive.toInt()} | Ord: ${dOrd.toInt()} | Snt: ${dSnt.toInt()})',
               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
             ),
           ),
@@ -1585,9 +1639,10 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
       for (var catName in sortedCategories) {
         final productsMap = categoriesMap[catName]!;
-        double cOrd = 0, cSnt = 0, cCon = 0, cPic = 0, cRec = 0;
+        double cOrd = 0, cLive = 0, cSnt = 0, cCon = 0, cPic = 0, cRec = 0;
         for (var prod in productsMap.values) {
           cOrd += (prod['OrdAmt'] ?? 0.0);
+          cLive += (prod['LiveAmt'] ?? 0.0);
           cSnt += (prod['SntAmt'] ?? 0.0);
           cCon += (prod['ConAmt'] ?? 0.0);
           cPic += (prod['PicAmt'] ?? 0.0);
@@ -1602,7 +1657,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Center(
               child: Text(
-                '$catName (Ord: ${cOrd.toInt()} | Snt: ${cSnt.toInt()})',
+                '$catName (Live: ${cLive.toInt()} | Ord: ${cOrd.toInt()} | Snt: ${cSnt.toInt()})',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
@@ -1632,6 +1687,10 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
               DataCell(SizedBox(width: prcColWidth, child: InkWell(
                 onTap: () => _showProductDetailPopup(pName),
                 child: Text(data['Prc']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1B5E20))),
+              ))),
+              DataCell(SizedBox(width: prcColWidth, child: InkWell(
+                onTap: () => _showProductDetailPopup(pName),
+                child: Text(data['LiveAmt']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.deepOrange)),
               ))),
               DataCell(SizedBox(width: dataColWidth, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
                 Text(data['Ord']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
@@ -1683,6 +1742,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             columns: [
               DataColumn(label: SizedBox(width: nameColWidth, child: const Text('Product Name'))),
               DataColumn(label: SizedBox(width: prcColWidth, child: const Text('PRC'))),
+              DataColumn(label: SizedBox(width: prcColWidth, child: const Text('LIVE'))),
               DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Ord'))),
               DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Snt'))),
               DataColumn(label: SizedBox(width: dataColWidth, child: const Text('Con'))),
@@ -1922,6 +1982,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                       children: const [
                         Expanded(flex: 3, child: Text('Name', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                         Expanded(flex: 1, child: Text('PRC', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                        Expanded(flex: 1, child: Text('LIVE', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.deepOrange), textAlign: TextAlign.center)),
                         Expanded(flex: 1, child: Text('Req', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
                         Expanded(flex: 1, child: Text('Snt', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
                         Expanded(flex: 1, child: Text('Con', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
@@ -1979,6 +2040,23 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                     onTap: () => _showProductDetailPopup(name),
                     child: Text(price.toString(), style: const TextStyle(fontSize: 11, color: Color(0xFF1B5E20), fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                   )),
+                  Expanded(flex: 1, child: Builder(builder: (context) {
+                    bool isLive = false;
+                    final createdAtStr = order['createdAt']?.toString();
+                    final deliveryDateStr = order['deliveryDate']?.toString();
+                    if (createdAtStr != null && deliveryDateStr != null) {
+                      final cDt = DateTime.tryParse(createdAtStr);
+                      final dDt = DateTime.tryParse(deliveryDateStr);
+                      if (cDt != null && dDt != null) {
+                        final istC = cDt.add(const Duration(hours: 5, minutes: 30));
+                        final istD = dDt.add(const Duration(hours: 5, minutes: 30));
+                        if (istC.year == istD.year && istC.month == istD.month && istC.day == istD.day) {
+                          isLive = true;
+                        }
+                      }
+                    }
+                    return Text(isLive ? reqAmount.round().toString() : '0', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.deepOrange), textAlign: TextAlign.center);
+                  })),
                   Expanded(flex: 1, child: Text(req.round().toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
                   Expanded(flex: 1, child: Text(sent.round().toString(), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
                   Expanded(flex: 1, child: Text(conf.round().toString(), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
