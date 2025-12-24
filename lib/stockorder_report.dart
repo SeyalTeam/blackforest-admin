@@ -1114,7 +1114,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
   Widget _buildSidePanel() {
     return Container(
-      width: 400,
+      width: 320,
       decoration: BoxDecoration(
         color: const Color(0xFFF8F9FA),
         border: Border(left: BorderSide(color: Colors.grey.shade300)),
@@ -1142,7 +1142,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                     Row(
                         children: [
                             Expanded(child: _buildTabChip('Stock', Icons.pie_chart_outline)),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 8),
                             Expanded(child: _buildTabChip('Branch', Icons.account_tree_outlined)),
                         ],
                     ),
@@ -1238,9 +1238,10 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         final order = filteredOrders[index];
         final isSelected = _selectedOrderForProducts == order;
         final bName = order['branch'] is Map ? order['branch']['name'] : (order['branch'] ?? 'Unknown');
+        final bPrefix = bName.toString().length >= 3 ? bName.toString().substring(0, 3).toUpperCase() : bName.toString().toUpperCase();
         final fullInv = (order['invoiceNumber'] ?? 'No Inv').toString();
         final invSuffix = fullInv.split('-').last;
-        final displayTitle = '${bName.toString().toUpperCase()}-$invSuffix';
+        final displayTitle = '$bPrefix-$invSuffix';
         
         double totalAmt = 0;
         final items = (order['items'] as List?) ?? [];
@@ -1280,25 +1281,33 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                               Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                      Text(displayTitle, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.black)),
-                                      const SizedBox(width: 8),
-                                      const Text('|', style: TextStyle(color: Colors.grey, fontSize: 10)),
-                                      const SizedBox(width: 8),
-                                      Text('O: ${_formatDateTimeShort(order['createdAt'])}', style: TextStyle(color: Colors.blueGrey.shade600, fontSize: 10, fontWeight: FontWeight.w500)),
-                                      const SizedBox(width: 8),
-                                      const Text('|', style: TextStyle(color: Colors.grey, fontSize: 10)),
-                                      const SizedBox(width: 8),
-                                      Text('D: ${_formatDateTimeShort(order['deliveryDate'])}', style: TextStyle(color: Colors.blue.shade700, fontSize: 10, fontWeight: FontWeight.bold)),
-                                      const Spacer(),
-                                      if (isSelected) const Icon(Icons.check_circle, color: Colors.blue, size: 16),
+                                      Expanded(child: Text(displayTitle, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 0.5, color: Colors.black))),
+                                      if (isSelected) const Icon(Icons.check_circle, color: Colors.blue, size: 20),
                                   ],
                               ),
                               const SizedBox(height: 8),
                               Row(
+                                children: [
+                                  Icon(Icons.edit_calendar, size: 12, color: Colors.blueGrey.shade400),
+                                  const SizedBox(width: 8),
+                                  Text('Ord: ${_formatDateTimeLong(order['createdAt'])}', style: TextStyle(color: Colors.blueGrey.shade600, fontSize: 11, fontWeight: FontWeight.w500)),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(Icons.local_shipping_outlined, size: 12, color: Colors.blue.shade400),
+                                  const SizedBox(width: 8),
+                                  Text('Del: ${_formatDateTimeLong(order['deliveryDate'])}', style: TextStyle(color: Colors.blue.shade700, fontSize: 11, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
-                                      Text('₹ ${totalAmt.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => "${m[1]},")}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF2E7D32))),
+                                      Text('₹ ${totalAmt.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => "${m[1]},")}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF2E7D32))),
                                   ],
                               ),
                           ],
@@ -1721,9 +1730,10 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     // Header for selected invoice
     if (_selectedOrderForProducts != null) {
         final bName = _selectedOrderForProducts!['branch'] is Map ? _selectedOrderForProducts!['branch']['name'] : (_selectedOrderForProducts!['branch'] ?? 'Unknown');
+        final bPrefix = bName.toString().length >= 3 ? bName.toString().substring(0, 3).toUpperCase() : bName.toString().toUpperCase();
         final fullInv = (_selectedOrderForProducts!['invoiceNumber'] ?? 'No Inv').toString();
         final invSuffix = fullInv.split('-').last;
-        final displayTitle = '${bName.toString().toUpperCase()}-$invSuffix';
+        final displayTitle = '$bPrefix-$invSuffix';
 
         children.add(
             Container(
