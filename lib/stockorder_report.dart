@@ -1138,13 +1138,34 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                     const Text('ORDER FILTERS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1.2, color: Colors.blueGrey)),
-                    const SizedBox(height: 16),
-                    Row(
-                        children: [
-                            Expanded(child: _buildTabChip('Stock', Icons.pie_chart_outline)),
-                            const SizedBox(width: 8),
-                            Expanded(child: _buildTabChip('Branch', Icons.account_tree_outlined)),
-                        ],
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _activeTab,
+                          isExpanded: true,
+                          icon: const Icon(Icons.keyboard_arrow_down),
+                          items: const [
+                            DropdownMenuItem(value: 'Stock', child: Text('Stock Orders (Past)', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DropdownMenuItem(value: 'Branch', child: Text('Live Orders (Today)', style: TextStyle(fontWeight: FontWeight.bold))),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() {
+                                _activeTab = val;
+                                if (val == 'Stock') {
+                                  _selectedOrderForProducts = null;
+                                }
+                              });
+                            }
+                          },
+                        ),
+                      ),
                     ),
                 ],
             ),
@@ -1176,37 +1197,6 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     }
   }
 
-  Widget _buildTabChip(String label, IconData icon) {
-    final isSelected = _activeTab == label;
-    return InkWell(
-      onTap: () {
-          setState(() {
-            _activeTab = label;
-            if (label == 'Stock') {
-              _selectedOrderForProducts = null;
-            }
-          });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-            color: isSelected ? Colors.black : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isSelected ? Colors.black : Colors.grey.shade300),
-            boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))] : null,
-        ),
-        child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-                Icon(icon, size: 18, color: isSelected ? Colors.white : Colors.black),
-                const SizedBox(width: 8),
-                Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
-            ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildTicketList() {
     final filteredOrders = stockOrders.where((order) {
