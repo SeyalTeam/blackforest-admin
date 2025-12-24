@@ -1280,14 +1280,6 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                               Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                      Expanded(child: Text(displayTitle, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5))),
-                                      if (isSelected) const Icon(Icons.check_circle, color: Colors.blue, size: 18),
-                                  ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
                                 children: [
                                   Icon(Icons.edit_calendar, size: 14, color: Colors.blueGrey.shade400),
                                   const SizedBox(width: 8),
@@ -1303,6 +1295,14 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                                 ],
                               ),
                               const SizedBox(height: 12),
+                              Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                      Expanded(child: Text(displayTitle, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 0.5, color: Colors.black))),
+                                      if (isSelected) const Icon(Icons.check_circle, color: Colors.blue, size: 20),
+                                  ],
+                              ),
+                              const SizedBox(height: 8),
                               Row(
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
@@ -1714,6 +1714,47 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     const double totalTableWidth = nameColWidth + prcColWidth + (dataColWidth * 6) + (hMargin * 2);
 
     List<Widget> children = [];
+    
+    // Header for selected invoice
+    if (_selectedOrderForProducts != null) {
+        final bName = _selectedOrderForProducts!['branch'] is Map ? _selectedOrderForProducts!['branch']['name'] : (_selectedOrderForProducts!['branch'] ?? 'Unknown');
+        final fullInv = (_selectedOrderForProducts!['invoiceNumber'] ?? 'No Inv').toString();
+        final invSuffix = fullInv.split('-').last;
+        final displayTitle = '${bName.toString().toUpperCase()}-$invSuffix';
+
+        children.add(
+            Container(
+                width: totalTableWidth,
+                decoration: BoxDecoration(
+                    color: Colors.blue.shade800,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                child: Row(
+                    children: [
+                        const Icon(Icons.receipt_long, color: Colors.white, size: 28),
+                        const SizedBox(width: 16),
+                        Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                                Text(displayTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22)),
+                                Text('Invoice: $fullInv', style: TextStyle(color: Colors.blue.shade100, fontSize: 12)),
+                            ],
+                        ),
+                        const Spacer(),
+                        Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                                Text('Ord: ${_formatDateTimeLong(_selectedOrderForProducts!['createdAt'])}', style: const TextStyle(color: Colors.white, fontSize: 11)),
+                                Text('Del: ${_formatDateTimeLong(_selectedOrderForProducts!['deliveryDate'])}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                            ],
+                        ),
+                    ],
+                ),
+            )
+        );
+    }
+
     int pIndex = 0;
     
     for (var deptName in sortedDepartments) {
