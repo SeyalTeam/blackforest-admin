@@ -1303,11 +1303,12 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                                   Text('Del: ${_formatDateTimeLong(order['deliveryDate'])}', style: TextStyle(color: Colors.blue.shade700, fontSize: 11, fontWeight: FontWeight.bold)),
                                 ],
                               ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 4),
                               Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
-                                      Text('₹ ${totalAmt.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => "${m[1]},")}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF2E7D32))),
+                                      Icon(Icons.payments_outlined, size: 12, color: Colors.green.shade700),
+                                      const SizedBox(width: 8),
+                                      Text('Amt: ₹ ${totalAmt.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => "${m[1]},")}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF2E7D32))),
                                   ],
                               ),
                           ],
