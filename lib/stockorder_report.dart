@@ -44,6 +44,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   final ScrollController _webHScroll = ScrollController();
 
   String selectedStatus = 'ALL';
+  String selectedDepartmentId = 'ALL';
+  String selectedCategoryId = 'ALL';
+  String selectedProductId = 'ALL';
   String _activeTab = 'Stock'; // 'Stock' or 'Branch'
   Map<String, dynamic>? _selectedOrderForProducts;
 
@@ -1146,27 +1149,31 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                 ],
             ),
           ),
-          if (_activeTab == 'Branch')
-            Expanded(child: _buildTicketList())
-          else
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(40),
-                child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                        Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey.shade300),
-                        const SizedBox(height: 16),
-                        const Text('AGGREGATED VIEW', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey)),
-                        const SizedBox(height: 8),
-                        Text('Showing consolidated stock across all branches for selected filters.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                    ],
-                ),
-              ),
-            ),
+          Expanded(child: _buildTicketList()),
         ],
       ),
     );
+  }
+
+  bool _isOrderMatchTab(Map<String, dynamic> order) {
+    final created = DateTime.tryParse(order['createdAt'] ?? '');
+    final delivery = DateTime.tryParse(order['deliveryDate'] ?? '');
+    if (created == null || delivery == null) return true;
+
+    // Convert to Local (IST) if needed, or just compare dates
+    final cLocal = created.add(const Duration(hours: 5, minutes: 30));
+    final dLocal = delivery.add(const Duration(hours: 5, minutes: 30));
+    
+    final cDay = DateTime(cLocal.year, cLocal.month, cLocal.day);
+    final dDay = DateTime(dLocal.year, dLocal.month, dLocal.day);
+
+    if (_activeTab == 'Stock') {
+      // Stock: Ordered in the past, delivered today (or selected date)
+      return cDay.isBefore(dDay);
+    } else {
+      // Branch: Ordered today, delivered today (Same day delivery)
+      return cDay.isAtSameMomentAs(dDay);
+    }
   }
 
   Widget _buildTabChip(String label, IconData icon) {
@@ -1207,7 +1214,8 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         final bId = (order['branch'] is Map ? (order['branch']['id'] ?? order['branch']['_id']) : order['branch'])?.toString();
         if (bId != selectedBranchId) return false;
       }
-      return true;
+      
+      return _isOrderMatchTab(order);
     }).toList();
 
     if (filteredOrders.isEmpty) {
@@ -1230,7 +1238,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         final order = filteredOrders[index];
         final isSelected = _selectedOrderForProducts == order;
         final bName = order['branch'] is Map ? order['branch']['name'] : (order['branch'] ?? 'Unknown');
-        final inv = order['invoiceNumber'] ?? 'No Inv';
+        final fullInv = (order['invoiceNumber'] ?? 'No Inv').toString();
+        final invSuffix = fullInv.split('-').last;
+        final displayTitle = '${bName.toString().toUpperCase()}-$invSuffix';
         
         double totalAmt = 0;
         final items = (order['items'] as List?) ?? [];
@@ -1272,24 +1282,30 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                               Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                      Expanded(child: Text(bName.toString().toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5))),
+                                      Expanded(child: Text(displayTitle, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5))),
                                       if (isSelected) const Icon(Icons.check_circle, color: Colors.blue, size: 18),
                                   ],
                               ),
-                              const SizedBox(height: 6),
-                              Text(inv.toString(), style: TextStyle(color: Colors.blueGrey.shade600, fontSize: 12, fontWeight: FontWeight.w500)),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(Icons.edit_calendar, size: 14, color: Colors.blueGrey.shade400),
+                                  const SizedBox(width: 8),
+                                  Text('Ord: ${_formatDateTimeLong(order['createdAt'])}', style: TextStyle(color: Colors.blueGrey.shade600, fontSize: 11, fontWeight: FontWeight.w500)),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(Icons.local_shipping_outlined, size: 14, color: Colors.blue.shade400),
+                                  const SizedBox(width: 8),
+                                  Text('Del: ${_formatDateTimeLong(order['deliveryDate'])}', style: TextStyle(color: Colors.blue.shade700, fontSize: 11, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
                               const SizedBox(height: 12),
                               Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
-                                      Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                          decoration: BoxDecoration(
-                                              color: Colors.grey.shade100,
-                                              borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: Text(_formatTime(order['createdAt']), style: TextStyle(fontSize: 10, color: Colors.grey.shade700, fontWeight: FontWeight.bold)),
-                                      ),
                                       Text('₹ ${totalAmt.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => "${m[1]},")}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF2E7D32))),
                                   ],
                               ),
@@ -1481,7 +1497,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     // Map<DepartmentName, Map<CategoryName, Map<ProductName, Stats>>>
     final Map<String, Map<String, Map<String, Map<String, dynamic>>>> groupedAggregates = {};
 
-    final filteredOrdersForProducts = _selectedOrderForProducts != null ? [_selectedOrderForProducts!] : stockOrders;
+    final filteredOrdersForProducts = _selectedOrderForProducts != null
+        ? [_selectedOrderForProducts!]
+        : stockOrders.where((o) => _isOrderMatchTab(o)).toList();
 
     for (var order in filteredOrdersForProducts) {
       final items = (order['items'] as List?) ?? [];
