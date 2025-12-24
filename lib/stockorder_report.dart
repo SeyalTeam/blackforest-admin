@@ -43,10 +43,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
   final ScrollController _webHScroll = ScrollController();
 
-  String selectedDepartmentId = 'ALL';
-  String selectedCategoryId = 'ALL';
-  String selectedProductId = 'ALL';
   String selectedStatus = 'ALL';
+  String _activeTab = 'Stock'; // 'Stock' or 'Branch'
+  Map<String, dynamic>? _selectedOrderForProducts;
 
   @override
   void initState() {
@@ -941,116 +940,65 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         };
       }
 
-        final items = (order['items'] as List?) ?? [];
-        for (var item in items) {
-          // --- Product Filtering Logic ---
-          final name = item['name']?.toString() ?? 'Unknown Product';
-          if (selectedProductId != 'ALL' && name != selectedProductId) continue;
-          // ------------------------------
+      final items = (order['items'] as List?) ?? [];
+      for (var item in items) {
+        final name = item['name']?.toString() ?? 'Unknown Product';
+        if (selectedProductId != 'ALL' && name != selectedProductId) continue;
 
-          // --- Status Filtering Logic ---
-          if (selectedStatus != 'ALL') {
+        if (selectedStatus != 'ALL') {
              double rQty = parseQty(item['requiredQty']);
              double sQty = parseQty(item['sendingQty']);
              double cQty = parseQty(item['confirmedQty']);
              double pQty = parseQty(item['pickedQty']);
              double recQty = parseQty(item['receivedQty']);
-             // Fallback for received if 'receivedQty' missing, use receivedAmount logic from before? 
-             // Actually aggregation uses receivedAmount, but for unit tracking we should ideally use Qty.
-             // If receivedQty is not reliable, we might need another check, but let's stick to receivedQty or 0.
-             // Wait, previous code used receivedAmount > 0. Let's check item keys availability.
-             // The Aggregation uses: cur['Rec'] = (cur['Rec']!) + parseQty(item['receivedQty']); 
-             // So receivedQty exists.
 
              bool match = false;
-             if (selectedStatus == 'Ordered') {
-               // Only Ordered: Req > 0 and Snt == 0
-               if (rQty > 0 && sQty == 0) match = true;
-             }
-             else if (selectedStatus == 'Sending') {
-               // Pending to Confirm: Sent > 0 and Confirmed == 0
-               if (sQty > 0 && cQty == 0) match = true;
-             }
-             else if (selectedStatus == 'Confirmed') {
-                // Pending to Pick: Confirmed > 0 and Picked == 0
-                if (cQty > 0 && pQty == 0) match = true;
-             }
-             else if (selectedStatus == 'Picked') {
-                // Pending to Receive: Picked > 0 and Received == 0
-                if (pQty > 0 && recQty == 0) match = true;
-             }
-             else if (selectedStatus == 'Received') {
-                // Already Received
-                if (recQty > 0) match = true;
-             }
+             if (selectedStatus == 'Ordered' && rQty > 0 && sQty == 0) match = true;
+             else if (selectedStatus == 'Sending' && sQty > 0 && cQty == 0) match = true;
+             else if (selectedStatus == 'Confirmed' && cQty > 0 && pQty == 0) match = true;
+             else if (selectedStatus == 'Picked' && pQty > 0 && recQty == 0) match = true;
+             else if (selectedStatus == 'Received' && recQty > 0) match = true;
              
              if (!match) continue;
+        }
+
+        if (selectedDepartmentId != 'ALL') {
+          String itemDeptId = 'UNKNOWN';
+          Map<String, dynamic>? catData;
+          dynamic catSource = (item['product'] is Map) ? item['product']['category'] : null;
+          if (catSource == null) catSource = item['category'];
+          if (catSource is Map) catData = catSource.cast<String, dynamic>();
+          else if (catSource is String) {
+             final found = categories.firstWhere((c) => c['id'] == catSource || c['_id'] == catSource, orElse: () => {});
+             if (found.isNotEmpty) catData = found;
           }
-          // ------------------------------
-
-          // --- Department Filtering Logic ---
-          if (selectedDepartmentId != 'ALL') {
-            String itemDeptId = 'UNKNOWN';
-            Map<String, dynamic>? catData;
-            
-            dynamic catSource = (item['product'] is Map) ? item['product']['category'] : null;
-            if (catSource == null) catSource = item['category'];
-
-            if (catSource is Map) {
-              catData = catSource.cast<String, dynamic>();
-            } else if (catSource is String) {
-               final found = categories.firstWhere((c) => c['id'] == catSource || c['_id'] == catSource, orElse: () => {});
-               if (found.isNotEmpty) catData = found;
-            }
-
-            if (catData != null) {
-              final dept = catData['department'];
-              itemDeptId = (dept is Map ? (dept['id'] ?? dept['_id']) : dept)?.toString() ?? 'UNKNOWN';
-            }
-            
-            if (itemDeptId != selectedDepartmentId) continue;
+          if (catData != null) {
+            final dept = catData['department'];
+            itemDeptId = (dept is Map ? (dept['id'] ?? dept['_id']) : dept)?.toString() ?? 'UNKNOWN';
           }
-           // --- Category Filtering Logic ---
-          if (selectedCategoryId != 'ALL') {
-             String itemCatId = 'UNKNOWN';
-             Map<String, dynamic>? catData;
-             dynamic catSource = (item['product'] is Map) ? item['product']['category'] : null;
-             if (catSource == null) catSource = item['category'];
+          if (itemDeptId != selectedDepartmentId) continue;
+        }
 
-             if (catSource is Map) {
-                catData = catSource.cast<String, dynamic>();
-             } else if (catSource is String) {
-                // If we already looked up for dept logic, reuse? 
-                // We'll just maintain safety and re-check or reuse if we had a var scope (not easily available here without refactor)
-                // Just use simple check
-                itemCatId = catSource;
-             }
-             
-             if (catData != null) {
-               itemCatId = (catData['id'] ?? catData['_id'])?.toString() ?? 'UNKNOWN';
-             }
-             
-             if (itemCatId != selectedCategoryId) continue;
-          }
-          // ----------------------------------
+        if (selectedCategoryId != 'ALL') {
+           String itemCatId = 'UNKNOWN';
+           Map<String, dynamic>? catData;
+           dynamic catSource = (item['product'] is Map) ? item['product']['category'] : null;
+           if (catSource == null) catSource = item['category'];
+           if (catSource is Map) catData = catSource.cast<String, dynamic>();
+           else if (catSource is String) itemCatId = catSource;
+           if (catData != null) itemCatId = (catData['id'] ?? catData['_id'])?.toString() ?? 'UNKNOWN';
+           if (itemCatId != selectedCategoryId) continue;
+        }
 
-          final cur = aggregates[bName]!;
-
-          final reqQty = parseQty(item['requiredQty']);
-          final reqAmt = parseQty(item['requiredAmount']);
-          final unitPrice = reqQty > 0 ? reqAmt / reqQty : 0.0;
-
-          final sentQty = parseQty(item['sendingQty']);
-          final confQty = parseQty(item['confirmedQty']);
-          final pickQty = parseQty(item['pickedQty']);
-          final differenceQty = parseQty(item['differenceQty']);
-
-          final sentAmt = parseQty(item['sendingAmount']);
-          final recvAmt = parseQty(item['receivedAmount']);
-
-          final confAmt = confQty * unitPrice;
-          final pickAmt = pickQty * unitPrice;
-          final diffAmt = differenceQty * unitPrice;
+        final cur = aggregates[bName]!;
+        final reqQty = parseQty(item['requiredQty']);
+        final reqAmt = parseQty(item['requiredAmount']);
+        final unitPrice = reqQty > 0 ? reqAmt / reqQty : 0.0;
+        final sentAmt = parseQty(item['sendingAmount']);
+        final recvAmt = parseQty(item['receivedAmount']);
+        final confAmt = parseQty(item['confirmedQty']) * unitPrice;
+        final pickAmt = parseQty(item['pickedQty']) * unitPrice;
+        final diffAmt = parseQty(item['differenceQty']) * unitPrice;
 
         cur['Ord'] = (cur['Ord']!) + reqAmt;
         cur['Snt'] = (cur['Snt']!) + sentAmt;
@@ -1062,13 +1010,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     }
 
     final sortedBranches = aggregates.keys.toList()..sort();
-
-    double totalReq = 0;
-    double totalSnt = 0;
-    double totalCon = 0;
-    double totalPic = 0;
-    double totalRec = 0;
-    double totalDif = 0;
+    double totalReq = 0, totalSnt = 0, totalCon = 0, totalPic = 0, totalRec = 0, totalDif = 0;
 
     List<DataRow> rows = [];
     int index = 0;
@@ -1082,22 +1024,21 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       totalDif += data['Dif']!;
       
       final bgColor = index % 2 == 0 ? Colors.green.withOpacity(0.1) : Colors.white;
-
       rows.add(DataRow(
         color: MaterialStateProperty.all(bgColor),
         cells: [
-        DataCell(Text(bName, style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataCell(Text(data['Ord']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataCell(Text(data['Snt']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataCell(Text(data['Con']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataCell(Text(data['Pic']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataCell(Text(data['Rec']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
-        DataCell(Text(data['Dif']!.round().toString(), style: TextStyle(color: data['Dif']! != 0 ? Colors.red : Colors.black, fontWeight: FontWeight.bold))),
-      ]));
+          DataCell(Text(bName, style: const TextStyle(fontWeight: FontWeight.bold))),
+          DataCell(Text(data['Ord']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+          DataCell(Text(data['Snt']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+          DataCell(Text(data['Con']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+          DataCell(Text(data['Pic']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+          DataCell(Text(data['Rec']!.round().toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+          DataCell(Text(data['Dif']!.round().toString(), style: TextStyle(color: data['Dif']! != 0 ? Colors.red : Colors.black, fontWeight: FontWeight.bold))),
+        ],
+      ));
       index++;
     }
 
-    // Total Row
     rows.add(DataRow(
       color: MaterialStateProperty.all(Colors.grey.shade300),
       cells: [
@@ -1111,56 +1052,255 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       ],
     ));
 
-    return SizedBox.expand(
-      child: Scrollbar(
-        controller: _webVScroll,
-        thumbVisibility: true,
-        trackVisibility: true,
-        notificationPredicate: (notif) => notif.depth == 0,
-        child: SingleChildScrollView(
-          controller: _webVScroll,
-          scrollDirection: Axis.vertical,
+    final isDesktop = MediaQuery.of(context).size.width >= 1024;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
           child: Scrollbar(
-            controller: _webHScroll,
+            controller: _webVScroll,
             thumbVisibility: true,
             trackVisibility: true,
-            notificationPredicate: (notif) => notif.depth == 1,
+            notificationPredicate: (notif) => notif.depth == 0,
             child: SingleChildScrollView(
-              controller: _webHScroll,
-              scrollDirection: Axis.horizontal,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                    // Branch Table
-                    Card(
-                      elevation: 4,
-                      margin: const EdgeInsets.all(12),
-                      child: DataTable(
-                        headingRowColor: MaterialStateProperty.all(Colors.brown.shade300),
-                        headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        columns: const [
-                          DataColumn(label: Text('Branch')),
-                          DataColumn(label: Text('Ord Amt'), tooltip: 'Ordered Amount'),
-                          DataColumn(label: Text('Snt Amt'), tooltip: 'Sent Amount'),
-                          DataColumn(label: Text('Con Amt'), tooltip: 'Confirmed Amount'),
-                          DataColumn(label: Text('Pic Amt'), tooltip: 'Picked Amount'),
-                          DataColumn(label: Text('Rec Amt'), tooltip: 'Received Amount'),
-                          DataColumn(label: Text('Dif Amt'), tooltip: 'Difference Amount'),
-                        ],
-                        rows: rows,
+              controller: _webVScroll,
+              scrollDirection: Axis.vertical,
+              child: Scrollbar(
+                controller: _webHScroll,
+                thumbVisibility: true,
+                trackVisibility: true,
+                notificationPredicate: (notif) => notif.depth == 1,
+                child: SingleChildScrollView(
+                  controller: _webHScroll,
+                  scrollDirection: Axis.horizontal,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Card(
+                        elevation: 4,
+                        margin: const EdgeInsets.all(12),
+                        child: DataTable(
+                          headingRowColor: MaterialStateProperty.all(Colors.brown.shade300),
+                          headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          columns: const [
+                            DataColumn(label: Text('Branch')),
+                            DataColumn(label: Text('Ord Amt')),
+                            DataColumn(label: Text('Snt Amt')),
+                            DataColumn(label: Text('Con Amt')),
+                            DataColumn(label: Text('Pic Amt')),
+                            DataColumn(label: Text('Rec Amt')),
+                            DataColumn(label: Text('Dif Amt')),
+                          ],
+                          rows: rows,
+                        ),
                       ),
-                    ),
-
-                    const SizedBox(height: 20),
-                    
-                  // Product Table
-                  _buildProductSummaryTable(),
-                ],
+                      const SizedBox(height: 20),
+                      _buildProductSummaryTable(),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
         ),
+        if (isDesktop) _buildSidePanel(),
+      ],
+    );
+  }
+
+  Widget _buildSidePanel() {
+    return Container(
+      width: 400,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FA),
+        border: Border(left: BorderSide(color: Colors.grey.shade300)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(-5, 0),
+          ),
+        ],
       ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
+            ),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                    const Text('ORDER FILTERS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1.2, color: Colors.blueGrey)),
+                    const SizedBox(height: 16),
+                    Row(
+                        children: [
+                            Expanded(child: _buildTabChip('Stock', Icons.pie_chart_outline)),
+                            const SizedBox(width: 12),
+                            Expanded(child: _buildTabChip('Branch', Icons.account_tree_outlined)),
+                        ],
+                    ),
+                ],
+            ),
+          ),
+          if (_activeTab == 'Branch')
+            Expanded(child: _buildTicketList())
+          else
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(40),
+                child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                        Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey.shade300),
+                        const SizedBox(height: 16),
+                        const Text('AGGREGATED VIEW', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey)),
+                        const SizedBox(height: 8),
+                        Text('Showing consolidated stock across all branches for selected filters.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                    ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabChip(String label, IconData icon) {
+    final isSelected = _activeTab == label;
+    return InkWell(
+      onTap: () {
+          setState(() {
+            _activeTab = label;
+            if (label == 'Stock') {
+              _selectedOrderForProducts = null;
+            }
+          });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+            color: isSelected ? Colors.black : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: isSelected ? Colors.black : Colors.grey.shade300),
+            boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))] : null,
+        ),
+        child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+                Icon(icon, size: 18, color: isSelected ? Colors.white : Colors.black),
+                const SizedBox(width: 8),
+                Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+            ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTicketList() {
+    final filteredOrders = stockOrders.where((order) {
+      if (selectedBranchId != 'ALL') {
+        final bId = (order['branch'] is Map ? (order['branch']['id'] ?? order['branch']['_id']) : order['branch'])?.toString();
+        if (bId != selectedBranchId) return false;
+      }
+      return true;
+    }).toList();
+
+    if (filteredOrders.isEmpty) {
+        return Center(
+            child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                    Icon(Icons.search_off_outlined, size: 48, color: Colors.grey.shade300),
+                    const SizedBox(height: 16),
+                    const Text('No orders found', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                ],
+            ),
+        );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      itemCount: filteredOrders.length,
+      itemBuilder: (context, index) {
+        final order = filteredOrders[index];
+        final isSelected = _selectedOrderForProducts == order;
+        final bName = order['branch'] is Map ? order['branch']['name'] : (order['branch'] ?? 'Unknown');
+        final inv = order['invoiceNumber'] ?? 'No Inv';
+        
+        double totalAmt = 0;
+        final items = (order['items'] as List?) ?? [];
+        for (var i in items) totalAmt += parseQty(i['requiredAmount']);
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12.0),
+          child: InkWell(
+            onTap: () {
+              setState(() {
+                if (_selectedOrderForProducts == order) _selectedOrderForProducts = null;
+                else _selectedOrderForProducts = order;
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: isSelected ? Colors.blue.shade600 : Colors.transparent, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: isSelected ? Colors.blue.withOpacity(0.1) : Colors.black.withOpacity(0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                      decoration: BoxDecoration(
+                          border: Border(left: BorderSide(color: isSelected ? Colors.blue.shade600 : Colors.brown.shade300, width: 6)),
+                      ),
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                              Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                      Expanded(child: Text(bName.toString().toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5))),
+                                      if (isSelected) const Icon(Icons.check_circle, color: Colors.blue, size: 18),
+                                  ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(inv.toString(), style: TextStyle(color: Colors.blueGrey.shade600, fontSize: 12, fontWeight: FontWeight.w500)),
+                              const SizedBox(height: 12),
+                              Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                      Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                              color: Colors.grey.shade100,
+                                              borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(_formatTime(order['createdAt']), style: TextStyle(fontSize: 10, color: Colors.grey.shade700, fontWeight: FontWeight.bold)),
+                                      ),
+                                      Text('₹ ${totalAmt.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => "${m[1]},")}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF2E7D32))),
+                                  ],
+                              ),
+                          ],
+                      ),
+                  ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1341,7 +1481,9 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     // Map<DepartmentName, Map<CategoryName, Map<ProductName, Stats>>>
     final Map<String, Map<String, Map<String, Map<String, dynamic>>>> groupedAggregates = {};
 
-    for (var order in stockOrders) {
+    final filteredOrdersForProducts = _selectedOrderForProducts != null ? [_selectedOrderForProducts!] : stockOrders;
+
+    for (var order in filteredOrdersForProducts) {
       final items = (order['items'] as List?) ?? [];
       for (var item in items) {
         if (item is! Map) continue;
