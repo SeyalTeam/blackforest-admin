@@ -47,7 +47,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   String selectedDepartmentId = 'ALL';
   String selectedCategoryId = 'ALL';
   String selectedProductId = 'ALL';
-  String _activeTab = 'Stock'; // 'Stock' or 'Branch'
+  String _activeTab = 'All'; // 'All', 'Stock', 'Branch'
   Map<String, dynamic>? _selectedOrderForProducts;
 
   @override
@@ -64,9 +64,92 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
 
   Future<void> _bootstrap() async {
     await _fetchBranches();
-    await _fetchDepartments();
     await _fetchCategories();
+    await _fetchDepartments();
     await _fetchStockOrders();
+  }
+
+  // ... (keeping other methods same, jumping to buildSidePanel for dropdown update)
+
+  Widget _buildSidePanel() {
+    return Container(
+      width: 320,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FA),
+        border: Border(left: BorderSide(color: Colors.grey.shade300)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
+            ),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                    const Text('ORDER FILTERS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1.2, color: Colors.blueGrey)),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _activeTab,
+                          isExpanded: true,
+                          icon: const Icon(Icons.keyboard_arrow_down),
+                          items: const [
+                            DropdownMenuItem(value: 'All', child: Text('All Orders', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DropdownMenuItem(value: 'Stock', child: Text('Stock Orders (Past)', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DropdownMenuItem(value: 'Branch', child: Text('Live Orders (Today)', style: TextStyle(fontWeight: FontWeight.bold))),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() {
+                                _activeTab = val;
+                                if (val == 'Stock') {
+                                  _selectedOrderForProducts = null;
+                                }
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                ],
+            ),
+          ),
+          Expanded(child: _buildTicketList()),
+        ],
+      ),
+    );
+  }
+
+  bool _isOrderMatchTab(Map<String, dynamic> order) {
+    if (_activeTab == 'All') return true;
+
+    final created = DateTime.tryParse(order['createdAt'] ?? '');
+    final delivery = DateTime.tryParse(order['deliveryDate'] ?? '');
+    if (created == null || delivery == null) return true;
+
+    // Convert to Local (IST) if needed, or just compare dates
+    final cLocal = created.add(const Duration(hours: 5, minutes: 30));
+    final dLocal = delivery.add(const Duration(hours: 5, minutes: 30));
+    
+    final cDay = DateTime(cLocal.year, cLocal.month, cLocal.day);
+    final dDay = DateTime(dLocal.year, dLocal.month, dLocal.day);
+
+    if (_activeTab == 'Stock') {
+      // Stock: Ordered in the past, delivered today (or selected date)
+      return cDay.isBefore(dDay);
+    } else {
+      // Branch: Ordered today, delivered today (Same day delivery)
+      return cDay.isAtSameMomentAs(dDay);
+    }
   }
 
   Future<String?> _getToken() async {
@@ -1112,90 +1195,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     );
   }
 
-  Widget _buildSidePanel() {
-    return Container(
-      width: 320,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
-        border: Border(left: BorderSide(color: Colors.grey.shade300)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(-5, 0),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
-            ),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                    const Text('ORDER FILTERS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1.2, color: Colors.blueGrey)),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _activeTab,
-                          isExpanded: true,
-                          icon: const Icon(Icons.keyboard_arrow_down),
-                          items: const [
-                            DropdownMenuItem(value: 'Stock', child: Text('Stock Orders (Past)', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DropdownMenuItem(value: 'Branch', child: Text('Live Orders (Today)', style: TextStyle(fontWeight: FontWeight.bold))),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() {
-                                _activeTab = val;
-                                if (val == 'Stock') {
-                                  _selectedOrderForProducts = null;
-                                }
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                ],
-            ),
-          ),
-          Expanded(child: _buildTicketList()),
-        ],
-      ),
-    );
-  }
 
-  bool _isOrderMatchTab(Map<String, dynamic> order) {
-    final created = DateTime.tryParse(order['createdAt'] ?? '');
-    final delivery = DateTime.tryParse(order['deliveryDate'] ?? '');
-    if (created == null || delivery == null) return true;
-
-    // Convert to Local (IST) if needed, or just compare dates
-    final cLocal = created.add(const Duration(hours: 5, minutes: 30));
-    final dLocal = delivery.add(const Duration(hours: 5, minutes: 30));
-    
-    final cDay = DateTime(cLocal.year, cLocal.month, cLocal.day);
-    final dDay = DateTime(dLocal.year, dLocal.month, dLocal.day);
-
-    if (_activeTab == 'Stock') {
-      // Stock: Ordered in the past, delivered today (or selected date)
-      return cDay.isBefore(dDay);
-    } else {
-      // Branch: Ordered today, delivered today (Same day delivery)
-      return cDay.isAtSameMomentAs(dDay);
-    }
-  }
 
 
   Widget _buildTicketList() {
