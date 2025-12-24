@@ -1275,38 +1275,30 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                       decoration: BoxDecoration(
                           border: Border(left: BorderSide(color: isSelected ? Colors.blue.shade600 : Colors.brown.shade300, width: 6)),
                       ),
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(12),
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                               Row(
-                                children: [
-                                  Icon(Icons.edit_calendar, size: 14, color: Colors.blueGrey.shade400),
-                                  const SizedBox(width: 8),
-                                  Text('Ord: ${_formatDateTimeLong(order['createdAt'])}', style: TextStyle(color: Colors.blueGrey.shade600, fontSize: 11, fontWeight: FontWeight.w500)),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(Icons.local_shipping_outlined, size: 14, color: Colors.blue.shade400),
-                                  const SizedBox(width: 8),
-                                  Text('Del: ${_formatDateTimeLong(order['deliveryDate'])}', style: TextStyle(color: Colors.blue.shade700, fontSize: 11, fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                      Expanded(child: Text(displayTitle, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 0.5, color: Colors.black))),
-                                      if (isSelected) const Icon(Icons.check_circle, color: Colors.blue, size: 20),
+                                      Text(displayTitle, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Colors.black)),
+                                      const SizedBox(width: 8),
+                                      const Text('|', style: TextStyle(color: Colors.grey, fontSize: 10)),
+                                      const SizedBox(width: 8),
+                                      Text('O: ${_formatDateTimeShort(order['createdAt'])}', style: TextStyle(color: Colors.blueGrey.shade600, fontSize: 10, fontWeight: FontWeight.w500)),
+                                      const SizedBox(width: 8),
+                                      const Text('|', style: TextStyle(color: Colors.grey, fontSize: 10)),
+                                      const SizedBox(width: 8),
+                                      Text('D: ${_formatDateTimeShort(order['deliveryDate'])}', style: TextStyle(color: Colors.blue.shade700, fontSize: 10, fontWeight: FontWeight.bold)),
+                                      const Spacer(),
+                                      if (isSelected) const Icon(Icons.check_circle, color: Colors.blue, size: 16),
                                   ],
                               ),
                               const SizedBox(height: 8),
                               Row(
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
-                                      Text('₹ ${totalAmt.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => "${m[1]},")}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF2E7D32))),
+                                      Text('₹ ${totalAmt.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => "${m[1]},")}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFF2E7D32))),
                                   ],
                               ),
                           ],
@@ -1337,6 +1329,17 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       final dt = DateTime.parse(isoDate).add(const Duration(hours: 5, minutes: 30)); // UTC to IST
       // Format: 21.12.25- 19.05
       return DateFormat('dd.MM.yy- HH.mm').format(dt);
+    } catch (e) {
+      return '';
+    }
+  }
+
+  String _formatDateTimeShort(String? isoDate) {
+    if (isoDate == null || isoDate.isEmpty) return '';
+    try {
+      final dt = DateTime.parse(isoDate).add(const Duration(hours: 5, minutes: 30)); // UTC to IST
+      // Format: 21.12 19:05
+      return DateFormat('dd.MM HH:mm').format(dt);
     } catch (e) {
       return '';
     }
@@ -1729,26 +1732,25 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
                     color: Colors.blue.shade800,
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
                 child: Row(
                     children: [
-                        const Icon(Icons.receipt_long, color: Colors.white, size: 28),
+                        const Icon(Icons.receipt_long, color: Colors.white, size: 24),
+                        const SizedBox(width: 12),
+                        Text(displayTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
                         const SizedBox(width: 16),
-                        Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                                Text(displayTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22)),
-                                Text('Invoice: $fullInv', style: TextStyle(color: Colors.blue.shade100, fontSize: 12)),
-                            ],
-                        ),
+                        const Text('|', style: TextStyle(color: Colors.white38, fontSize: 14)),
+                        const SizedBox(width: 16),
+                        Text('Ord: ${_formatDateTimeLong(_selectedOrderForProducts!['createdAt'])}', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                        const SizedBox(width: 16),
+                        const Text('|', style: TextStyle(color: Colors.white38, fontSize: 14)),
+                        const SizedBox(width: 16),
+                        Text('Del: ${_formatDateTimeLong(_selectedOrderForProducts!['deliveryDate'])}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                         const Spacer(),
-                        Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                                Text('Ord: ${_formatDateTimeLong(_selectedOrderForProducts!['createdAt'])}', style: const TextStyle(color: Colors.white, fontSize: 11)),
-                                Text('Del: ${_formatDateTimeLong(_selectedOrderForProducts!['deliveryDate'])}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
-                            ],
-                        ),
+                        Builder(builder: (context) {
+                          final items = (_selectedOrderForProducts!['items'] as List?) ?? [];
+                          return Text('Total Items: ${items.length}', style: TextStyle(color: Colors.blue.shade100, fontSize: 12, fontStyle: FontStyle.italic));
+                        }),
                     ],
                 ),
             )
