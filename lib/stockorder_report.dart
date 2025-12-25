@@ -29,18 +29,24 @@ class StockOrderReportPage extends StatefulWidget {
 }
 
 class _StockOrderReportPageState extends State<StockOrderReportPage> {
-  bool _loading = true;
+    bool _loading = true;
   bool _loadingBranches = true;
   DateTime? fromDate;
   DateTime? toDate;
-  List<Map<String, String>> branches = [];
+  Map<String, String> branchesMap = {}; // ID -> Name
+  Map<String, Map<String, dynamic>> categoriesMap = {}; // ID -> Category Data
+  Map<String, Map<String, dynamic>> productsMap = {}; // ID -> Product Data
+  Map<String, String> departmentsMap = {}; // ID -> Name
+  
+  List<Map<String, String>> branchesList = []; // For dropdown
+  List<dynamic> branches = []; // Legacy support or direct usage
+  
   String selectedBranchId = 'ALL';
   List<Map<String, dynamic>> stockOrders = [];
   List<Map<String, dynamic>> categories = [];
   List<Map<String, dynamic>> departments = [];
-  Map<String, dynamic>? _combinedOrder;
+  Map<String, dynamic>? _combinedOrder; // Aggregated
   final ScrollController _webVScroll = ScrollController();
-
   final ScrollController _webHScroll = ScrollController();
 
   String selectedStatus = 'ALL';
@@ -63,93 +69,16 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   }
 
   Future<void> _bootstrap() async {
-    await _fetchBranches();
-    await _fetchCategories();
-    await _fetchDepartments();
+    // 1. Fetch metadata in parallel
+    await Future.wait([
+      _fetchBranches(),
+      _fetchCategories(),
+      _fetchDepartments(),
+      _fetchProducts(),
+    ]);
+
+    // 2. Fetch main data
     await _fetchStockOrders();
-  }
-
-  // ... (keeping other methods same, jumping to buildSidePanel for dropdown update)
-
-  Widget _buildSidePanel() {
-    return Container(
-      width: 320,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
-        border: Border(left: BorderSide(color: Colors.grey.shade300)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
-            ),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                    const Text('ORDER FILTERS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1.2, color: Colors.blueGrey)),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _activeTab,
-                          isExpanded: true,
-                          icon: const Icon(Icons.keyboard_arrow_down),
-                          items: const [
-                            DropdownMenuItem(value: 'All', child: Text('All Orders', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DropdownMenuItem(value: 'Stock', child: Text('Stock Orders (Past)', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DropdownMenuItem(value: 'Branch', child: Text('Live Orders (Today)', style: TextStyle(fontWeight: FontWeight.bold))),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() {
-                                _activeTab = val;
-                                if (val == 'Stock') {
-                                  _selectedOrderForProducts = null;
-                                }
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                ],
-            ),
-          ),
-          Expanded(child: _buildTicketList()),
-        ],
-      ),
-    );
-  }
-
-  bool _isOrderMatchTab(Map<String, dynamic> order) {
-    if (_activeTab == 'All') return true;
-
-    final created = DateTime.tryParse(order['createdAt'] ?? '');
-    final delivery = DateTime.tryParse(order['deliveryDate'] ?? '');
-    if (created == null || delivery == null) return true;
-
-    // Convert to Local (IST) if needed, or just compare dates
-    final cLocal = created.add(const Duration(hours: 5, minutes: 30));
-    final dLocal = delivery.add(const Duration(hours: 5, minutes: 30));
-    
-    final cDay = DateTime(cLocal.year, cLocal.month, cLocal.day);
-    final dDay = DateTime(dLocal.year, dLocal.month, dLocal.day);
-
-    if (_activeTab == 'Stock') {
-      // Stock: Ordered in the past, delivered today (or selected date)
-      return cDay.isBefore(dDay);
-    } else {
-      // Branch: Ordered today, delivered today (Same day delivery)
-      return cDay.isAtSameMomentAs(dDay);
-    }
   }
 
   Future<String?> _getToken() async {
@@ -168,18 +97,29 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final docs = data['docs'] ?? [];
-        final list = <Map<String, String>>[];
+        
+        final bMap = <String, String>{};
+        final bList = <Map<String, String>>[];
+
         for (var b in docs) {
           final id = (b['id'] ?? b['_id'])?.toString();
           final name = (b['name'] ?? 'Unnamed Branch').toString();
-          if (id != null) list.add({'id': id, 'name': name});
+          if (id != null) {
+            bMap[id] = name;
+            bList.add({'id': id, 'name': name});
+          }
         }
-        setState(() => branches = list);
+        setState(() {
+          branchesMap = bMap;
+          branchesList = bList;
+           // Keep backward compatibility if 'branches' list is used elsewhere as List<Map>
+           branches = bList; 
+        });
       }
     } catch (e) {
       debugPrint('fetchBranches error: $e');
     } finally {
-      setState(() => _loadingBranches = false);
+      if (mounted) setState(() => _loadingBranches = false);
     }
   }
 
@@ -193,8 +133,17 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final docs = data['docs'] ?? [];
+        
+        final dMap = <String, String>{};
+        for(var d in docs) {
+          final id = (d['id'] ?? d['_id'])?.toString();
+           final name = (d['name'] ?? 'Unnamed').toString();
+           if(id != null) dMap[id] = name;
+        }
+
         setState(() {
           departments = docs.cast<Map<String, dynamic>>();
+          departmentsMap = dMap;
         });
       }
     } catch (e) {
@@ -205,6 +154,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   Future<void> _fetchCategories() async {
     try {
       final token = await _getToken();
+      // Only depth=1 needed if category has relations like 'department'
       final res = await http.get(
         Uri.parse('https://admin.theblackforestcakes.com/api/categories?limit=3000&depth=1'),
         headers: {'Authorization': 'Bearer $token'},
@@ -212,13 +162,48 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final docs = data['docs'] ?? [];
+        
+        final cMap = <String, Map<String, dynamic>>{};
+        for(var c in docs) {
+           final id = (c['id'] ?? c['_id'])?.toString();
+           if(id != null) cMap[id] = c;
+        }
+
         setState(() {
           categories = docs.cast<Map<String, dynamic>>();
+          categoriesMap = cMap;
         });
       }
     } catch (e) {
       debugPrint('fetchCategories error: $e');
     }
+  }
+
+  Future<void> _fetchProducts() async {
+     try {
+       final token = await _getToken();
+       // Fetch products lightly just to map ID -> Category
+       final res = await http.get(
+         Uri.parse('https://admin.theblackforestcakes.com/api/products?limit=5000&depth=0'),
+         headers: {'Authorization': 'Bearer $token'},
+       );
+       if (res.statusCode == 200) {
+         final data = jsonDecode(res.body);
+         final docs = data['docs'] ?? [];
+         final pMap = <String, Map<String, dynamic>>{};
+         
+         for(var p in docs) {
+            final id = (p['id'] ?? p['_id'])?.toString();
+            if(id != null) pMap[id] = p;
+         }
+         
+         setState(() {
+           productsMap = pMap;
+         });
+       }
+     } catch (e) {
+       debugPrint('fetchProducts error: $e');
+     }
   }
 
   Future<void> _fetchStockOrders() async {
@@ -231,7 +216,8 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59)
           : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
 
-      var url = 'https://admin.theblackforestcakes.com/api/stock-orders?limit=3000&depth=2'
+      // Use depth=0 to minimize payload. We will rehydrate nicely using maps.
+      var url = 'https://admin.theblackforestcakes.com/api/stock-orders?limit=3000&depth=0'
           '&where[deliveryDate][greater_than]=${start.toUtc().toIso8601String()}'
           '&where[deliveryDate][less_than]=${end.toUtc().toIso8601String()}';
 
@@ -242,27 +228,24 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       final res = await http.get(Uri.parse(url), headers: {'Authorization': 'Bearer $token'});
 
       if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final docs = data['docs'] ?? [];
+        // Process computationally heavy work in an Isolate
+        final result = await compute(_processStockOrders, {
+          'body': res.body,
+          'branchesMap': branchesMap,
+          'categoriesMap': categoriesMap,
+          'productsMap': productsMap,
+          'departmentsMap': departmentsMap,
+        });
 
         setState(() {
-          stockOrders = docs.cast<Map<String, dynamic>>();
-
-          stockOrders.sort((a, b) {
-            final dateA = DateTime.tryParse(a['createdAt'] ?? '');
-            final dateB = DateTime.tryParse(b['createdAt'] ?? '');
-            if (dateA == null && dateB == null) return 0;
-            if (dateA == null) return 1;
-            if (dateB == null) return -1;
-            return dateB.compareTo(dateA);
-          });
+          stockOrders = result;
           _calculateCombinedOrder();
         });
       }
     } catch (e) {
       debugPrint('fetchStockOrders error: $e');
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
   void _calculateCombinedOrder() {
@@ -1005,6 +988,62 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
             setState(() => selectedStatus = val);
           }
         },
+      ),
+    );
+  }
+
+  bool _isOrderMatchTab(Map<String, dynamic> order) {
+    if (_activeTab == 'All') return true;
+    final created = DateTime.tryParse(order['createdAt'] ?? '');
+    final delivery = DateTime.tryParse(order['deliveryDate'] ?? '');
+    if (created == null || delivery == null) return true;
+
+    final cLocal = created.add(const Duration(hours: 5, minutes: 30));
+    final dLocal = delivery.add(const Duration(hours: 5, minutes: 30));
+    
+    final cDay = DateTime(cLocal.year, cLocal.month, cLocal.day);
+    final dDay = DateTime(dLocal.year, dLocal.month, dLocal.day);
+
+    if (_activeTab == 'Stock') {
+      return cDay.isBefore(dDay);
+    } else {
+      return cDay.isAtSameMomentAs(dDay);
+    }
+  }
+
+  Widget _buildSidePanel() {
+    return Container(
+      width: 320,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(right: BorderSide(color: Colors.grey.shade300)),
+      ),
+      child: Column(
+        children: [
+            Padding(
+            padding: const EdgeInsets.all(12),
+            child: DropdownButtonFormField<String>(
+              value: _activeTab,
+              decoration: InputDecoration(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+              ),
+              items: const [
+                DropdownMenuItem(value: 'All', child: Text('All Orders')),
+                DropdownMenuItem(value: 'Stock', child: Text('Stock Orders (Past)')),
+                DropdownMenuItem(value: 'Branch', child: Text('Live Orders (Today)')),
+              ],
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() => _activeTab = val);
+                }
+              },
+            ),
+          ),
+          Expanded(child: _buildTicketList()),
+        ],
       ),
     );
   }
@@ -2413,4 +2452,72 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           : mainContent,
     );
   }
+}
+
+// Top-level function for background processing
+Future<List<Map<String, dynamic>>> _processStockOrders(Map<String, dynamic> params) async {
+  final body = params['body'] as String;
+  final branchesMap = params['branchesMap'] as Map<String, String>;
+  final categoriesMap = params['categoriesMap'] as Map<String, Map<String, dynamic>>;
+  final productsMap = params['productsMap'] as Map<String, Map<String, dynamic>>;
+  // departmentMap unused but available
+  
+  final data = jsonDecode(body);
+  final docs = (data['docs'] as List).cast<Map<String, dynamic>>();
+
+  for (var order in docs) {
+    // 1. Rehydrate Branch
+    // With depth=0, order['branch'] is likely an ID string
+    var branchVal = order['branch'];
+    if (branchVal is String) {
+      final bName = branchesMap[branchVal] ?? 'Unknown Branch';
+      order['branch'] = {'id': branchVal, 'name': bName};
+    }
+
+    // 2. Rehydrate Items
+    final items = (order['items'] as List?) ?? [];
+    for (var item in items) {
+      // item['product'] is likely an ID string
+      var prodVal = item['product'];
+      Map<String, dynamic> productObj = {};
+
+      if (prodVal is String) {
+        // Look up product
+        final pData = productsMap[prodVal];
+        if (pData != null) {
+          productObj = Map<String, dynamic>.from(pData);
+          
+          // Fix Category inside Product
+          var catVal = productObj['category'];
+          if (catVal is String) {
+             final cData = categoriesMap[catVal];
+             if (cData != null) {
+               productObj['category'] = cData;
+             }
+          }
+        }
+      } else if (prodVal is Map) {
+        productObj = prodVal as Map<String, dynamic>;
+      }
+      
+      item['product'] = productObj;
+      
+      // Ensure item has a name if missing
+      if (item['name'] == null && productObj['name'] != null) {
+        item['name'] = productObj['name'];
+      }
+    }
+  }
+
+  // Sort by date descending
+  docs.sort((a, b) {
+    final dateA = DateTime.tryParse(a['createdAt'] ?? '');
+    final dateB = DateTime.tryParse(b['createdAt'] ?? '');
+    if (dateA == null && dateB == null) return 0;
+    if (dateA == null) return 1;
+    if (dateB == null) return -1;
+    return dateB.compareTo(dateA);
+  });
+
+  return docs;
 }
