@@ -640,38 +640,65 @@ class _ProductwiseReportPageState extends State<ProductwiseReportPage> {
   }
 
   Widget _buildWebTable() {
+    // Filter out 'ALL' from branches for column generation
+    final columnBranches = branches.where((b) => b['id'] != 'ALL').toList();
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-      child: DataTable(
-        showCheckboxColumn: false,
-        columnSpacing: 40,
-        headingRowColor: MaterialStateProperty.all(Colors.grey.shade50),
-        columns: const [
-          DataColumn(label: Text('S.No', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Product', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Quantity', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-          DataColumn(label: Text('Items Sold', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-          DataColumn(label: Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-          DataColumn(label: Text('% of Total', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-        ],
-        rows: aggregatedData.asMap().entries.map((entry) {
-          final index = entry.key;
-          final row = entry.value;
-          final percentage = totalAmount > 0 ? (row['amount'] / totalAmount * 100) : 0.0;
-          return DataRow(
-            onSelectChanged: (_) => _showProductDetails(row),
-            cells: [
-            DataCell(Text((index + 1).toString())),
-            DataCell(Text(row['name'], style: const TextStyle(fontWeight: FontWeight.w600))),
-            DataCell(Text(row['quantity'].toStringAsFixed(1))),
-            DataCell(Text(row['count'].toString())),
-            DataCell(Text('₹${row['amount'].toStringAsFixed(2)}',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
-            DataCell(Text('${percentage.toStringAsFixed(1)}%')),
-          ]);
-        }).toList(),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          showCheckboxColumn: false,
+          columnSpacing: 25,
+          headingRowColor: MaterialStateProperty.all(Colors.grey.shade50),
+          columns: [
+            const DataColumn(label: Text('S.No', style: TextStyle(fontWeight: FontWeight.bold))),
+            const DataColumn(label: Text('Product', style: TextStyle(fontWeight: FontWeight.bold))),
+            const DataColumn(label: Text('Quantity', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+            const DataColumn(label: Text('Items Sold', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+            const DataColumn(label: Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+            const DataColumn(label: Text('% of Total', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+            // Dynamic Branch Columns
+            ...columnBranches.map((b) {
+               String name = b['name'] ?? '';
+               if (name.length > 3) name = name.substring(0, 3);
+               name = name.toUpperCase();
+               return DataColumn(label: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)), numeric: true);
+            }),
+          ],
+          rows: aggregatedData.asMap().entries.map((entry) {
+            final index = entry.key;
+            final row = entry.value;
+            final percentage = totalAmount > 0 ? (row['amount'] / totalAmount * 100) : 0.0;
+            
+            // Map branch data for this row
+            final branchData = row['branches'] as Map<String, Map<String, dynamic>>? ?? {};
+            
+            return DataRow(
+              onSelectChanged: (_) => _showProductDetails(row),
+              cells: [
+              DataCell(Text((index + 1).toString())),
+              DataCell(Text(row['name'], style: const TextStyle(fontWeight: FontWeight.w600))),
+              DataCell(Text(row['quantity'].toStringAsFixed(1))),
+              DataCell(Text(row['count'].toString())),
+              DataCell(Text('₹${row['amount'].toStringAsFixed(2)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
+              DataCell(Text('${percentage.toStringAsFixed(1)}%')),
+              // Dynamic Branch Cells
+              ...columnBranches.map((b) {
+                 final bName = b['name'];
+                 double bQty = 0.0;
+                 if (bName != null && branchData.containsKey(bName)) {
+                   bQty = branchData[bName]!['quantity'] as double? ?? 0.0;
+                 }
+                 return DataCell(Text(bQty == 0 ? '-' : bQty.toStringAsFixed(1), 
+                    style: TextStyle(color: bQty == 0 ? Colors.grey.shade300 : Colors.black87)));
+              }),
+            ]);
+          }).toList(),
+        ),
       ),
     );
   }

@@ -525,13 +525,7 @@ class _CategorywiseReportPageState extends State<CategorywiseReportPage> {
                     ),
                   )
                 else if (isDesktop)
-                  Align(
-                    alignment: Alignment.topLeft,
-                    child: SizedBox(
-                      width: width * 0.5,
-                      child: _buildWebTable(),
-                    ),
-                  )
+                  _buildWebTable()
                 else
                   _buildMobileList(),
               ]
