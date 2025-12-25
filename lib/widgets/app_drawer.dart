@@ -8,6 +8,8 @@ import '../closingentry_report.dart';
 import '../expensewise_report.dart';
 import '../return_orders.dart';
 import '../stockorder_report.dart';
+import '../categorywise_report.dart';
+import '../productwise_report.dart';
 import '../login.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -69,55 +71,73 @@ class AppDrawer extends StatelessWidget {
           ),
         ),
         // --------- Drawer Items ----------
-        // 1. Branch
-        ListTile(
-          leading: const Icon(Icons.receipt_long, color: Colors.black87),
-          title: const Text('Branch-wise Bills'),
-          onTap: () => _navigateTo(context, const BranchwiseBillsPage()),
+        Expanded(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              // 1. Branch
+              ListTile(
+                leading: const Icon(Icons.receipt_long, color: Colors.black87),
+                title: const Text('Branch-wise Bills'),
+                onTap: () => _navigateTo(context, const BranchwiseBillsPage()),
+              ),
+              // 2. Time
+              ListTile(
+                leading: const Icon(Icons.access_time, color: Colors.black87),
+                title: const Text('Time-wise Report'),
+                onTap: () => _navigateTo(context, const TimewiseReportPage()),
+              ),
+              // 3. Waiter
+              ListTile(
+                leading: const Icon(Icons.person, color: Colors.black87),
+                title: const Text('Waiter-wise Reports'),
+                onTap: () => _navigateTo(context, const WaiterwiseReportPage()),
+              ),
+              // 4. Category
+              ListTile(
+                leading: const Icon(Icons.category, color: Colors.black87),
+                title: const Text('Category-wise Report'),
+                onTap: () => _navigateTo(context, const CategorywiseReportPage()),
+              ),
+              // Product
+              ListTile(
+                leading: const Icon(Icons.local_offer, color: Colors.black87),
+                title: const Text('Product-wise Report'),
+                onTap: () => _navigateTo(context, const ProductwiseReportPage()),
+              ),
+              // 5. Live
+              ListTile(
+                leading: const Icon(Icons.schedule, color: Colors.black87),
+                title: const Text('Live'),
+                onTap: () => _navigateTo(context, const BillsDateTimePage()),
+              ),
+              // 5. Expense
+              ListTile(
+                leading: const Icon(Icons.money_off, color: Colors.black87),
+                title: const Text('Expense List & Details'),
+                onTap: () => _navigateTo(context, const ExpensewiseReportPage()),
+              ),
+              // 6. Closing
+              ListTile(
+                leading: const Icon(Icons.account_balance_wallet, color: Colors.black87),
+                title: const Text('Closing Entries'),
+                onTap: () => _navigateTo(context, const ClosingEntryReportPage()),
+              ),
+              // 7. Return
+              ListTile(
+                leading: const Icon(Icons.assignment_return, color: Colors.black87),
+                title: const Text('Return Orders'),
+                onTap: () => _navigateTo(context, const ReturnOrdersPage()),
+              ),
+              // 8. Stock Order
+              ListTile(
+                leading: const Icon(Icons.inventory, color: Colors.black87),
+                title: const Text('Stock Orders'),
+                onTap: () => _navigateTo(context, const StockOrderReportPage()),
+              ),
+            ],
+          ),
         ),
-        // 2. Time
-        ListTile(
-          leading: const Icon(Icons.access_time, color: Colors.black87),
-          title: const Text('Time-wise Report'),
-          onTap: () => _navigateTo(context, const TimewiseReportPage()),
-        ),
-        // 3. Waiter
-        ListTile(
-          leading: const Icon(Icons.person, color: Colors.black87),
-          title: const Text('Waiter-wise Reports'),
-          onTap: () => _navigateTo(context, const WaiterwiseReportPage()),
-        ),
-        // 4. Live
-        ListTile(
-          leading: const Icon(Icons.schedule, color: Colors.black87),
-          title: const Text('Live'),
-          onTap: () => _navigateTo(context, const BillsDateTimePage()),
-        ),
-        // 5. Expense
-        ListTile(
-          leading: const Icon(Icons.money_off, color: Colors.black87),
-          title: const Text('Expense List & Details'),
-          onTap: () => _navigateTo(context, const ExpensewiseReportPage()),
-        ),
-        // 6. Closing
-        ListTile(
-          leading: const Icon(Icons.account_balance_wallet, color: Colors.black87),
-          title: const Text('Closing Entries'),
-          onTap: () => _navigateTo(context, const ClosingEntryReportPage()),
-        ),
-        // 7. Return
-        ListTile(
-          leading: const Icon(Icons.assignment_return, color: Colors.black87),
-          title: const Text('Return Orders'),
-          onTap: () => _navigateTo(context, const ReturnOrdersPage()),
-        ),
-        // 8. Stock Order
-        ListTile(
-          leading: const Icon(Icons.inventory, color: Colors.black87),
-          title: const Text('Stock Orders'),
-          onTap: () => _navigateTo(context, const StockOrderReportPage()),
-        ),
-        const Spacer(),
         ListTile(
           leading: const Icon(Icons.logout, color: Colors.black87),
           title: const Text('Logout'),

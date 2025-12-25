@@ -34,11 +34,22 @@ Consider addressing these issues to enable wasm builds. See docs for more info: 
 
 Use --no-wasm-dry-run to disable these warnings.
 Target dart2js failed: ProcessException: Process exited abnormally with exit code 1:
-lib/stockorder_report.dart:1750:47:
-Error: The getter 'items' isn't defined for the type '_StockOrderReportPageState'.
- - '_StockOrderReportPageState' is from 'package:bs_admin/stockorder_report.dart' ('lib/stockorder_report.dart').
-                        Text('Total Items: ${(items.length)}', style: TextStyle(color: Colors.blue.shade100, fontSize: 12, fontStyle: FontStyle.italic)),
-                                              ^^^^^
+lib/stockorder_report.dart:1198:10:
+Error: '_buildSidePanel' is already declared in this scope.
+  Widget _buildSidePanel() {
+         ^^^^^^^^^^^^^^^
+lib/stockorder_report.dart:74:10:
+Info: Previous declaration of '_buildSidePanel'.
+  Widget _buildSidePanel() {
+         ^^^^^^^^^^^^^^^
+lib/stockorder_report.dart:1262:8:
+Error: '_isOrderMatchTab' is already declared in this scope.
+  bool _isOrderMatchTab(Map<String, dynamic> order) {
+       ^^^^^^^^^^^^^^^^
+lib/stockorder_report.dart:132:8:
+Info: Previous declaration of '_isOrderMatchTab'.
+  bool _isOrderMatchTab(Map<String, dynamic> order) {
+       ^^^^^^^^^^^^^^^^
 Error: Compilation failed.
   Command: /Users/castromurugan/development/flutter/bin/cache/dart-sdk/bin/dart compile js --platform-binaries=/Users/castromurugan/development/flutter/bin/cache/flutter_web_sdk/kernel --invoker=flutter_tool -Ddart.vm.product=true -DFLUTTER_VERSION=3.35.6 -DFLUTTER_CHANNEL=stable -DFLUTTER_GIT_URL=https://github.com/flutter/flutter.git -DFLUTTER_FRAMEWORK_REVISION=9f455d2486 -DFLUTTER_ENGINE_REVISION=d2913632a4 -DFLUTTER_DART_VERSION=3.9.2 -DFLUTTER_WEB_USE_SKIA=true -DFLUTTER_WEB_USE_SKWASM=false -DFLUTTER_WEB_CANVASKIT_URL=https://www.gstatic.com/flutter-canvaskit/d2913632a4578ee4d0b8b1c4a69888c8a0672c4b/ --native-null-assertions --no-source-maps -O4 --minify -o /Users/castromurugan/Documents/BS_Admin/.dart_tool/flutter_build/8d71a92219bd23ab0d7d6474a1020fda/app.dill --packages=/Users/castromurugan/Documents/BS_Admin/.dart_tool/package_config.json --cfe-only /Users/castromurugan/Documents/BS_Admin/.dart_tool/flutter_build/8d71a92219bd23ab0d7d6474a1020fda/main.dart
 #0      RunResult.throwException (package:flutter_tools/src/base/process.dart:118:5)
@@ -81,5 +92,5 @@ Error: Compilation failed.
 #19     main (package:flutter_tools/executable.dart:101:3)
 <asynchronous suspension>
 
-Compiling lib/main.dart for the Web...                             25.2s
+Compiling lib/main.dart for the Web...                              8.9s
 Error: Failed to compile application for the Web.

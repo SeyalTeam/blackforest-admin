@@ -9,6 +9,8 @@ import 'closingentry_report.dart'; // Import for Closing Entries
 import 'expensewise_report.dart'; // Import for Expense List
 import 'return_orders.dart'; // Import for Return Orders
 import 'stockorder_report.dart'; // Import for Stock Orders
+import 'categorywise_report.dart';
+import 'productwise_report.dart';
 
 import 'widgets/app_drawer.dart';
 
@@ -133,6 +135,22 @@ class HomePage extends StatelessWidget {
                   () => _navigateTo(context, const BranchwiseBillsPage()),
                   Colors.blueGrey[700]!,
                   Colors.blueGrey[400]!,
+                ),
+                _gridItem(
+                  context,
+                  'Category',
+                  Icons.category,
+                  () => _navigateTo(context, const CategorywiseReportPage()),
+                  Colors.purple[700]!,
+                  Colors.purple[400]!,
+                ),
+                _gridItem(
+                  context,
+                  'Product',
+                  Icons.local_offer,
+                  () => _navigateTo(context, const ProductwiseReportPage()),
+                  Colors.cyan[700]!,
+                  Colors.cyan[400]!,
                 ),
                 _gridItem(
                   context,
