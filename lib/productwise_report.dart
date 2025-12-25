@@ -414,106 +414,116 @@ class _ProductwiseReportPageState extends State<ProductwiseReportPage> {
           child: Column(
             children: [
               // Row 1: Calendar + Branch
-              Row(
-                children: [
-                  // Calendar
-                  Expanded(
-                    child: InkWell(
-                      onTap: _pickDateRange,
-                      child: Container(
-                        height: 50,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.black,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        alignment: Alignment.center,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.calendar_today, color: Colors.white, size: 16),
-                            const SizedBox(width: 8),
-                            Text(dateLabel,
-                                style: const TextStyle(
-                                    color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                                    overflow: TextOverflow.ellipsis),
-                          ],
-                        ),
+              Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: isDesktop ? width * 0.5 : double.infinity,
+                  child: Column(
+                    children: [
+                       Row(
+                        children: [
+                          // Calendar
+                          Expanded(
+                            child: InkWell(
+                              onTap: _pickDateRange,
+                              child: Container(
+                                height: 50,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.black,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                alignment: Alignment.center,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.calendar_today, color: Colors.white, size: 16),
+                                    const SizedBox(width: 8),
+                                    Text(dateLabel,
+                                        style: const TextStyle(
+                                            color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                            overflow: TextOverflow.ellipsis),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Branch Dropdown
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                                    value: selectedBranchId,
+                                    isExpanded: true,
+                                    decoration: InputDecoration(
+                                      contentPadding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                    ),
+                                    items: branches
+                                        .map((b) {
+                                          String name = b['name'] ?? 'Unnamed';
+                                          if (b['id'] == 'ALL') {
+                                            name = 'ALL BRANCHES';
+                                          } else {
+                                             if (name.length > 3) name = name.substring(0, 3);
+                                             name = name.toUpperCase();
+                                          }
+                                          
+                                          return DropdownMenuItem<String>(
+                                              value: b['id'],
+                                              child: Text(name, overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(fontWeight: FontWeight.bold)),
+                                            );
+                                        })
+                                        .toList(),
+                                    onChanged: (v) {
+                                      if (v != null) {
+                                        setState(() => selectedBranchId = v);
+                                        _fetchAndGroup();
+                                      }
+                                    },
+                                  ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Branch Dropdown
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                            value: selectedBranchId,
-                            isExpanded: true,
-                            decoration: InputDecoration(
-                              contentPadding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                              filled: true,
-                              fillColor: Colors.white,
-                            ),
-                            items: branches
-                                .map((b) {
-                                  String name = b['name'] ?? 'Unnamed';
-                                  if (b['id'] == 'ALL') {
-                                    name = 'ALL BRANCHES';
-                                  } else {
-                                     if (name.length > 3) name = name.substring(0, 3);
-                                     name = name.toUpperCase();
-                                  }
-                                  
-                                  return DropdownMenuItem<String>(
-                                      value: b['id'],
-                                      child: Text(name, overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    );
-                                })
-                                .toList(),
-                            onChanged: (v) {
-                              if (v != null) {
-                                setState(() => selectedBranchId = v);
-                                _fetchAndGroup();
-                              }
-                            },
+                      const SizedBox(height: 12),
+                      // Row 2: Category Filter
+                      Row(
+                        children: [
+                           Expanded(
+                            child: DropdownButtonFormField<String>(
+                                    value: selectedCategoryId,
+                                    isExpanded: true,
+                                    decoration: InputDecoration(
+                                      contentPadding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
+                                      labelText: 'Filter by Category',
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                    ),
+                                    items: categoriesList
+                                        .map((c) {
+                                          return DropdownMenuItem<String>(
+                                              value: c['id'],
+                                              child: Text(c['name']!, overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(fontWeight: FontWeight.w600)),
+                                            );
+                                        })
+                                        .toList(),
+                                    onChanged: (v) {
+                                      if (v != null) {
+                                        setState(() => selectedCategoryId = v);
+                                        _fetchAndGroup();
+                                      }
+                                    },
+                                  ),
                           ),
+                        ],
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // Row 2: Category Filter
-              Row(
-                children: [
-                   Expanded(
-                    child: DropdownButtonFormField<String>(
-                            value: selectedCategoryId,
-                            isExpanded: true,
-                            decoration: InputDecoration(
-                              contentPadding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
-                              labelText: 'Filter by Category',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                              filled: true,
-                              fillColor: Colors.white,
-                            ),
-                            items: categoriesList
-                                .map((c) {
-                                  return DropdownMenuItem<String>(
-                                      value: c['id'],
-                                      child: Text(c['name']!, overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                                    );
-                                })
-                                .toList(),
-                            onChanged: (v) {
-                              if (v != null) {
-                                setState(() => selectedCategoryId = v);
-                                _fetchAndGroup();
-                              }
-                            },
-                          ),
-                  ),
-                ],
+                ),
               ),
               const SizedBox(height: 20),
               
@@ -568,7 +578,13 @@ class _ProductwiseReportPageState extends State<ProductwiseReportPage> {
                     ),
                   )
                 else if (isDesktop)
-                  _buildWebTable()
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(
+                      width: width * 0.5,
+                      child: _buildWebTable(),
+                    ),
+                  )
                 else
                   _buildMobileList(),
               ]
@@ -633,17 +649,21 @@ class _ProductwiseReportPageState extends State<ProductwiseReportPage> {
         columnSpacing: 40,
         headingRowColor: MaterialStateProperty.all(Colors.grey.shade50),
         columns: const [
+          DataColumn(label: Text('S.No', style: TextStyle(fontWeight: FontWeight.bold))),
           DataColumn(label: Text('Product', style: TextStyle(fontWeight: FontWeight.bold))),
           DataColumn(label: Text('Quantity', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
           DataColumn(label: Text('Items Sold', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
           DataColumn(label: Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
           DataColumn(label: Text('% of Total', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
         ],
-        rows: aggregatedData.map((row) {
+        rows: aggregatedData.asMap().entries.map((entry) {
+          final index = entry.key;
+          final row = entry.value;
           final percentage = totalAmount > 0 ? (row['amount'] / totalAmount * 100) : 0.0;
           return DataRow(
             onSelectChanged: (_) => _showProductDetails(row),
             cells: [
+            DataCell(Text((index + 1).toString())),
             DataCell(Text(row['name'], style: const TextStyle(fontWeight: FontWeight.w600))),
             DataCell(Text(row['quantity'].toStringAsFixed(1))),
             DataCell(Text(row['count'].toString())),
