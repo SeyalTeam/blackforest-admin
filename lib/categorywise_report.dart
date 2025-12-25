@@ -597,38 +597,100 @@ class _CategorywiseReportPageState extends State<CategorywiseReportPage> {
   }
 
   Widget _buildWebTable() {
+    if (selectedBranchId != 'ALL') {
+      // Standard Table for Single Branch
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
+        child: DataTable(
+          showCheckboxColumn: false,
+          columnSpacing: 40,
+          headingRowColor: MaterialStateProperty.all(Colors.grey.shade50),
+          columns: const [
+            DataColumn(label: Text('S.No', style: TextStyle(fontWeight: FontWeight.bold))),
+            DataColumn(label: Text('Category', style: TextStyle(fontWeight: FontWeight.bold))),
+            DataColumn(label: Text('Quantity', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+            DataColumn(label: Text('Items Sold', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+            DataColumn(label: Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+            DataColumn(label: Text('% of Total', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+          ],
+          rows: aggregatedData.asMap().entries.map((entry) {
+            final index = entry.key;
+            final row = entry.value;
+            final percentage = totalAmount > 0 ? (row['amount'] / totalAmount * 100) : 0.0;
+            return DataRow(
+              onSelectChanged: (_) => _showBranchDetails(row),
+              cells: [
+                DataCell(Text((index + 1).toString())),
+                DataCell(Text(row['name'], style: const TextStyle(fontWeight: FontWeight.w600))),
+                DataCell(Text(row['quantity'].toStringAsFixed(1))),
+                DataCell(Text(row['count'].toString())),
+                DataCell(Text('₹${row['amount'].toStringAsFixed(2)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
+                DataCell(Text('${percentage.toStringAsFixed(1)}%')),
+              ],
+            );
+          }).toList(),
+        ),
+      );
+    }
+
+    // Pivot Table for All Branches
+    // 1. Prepare Columns: S.No, Category, [Branch1], [Branch2]..., Total
+    final branchCols = branches.where((b) => b['id'] != 'ALL').toList();
+    
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-      child: DataTable(
-        showCheckboxColumn: false, // Allows the full row effectively to be clickable with onSelectChanged
-        columnSpacing: 40,
-        headingRowColor: MaterialStateProperty.all(Colors.grey.shade50),
-        columns: const [
-          DataColumn(label: Text('S.No', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Category', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Quantity', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-          DataColumn(label: Text('Items Sold', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-          DataColumn(label: Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-          DataColumn(label: Text('% of Total', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-        ],
-        rows: aggregatedData.asMap().entries.map((entry) {
-          final index = entry.key;
-          final row = entry.value;
-          final percentage = totalAmount > 0 ? (row['amount'] / totalAmount * 100) : 0.0;
-          return DataRow(
-            onSelectChanged: (_) => _showBranchDetails(row),
-            cells: [
-            DataCell(Text((index + 1).toString())),
-            DataCell(Text(row['name'], style: const TextStyle(fontWeight: FontWeight.w600))),
-            DataCell(Text(row['quantity'].toStringAsFixed(1))),
-            DataCell(Text(row['count'].toString())),
-            DataCell(Text('₹${row['amount'].toStringAsFixed(2)}',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
-            DataCell(Text('${percentage.toStringAsFixed(1)}%')),
-          ]);
-        }).toList(),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          showCheckboxColumn: false,
+          columnSpacing: 24, // Tighter spacing for many columns
+          headingRowColor: MaterialStateProperty.all(Colors.grey.shade50),
+          columns: [
+            const DataColumn(label: Text('S.No', style: TextStyle(fontWeight: FontWeight.bold))),
+            const DataColumn(label: Text('Category', style: TextStyle(fontWeight: FontWeight.bold))),
+            ...branchCols.map((b) {
+               String name = b['name'] ?? '';
+               if (name.length > 3) name = name.substring(0, 3);
+               return DataColumn(
+                 label: Text(name.toUpperCase(), 
+                   style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)), 
+                 numeric: true
+               );
+            }),
+            const DataColumn(label: Text('Total', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+          ],
+          rows: aggregatedData.asMap().entries.map((entry) {
+            final index = entry.key;
+            final row = entry.value;
+            final branchMap = row['branches'] as Map<String, Map<String, dynamic>>;
+
+            return DataRow(
+              onSelectChanged: (_) => _showBranchDetails(row),
+              cells: [
+                DataCell(Text((index + 1).toString())),
+                DataCell(Text(row['name'], style: const TextStyle(fontWeight: FontWeight.w600))),
+                // Dynamic Branch Cells
+                ...branchCols.map((b) {
+                  final bName = b['name'];
+                  final bData = branchMap[bName];
+                  final val = bData != null ? (bData['amount'] as double) : 0.0;
+                  return DataCell(
+                    Text(val == 0 ? '-' : val.toStringAsFixed(0), 
+                         style: val == 0 ? const TextStyle(color: Colors.grey) : null),
+                  );
+                }),
+                // Total
+                DataCell(Text('₹${row['amount'].toStringAsFixed(0)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
+              ],
+            );
+          }).toList(),
+        ),
       ),
     );
   }
