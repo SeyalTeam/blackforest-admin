@@ -1231,7 +1231,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
         final bPrefix = bName.toString().length >= 3 ? bName.toString().substring(0, 3).toUpperCase() : bName.toString().toUpperCase();
         final fullInv = (order['invoiceNumber'] ?? 'No Inv').toString();
         final invSuffix = fullInv.split('-').last;
-        final displayTitle = '$bPrefix-$invSuffix';
+        final displayTitle = '$bPrefix-$invSuffix / $fullInv';
         
         double totalAmt = 0;
         final items = (order['items'] as List?) ?? [];
