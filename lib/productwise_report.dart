@@ -414,110 +414,116 @@ class _ProductwiseReportPageState extends State<ProductwiseReportPage> {
           child: Column(
             children: [
               // Row 1: Calendar + Branch
-              Column(
-                children: [
-                   Row(
+              Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                   width: isDesktop ? width * 0.5 : double.infinity,
+                   child: Column(
                     children: [
-                      // Calendar
-                      Expanded(
-                        child: InkWell(
-                          onTap: _pickDateRange,
-                          child: Container(
-                            height: 50,
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.black,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            alignment: Alignment.center,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.calendar_today, color: Colors.white, size: 16),
-                                const SizedBox(width: 8),
-                                Text(dateLabel,
-                                    style: const TextStyle(
-                                        color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                                        overflow: TextOverflow.ellipsis),
-                              ],
+                       Row(
+                        children: [
+                          // Calendar
+                          Expanded(
+                            child: InkWell(
+                              onTap: _pickDateRange,
+                              child: Container(
+                                height: 50,
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.black,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                alignment: Alignment.center,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.calendar_today, color: Colors.white, size: 16),
+                                    const SizedBox(width: 8),
+                                    Text(dateLabel,
+                                        style: const TextStyle(
+                                            color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                            overflow: TextOverflow.ellipsis),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // Branch Dropdown
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                                value: selectedBranchId,
-                                isExpanded: true,
-                                decoration: InputDecoration(
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                                  filled: true,
-                                  fillColor: Colors.white,
-                                ),
-                                items: branches
-                                    .map((b) {
-                                      String name = b['name'] ?? 'Unnamed';
-                                      if (b['id'] == 'ALL') {
-                                        name = 'ALL BRANCHES';
-                                      } else {
-                                         if (name.length > 3) name = name.substring(0, 3);
-                                         name = name.toUpperCase();
+                          const SizedBox(width: 12),
+                          // Branch Dropdown
+                          Expanded(
+                             child: DropdownButtonFormField<String>(
+                                    value: selectedBranchId,
+                                    isExpanded: true,
+                                    decoration: InputDecoration(
+                                      contentPadding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                    ),
+                                    items: branches
+                                        .map((b) {
+                                          String name = b['name'] ?? 'Unnamed';
+                                          if (b['id'] == 'ALL') {
+                                            name = 'ALL BRANCHES';
+                                          } else {
+                                             if (name.length > 3) name = name.substring(0, 3);
+                                             name = name.toUpperCase();
+                                          }
+                                          
+                                          return DropdownMenuItem<String>(
+                                              value: b['id'],
+                                              child: Text(name, overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(fontWeight: FontWeight.bold)),
+                                            );
+                                        })
+                                        .toList(),
+                                    onChanged: (v) {
+                                      if (v != null) {
+                                        setState(() => selectedBranchId = v);
+                                        _fetchAndGroup();
                                       }
-                                      
-                                      return DropdownMenuItem<String>(
-                                          value: b['id'],
-                                          child: Text(name, overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(fontWeight: FontWeight.bold)),
-                                        );
-                                    })
-                                    .toList(),
-                                onChanged: (v) {
-                                  if (v != null) {
-                                    setState(() => selectedBranchId = v);
-                                    _fetchAndGroup();
-                                  }
-                                },
-                              ),
+                                    },
+                                  ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      // Row 2: Category Filter
+                      Row(
+                        children: [
+                           Expanded(
+                            child: DropdownButtonFormField<String>(
+                                    value: selectedCategoryId,
+                                    isExpanded: true,
+                                    decoration: InputDecoration(
+                                      contentPadding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
+                                      labelText: 'Filter by Category',
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                    ),
+                                    items: categoriesList
+                                        .map((c) {
+                                          return DropdownMenuItem<String>(
+                                              value: c['id'],
+                                              child: Text(c['name']!, overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(fontWeight: FontWeight.w600)),
+                                            );
+                                        })
+                                        .toList(),
+                                    onChanged: (v) {
+                                      if (v != null) {
+                                        setState(() => selectedCategoryId = v);
+                                        _fetchAndGroup();
+                                      }
+                                    },
+                                  ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  // Row 2: Category Filter
-                  Row(
-                    children: [
-                       Expanded(
-                        child: DropdownButtonFormField<String>(
-                                value: selectedCategoryId,
-                                isExpanded: true,
-                                decoration: InputDecoration(
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
-                                  labelText: 'Filter by Category',
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                                  filled: true,
-                                  fillColor: Colors.white,
-                                ),
-                                items: categoriesList
-                                    .map((c) {
-                                      return DropdownMenuItem<String>(
-                                          value: c['id'],
-                                          child: Text(c['name']!, overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(fontWeight: FontWeight.w600)),
-                                        );
-                                    })
-                                    .toList(),
-                                onChanged: (v) {
-                                  if (v != null) {
-                                    setState(() => selectedCategoryId = v);
-                                    _fetchAndGroup();
-                                  }
-                                },
-                              ),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
               const SizedBox(height: 20),
               
@@ -630,45 +636,101 @@ class _ProductwiseReportPageState extends State<ProductwiseReportPage> {
   Widget _buildWebTable() {
     if (selectedBranchId != 'ALL') {
       // Standard Table for Single Branch
+      double sumQty = 0;
+      int sumCount = 0;
+      double sumAmount = 0;
+      for (var r in aggregatedData) {
+        sumQty += (r['quantity'] as double);
+        sumCount += (r['count'] as int);
+        sumAmount += (r['amount'] as double);
+      }
+
       return Card(
         elevation: 0,
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-        child: DataTable(
-          showCheckboxColumn: false,
-          columnSpacing: 30,
-          headingRowColor: MaterialStateProperty.all(Colors.grey.shade50),
-          columns: const [
-            DataColumn(label: Text('S.No', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Product', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Quantity', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-            DataColumn(label: Text('Items Sold', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-            DataColumn(label: Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-            DataColumn(label: Text('% of Total', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-          ],
-          rows: aggregatedData.asMap().entries.map((entry) {
-            final index = entry.key;
-            final row = entry.value;
-            final percentage = totalAmount > 0 ? (row['amount'] / totalAmount * 100) : 0.0;
-            return DataRow(
-              onSelectChanged: (_) => _showProductDetails(row),
-              cells: [
-                DataCell(Text((index + 1).toString())),
-                DataCell(Text(row['name'], style: const TextStyle(fontWeight: FontWeight.w600))),
-                DataCell(Text(row['quantity'].toStringAsFixed(1))),
-                DataCell(Text(row['count'].toString())),
-                DataCell(Text('₹${row['amount'].toStringAsFixed(2)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
-                DataCell(Text('${percentage.toStringAsFixed(1)}%')),
+        child: Column(
+          children: [
+            DataTable(
+              showCheckboxColumn: false,
+              columnSpacing: 30,
+              headingRowColor: MaterialStateProperty.all(Colors.grey.shade50),
+              columns: const [
+                DataColumn(label: Text('S.No', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('Product', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('Quantity', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+                DataColumn(label: Text('Items Sold', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+                DataColumn(label: Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+                DataColumn(label: Text('% of Total', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
               ],
-            );
-          }).toList(),
+              rows: [
+                ...aggregatedData.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final row = entry.value;
+                  final percentage = totalAmount > 0 ? (row['amount'] / totalAmount * 100) : 0.0;
+                  return DataRow(
+                    onSelectChanged: (_) => _showProductDetails(row),
+                    cells: [
+                      DataCell(Text((index + 1).toString())),
+                      DataCell(Text(row['name'], style: const TextStyle(fontWeight: FontWeight.w600))),
+                      DataCell(Text(row['quantity'].toStringAsFixed(1))),
+                      DataCell(Text(row['count'].toString())),
+                      DataCell(Text('₹${row['amount'].toStringAsFixed(2)}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
+                      DataCell(Text('${percentage.toStringAsFixed(1)}%')),
+                    ],
+                  );
+                }),
+                // Footer Row
+                DataRow(
+                  color: MaterialStateProperty.all(Colors.grey.shade100),
+                  cells: [
+                    const DataCell(Text('')),
+                    const DataCell(Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                    DataCell(Text(sumQty.toStringAsFixed(1), style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataCell(Text(sumCount.toString(), style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataCell(Text('₹${sumAmount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
+                    const DataCell(Text('100.0%', style: TextStyle(fontWeight: FontWeight.bold))),
+                  ],
+                ),
+              ],
+            ),
+          ],
         ),
       );
     }
 
     // Pivot Table for All Branches
+    // 1. Calculate Branch Totals & Sort
     final columnBranches = branches.where((b) => b['id'] != 'ALL').toList();
+    final Map<String, double> branchTotals = {};
+
+    // Init totals
+    for (var b in columnBranches) {
+       branchTotals[b['name']!] = 0.0;
+    }
+
+    // Sum up
+    for (var row in aggregatedData) {
+       final branchMap = row['branches'] as Map<String, Map<String, dynamic>>;
+       for (var b in columnBranches) {
+          final bName = b['name']!;
+          if (branchMap.containsKey(bName)) {
+             branchTotals[bName] = (branchTotals[bName] ?? 0) + (branchMap[bName]!['amount'] as double);
+          }
+       }
+    }
+
+    // Sort cols by Total Amount Descending
+    columnBranches.sort((a, b) {
+       final amtA = branchTotals[a['name']] ?? 0.0;
+       final amtB = branchTotals[b['name']] ?? 0.0;
+       return amtB.compareTo(amtA);
+    });
+
+    // Prepare Totals for Footer
+    double grandTotal = 0;
+    for(var t in branchTotals.values) grandTotal += t;
 
     return Card(
       elevation: 0,
@@ -694,34 +756,51 @@ class _ProductwiseReportPageState extends State<ProductwiseReportPage> {
             }),
             const DataColumn(label: Text('Total', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
           ],
-          rows: aggregatedData.asMap().entries.map((entry) {
-            final index = entry.key;
-            final row = entry.value;
-            final branchData = row['branches'] as Map<String, Map<String, dynamic>>? ?? {};
+          rows: [
+            ...aggregatedData.asMap().entries.map((entry) {
+              final index = entry.key;
+              final row = entry.value;
+              final branchData = row['branches'] as Map<String, Map<String, dynamic>>? ?? {};
 
-            return DataRow(
-              onSelectChanged: (_) => _showProductDetails(row),
-              cells: [
-                DataCell(Text((index + 1).toString())),
-                DataCell(Text(row['name'], style: const TextStyle(fontWeight: FontWeight.w600))),
-                // Dynamic Branch Cells (Amount)
-                ...columnBranches.map((b) {
-                  final bName = b['name'];
-                  double bAmt = 0.0;
-                  if (bName != null && branchData.containsKey(bName)) {
-                    bAmt = branchData[bName]!['amount'] as double? ?? 0.0;
-                  }
-                  return DataCell(
-                    Text(bAmt == 0 ? '-' : bAmt.toStringAsFixed(0), 
-                         style: bAmt == 0 ? const TextStyle(color: Colors.grey) : null),
-                  );
-                }),
-                // Total
-                DataCell(Text('₹${row['amount'].toStringAsFixed(0)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
-              ],
-            );
-          }).toList(),
+              return DataRow(
+                onSelectChanged: (_) => _showProductDetails(row),
+                cells: [
+                  DataCell(Text((index + 1).toString())),
+                  DataCell(Text(row['name'], style: const TextStyle(fontWeight: FontWeight.w600))),
+                  // Dynamic Branch Cells (Amount)
+                  ...columnBranches.map((b) {
+                    final bName = b['name'];
+                    double bAmt = 0.0;
+                    if (bName != null && branchData.containsKey(bName)) {
+                      bAmt = branchData[bName]!['amount'] as double? ?? 0.0;
+                    }
+                    return DataCell(
+                      Text(bAmt == 0 ? '-' : bAmt.toStringAsFixed(0), 
+                          style: bAmt == 0 ? const TextStyle(color: Colors.grey) : null),
+                    );
+                  }),
+                  // Total
+                  DataCell(Text('₹${row['amount'].toStringAsFixed(0)}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
+                ],
+              );
+            }),
+            // Footer Row (Pivot)
+             DataRow(
+               color: MaterialStateProperty.all(Colors.grey.shade100),
+               cells: [
+                 const DataCell(Text('')),
+                 const DataCell(Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                 ...columnBranches.map((b) {
+                    final total = branchTotals[b['name']] ?? 0.0;
+                    return DataCell(Text(total == 0 ? '-' : total.toStringAsFixed(0), 
+                       style: const TextStyle(fontWeight: FontWeight.bold)));
+                 }),
+                 DataCell(Text('₹${grandTotal.toStringAsFixed(0)}', 
+                     style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
+               ]
+             )
+          ],
         ),
       ),
     );
