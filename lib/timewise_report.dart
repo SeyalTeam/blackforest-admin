@@ -72,7 +72,7 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       final end = toDate != null ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59) : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
       final startStr = start.toUtc().toIso8601String();
       final endStr = end.toUtc().toIso8601String();
-      String url = 'https://admin.theblackforestcakes.com/api/billings?limit=1&sort=-createdAt&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr';
+      String url = 'https://blackforest.vseyal.com/api/billings?limit=1&sort=-createdAt&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr';
       if (selectedBranchId != 'ALL') {
         url += '&where[branch][equals]=$selectedBranchId';
       }
@@ -194,7 +194,7 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       final end = toDate != null ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59) : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
       final startStr = start.toUtc().toIso8601String();
       final endStr = end.toUtc().toIso8601String();
-      String url = 'https://admin.theblackforestcakes.com/api/billings?limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr';
+      String url = 'https://blackforest.vseyal.com/api/billings?limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr';
       if (selectedBranchId != 'ALL') {
         url += '&where[branch][equals]=$selectedBranchId';
       }
@@ -247,7 +247,7 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       final token = await storage.read(key: 'token');
       if (token == null) return;
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/branches?limit=3000'),
+        Uri.parse('https://blackforest.vseyal.com/api/branches?limit=3000'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -275,7 +275,7 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       final token = await storage.read(key: 'token');
       if (token == null) return;
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/users?limit=3000'),
+        Uri.parse('https://blackforest.vseyal.com/api/users?limit=3000'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -331,7 +331,7 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       final end = toDate != null ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59) : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
       final startStr = start.toUtc().toIso8601String();
       final endStr = end.toUtc().toIso8601String();
-      var url = 'https://admin.theblackforestcakes.com/api/billings?limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&sort=createdAt';
+      var url = 'https://blackforest.vseyal.com/api/billings?limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&sort=createdAt';
       if (selectedBranchId != 'ALL') {
         url += '&where[branch][equals]=$selectedBranchId';
       }

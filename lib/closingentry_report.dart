@@ -67,7 +67,7 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString("token");
       final url = Uri.parse(
-          "https://admin.theblackforestcakes.com/api/branches?limit=3000");
+          "https://blackforest.vseyal.com/api/branches?limit=3000");
       final res = await http.get(url, headers: {"Authorization": "Bearer $token"});
       final data = jsonDecode(res.body);
       final docs = data["docs"] ?? [];
@@ -115,7 +115,7 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
       final startStr = start.toUtc().toIso8601String();
       final endStr = end.toUtc().toIso8601String();
       String url =
-          "https://admin.theblackforestcakes.com/api/closing-entries?depth=1&limit=10000"
+          "https://blackforest.vseyal.com/api/closing-entries?depth=1&limit=10000"
           "&where[createdAt][greater_than]=$startStr"
           "&where[createdAt][less_than]=$endStr";
       if (selectedBranchId != "ALL") {

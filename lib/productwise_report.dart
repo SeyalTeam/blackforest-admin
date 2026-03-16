@@ -62,7 +62,7 @@ class _ProductwiseReportPageState extends State<ProductwiseReportPage> {
       final token = await _getToken();
       if (token == null) return;
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/branches?limit=3000'),
+        Uri.parse('https://blackforest.vseyal.com/api/branches?limit=3000'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -91,7 +91,7 @@ class _ProductwiseReportPageState extends State<ProductwiseReportPage> {
       final token = await _getToken();
       if (token == null) return;
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/categories?limit=3000'),
+        Uri.parse('https://blackforest.vseyal.com/api/categories?limit=3000'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -128,7 +128,7 @@ class _ProductwiseReportPageState extends State<ProductwiseReportPage> {
       final token = await _getToken();
       if (token == null) return;
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/products?limit=5000&depth=0'),
+        Uri.parse('https://blackforest.vseyal.com/api/products?limit=5000&depth=0'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -201,7 +201,7 @@ class _ProductwiseReportPageState extends State<ProductwiseReportPage> {
 
       // 2. Fetch Data
       String url =
-          'https://admin.theblackforestcakes.com/api/billings?limit=3000&depth=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr';
+          'https://blackforest.vseyal.com/api/billings?limit=3000&depth=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr';
 
       if (selectedBranchId != 'ALL') {
         url += '&where[branch][equals]=$selectedBranchId';

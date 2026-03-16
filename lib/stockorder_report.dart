@@ -91,7 +91,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     try {
       final token = await _getToken();
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/branches?limit=3000'),
+        Uri.parse('https://blackforest.vseyal.com/api/branches?limit=3000'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -127,7 +127,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     try {
       final token = await _getToken();
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/departments?limit=3000'),
+        Uri.parse('https://blackforest.vseyal.com/api/departments?limit=3000'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -156,7 +156,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
       final token = await _getToken();
       // Only depth=1 needed if category has relations like 'department'
       final res = await http.get(
-        Uri.parse('https://admin.theblackforestcakes.com/api/categories?limit=3000&depth=1'),
+        Uri.parse('https://blackforest.vseyal.com/api/categories?limit=3000&depth=1'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -184,7 +184,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
        final token = await _getToken();
        // Fetch products lightly just to map ID -> Category
        final res = await http.get(
-         Uri.parse('https://admin.theblackforestcakes.com/api/products?limit=5000&depth=0'),
+         Uri.parse('https://blackforest.vseyal.com/api/products?limit=5000&depth=0'),
          headers: {'Authorization': 'Bearer $token'},
        );
        if (res.statusCode == 200) {
@@ -217,7 +217,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
 
       // Use depth=0 to minimize payload. We will rehydrate nicely using maps.
-      var url = 'https://admin.theblackforestcakes.com/api/stock-orders?limit=3000&depth=0'
+      var url = 'https://blackforest.vseyal.com/api/stock-orders?limit=3000&depth=0'
           '&where[deliveryDate][greater_than]=${start.toUtc().toIso8601String()}'
           '&where[deliveryDate][less_than]=${end.toUtc().toIso8601String()}';
 
