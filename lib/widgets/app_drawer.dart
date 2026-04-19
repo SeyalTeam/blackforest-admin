@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../admin_chat_page.dart';
 import '../branchwise_bills.dart';
 import '../bills_date_time_page.dart';
 import '../timewise_report.dart';
@@ -16,12 +18,15 @@ class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
 
   Future<void> _logout(BuildContext context) async {
+    const storage = FlutterSecureStorage();
+    await storage.deleteAll();
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
+    if (!context.mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const LoginPage()),
-          (route) => false,
+      (route) => false,
     );
   }
 
@@ -29,7 +34,7 @@ class AppDrawer extends StatelessWidget {
     if (Scaffold.maybeOf(context)?.hasDrawer ?? false) {
       Navigator.pop(context); // Close drawer on mobile
     }
-    
+
     if (MediaQuery.of(context).size.width >= 1024) {
       Navigator.push(
         context,
@@ -43,10 +48,7 @@ class AppDrawer extends StatelessWidget {
         ),
       );
     } else {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => page),
-      );
+      Navigator.push(context, MaterialPageRoute(builder: (context) => page));
     }
   }
 
@@ -66,7 +68,10 @@ class AppDrawer extends StatelessWidget {
             children: [
               Icon(Icons.admin_panel_settings, size: 40, color: Colors.white),
               SizedBox(width: 12),
-              Text('SuperAdmin', style: TextStyle(color: Colors.white, fontSize: 20)),
+              Text(
+                'Admin',
+                style: TextStyle(color: Colors.white, fontSize: 20),
+              ),
             ],
           ),
         ),
@@ -76,6 +81,11 @@ class AppDrawer extends StatelessWidget {
             padding: EdgeInsets.zero,
             children: [
               // 1. Branch
+              ListTile(
+                leading: const Icon(Icons.chat_bubble, color: Colors.black87),
+                title: const Text('Employee Chats'),
+                onTap: () => _navigateTo(context, const AdminChatPage()),
+              ),
               ListTile(
                 leading: const Icon(Icons.receipt_long, color: Colors.black87),
                 title: const Text('Branch-wise Bills'),
@@ -97,13 +107,15 @@ class AppDrawer extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.category, color: Colors.black87),
                 title: const Text('Category-wise Report'),
-                onTap: () => _navigateTo(context, const CategorywiseReportPage()),
+                onTap: () =>
+                    _navigateTo(context, const CategorywiseReportPage()),
               ),
               // Product
               ListTile(
                 leading: const Icon(Icons.local_offer, color: Colors.black87),
                 title: const Text('Product-wise Report'),
-                onTap: () => _navigateTo(context, const ProductwiseReportPage()),
+                onTap: () =>
+                    _navigateTo(context, const ProductwiseReportPage()),
               ),
               // 5. Live
               ListTile(
@@ -115,17 +127,25 @@ class AppDrawer extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.money_off, color: Colors.black87),
                 title: const Text('Expense List & Details'),
-                onTap: () => _navigateTo(context, const ExpensewiseReportPage()),
+                onTap: () =>
+                    _navigateTo(context, const ExpensewiseReportPage()),
               ),
               // 6. Closing
               ListTile(
-                leading: const Icon(Icons.account_balance_wallet, color: Colors.black87),
+                leading: const Icon(
+                  Icons.account_balance_wallet,
+                  color: Colors.black87,
+                ),
                 title: const Text('Closing Entries'),
-                onTap: () => _navigateTo(context, const ClosingEntryReportPage()),
+                onTap: () =>
+                    _navigateTo(context, const ClosingEntryReportPage()),
               ),
               // 7. Return
               ListTile(
-                leading: const Icon(Icons.assignment_return, color: Colors.black87),
+                leading: const Icon(
+                  Icons.assignment_return,
+                  color: Colors.black87,
+                ),
                 title: const Text('Return Orders'),
                 onTap: () => _navigateTo(context, const ReturnOrdersPage()),
               ),

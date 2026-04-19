@@ -23,13 +23,10 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   Future<void> _checkAuth() async {
-    // Show splash screen for at least 2 seconds
-    await Future.delayed(const Duration(seconds: 2));
-    
     const storage = FlutterSecureStorage();
     final token = await storage.read(key: 'token');
     final role = await storage.read(key: 'role');
-    
+
     // If token exists, trust it and proceed (offline-friendly)
     if (mounted) {
       setState(() {

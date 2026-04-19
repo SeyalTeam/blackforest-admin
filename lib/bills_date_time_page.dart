@@ -42,18 +42,13 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
 
   String selectedPaymentMethod = 'ALL';
   String? _latestBillId;
+  String? _token;
 
   @override
   void initState() {
     super.initState();
     fromDate = DateTime.now();
-    _fetchCompanies().then((_) {
-      _fetchBranches().whenComplete(() {
-        _fetchUsers().then((_) {
-          _fetchBills().then((_) => _fetchOverview());
-        });
-      });
-    });
+    _initializePage();
     _scrollController.addListener(_onScroll);
     _autoRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       _checkForNewBills();
@@ -67,11 +62,38 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
     super.dispose();
   }
 
+  Future<String?> _getToken() async {
+    if (_token != null) return _token;
+    const storage = FlutterSecureStorage();
+    _token = await storage.read(key: 'token');
+    return _token;
+  }
+
+  Future<void> _initializePage() async {
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        if (!mounted) return;
+        setState(() {
+          _loading = false;
+          _loadingSummary = false;
+          _loadingBranches = false;
+        });
+        return;
+      }
+
+      await Future.wait([_fetchCompanies(), _fetchBranches(), _fetchUsers()]);
+
+      await Future.wait([_fetchBills(page: 1), _fetchOverview()]);
+    } catch (e) {
+      debugPrint('Error during initial page load: $e');
+    }
+  }
+
   // ✅ Fetch company names
   Future<void> _fetchCompanies() async {
     try {
-      const storage = FlutterSecureStorage();
-      final token = await storage.read(key: 'token');
+      final token = await _getToken();
       if (token == null) return;
       final res = await http.get(
         Uri.parse('https://blackforest.vseyal.com/api/companies?limit=3000'),
@@ -95,7 +117,7 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
 
   void _onScroll() {
     if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 150 &&
+            _scrollController.position.maxScrollExtent - 150 &&
         !_isLoadingMore &&
         _hasMore) {
       _loadMoreBills();
@@ -135,8 +157,7 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
   Future<void> _fetchBranches() async {
     setState(() => _loadingBranches = true);
     try {
-      const storage = FlutterSecureStorage();
-      final token = await storage.read(key: 'token');
+      final token = await _getToken();
       if (token == null) return;
       final res = await http.get(
         Uri.parse('https://blackforest.vseyal.com/api/branches?limit=3000'),
@@ -146,12 +167,14 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
         final data = jsonDecode(res.body);
         final List docs = data['docs'] ?? [];
         final List<Map<String, String>> list = [
-          {'id': 'ALL', 'name': 'All Branches'}
+          {'id': 'ALL', 'name': 'All Branches'},
         ];
         for (var b in docs) {
           final id = b['id'] ?? b['_id'];
           final name = b['name'] ?? 'Unnamed Branch';
-          if (id != null) list.add({'id': id.toString(), 'name': name.toString()});
+          if (id != null) {
+            list.add({'id': id.toString(), 'name': name.toString()});
+          }
         }
         setState(() => branches = list);
       }
@@ -164,8 +187,7 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
 
   Future<void> _fetchUsers() async {
     try {
-      const storage = FlutterSecureStorage();
-      final token = await storage.read(key: 'token');
+      final token = await _getToken();
       if (token == null) return;
       final res = await http.get(
         Uri.parse('https://blackforest.vseyal.com/api/users?limit=3000'),
@@ -178,13 +200,13 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
           final id = user['id'] ?? user['_id'];
           final employee = user['employee'];
           String name = '';
-          
+
           if (employee is Map && employee['name'] != null) {
             name = employee['name'].toString().trim();
           } else if (user['email'] != null) {
             name = user['email'].toString().trim();
           }
-          
+
           if (id != null && name.isNotEmpty) userMap[id.toString()] = name;
         }
       }
@@ -196,13 +218,19 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
   Future<void> _fetchOverview() async {
     if (fromDate == null) return;
     try {
-      const storage = FlutterSecureStorage();
-      final token = await storage.read(key: 'token');
+      final token = await _getToken();
       if (token == null) return;
       final start = DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
       final end = toDate != null
           ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59)
-          : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
+          : DateTime(
+              fromDate!.year,
+              fromDate!.month,
+              fromDate!.day,
+              23,
+              59,
+              59,
+            );
 
       final startStr = start.toUtc().toIso8601String();
       final endStr = end.toUtc().toIso8601String();
@@ -214,7 +242,10 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
         url += '&where[branch][equals]=$selectedBranchId';
       }
 
-      final res = await http.get(Uri.parse(url), headers: {'Authorization': 'Bearer $token'});
+      final res = await http.get(
+        Uri.parse(url),
+        headers: {'Authorization': 'Bearer $token'},
+      );
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final List docs = data['docs'] ?? [];
@@ -228,7 +259,10 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
           final amt = _extractAmount(bill);
           sum += amt;
 
-          var pay = (bill['paymentMethod'] ?? '').toString().trim().toLowerCase();
+          var pay = (bill['paymentMethod'] ?? '')
+              .toString()
+              .trim()
+              .toLowerCase();
           if (pay.contains('cash')) cash += amt;
           if (pay.contains('upi')) upi += amt;
           if (pay.contains('card')) card += amt;
@@ -257,13 +291,19 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
     });
 
     try {
-      const storage = FlutterSecureStorage();
-      final token = await storage.read(key: 'token');
+      final token = await _getToken();
       if (token == null) return;
       final start = DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
       final end = toDate != null
           ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59)
-          : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
+          : DateTime(
+              fromDate!.year,
+              fromDate!.month,
+              fromDate!.day,
+              23,
+              59,
+              59,
+            );
 
       final startStr = start.toUtc().toIso8601String();
       final endStr = end.toUtc().toIso8601String();
@@ -275,7 +315,10 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
         url += '&where[branch][equals]=$selectedBranchId';
       }
 
-      final res = await http.get(Uri.parse(url), headers: {'Authorization': 'Bearer $token'});
+      final res = await http.get(
+        Uri.parse(url),
+        headers: {'Authorization': 'Bearer $token'},
+      );
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final List docs = data['docs'] ?? [];
@@ -310,13 +353,19 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
   Future<void> _checkForNewBills() async {
     if (fromDate == null) return;
     try {
-      const storage = FlutterSecureStorage();
-      final token = await storage.read(key: 'token');
+      final token = await _getToken();
       if (token == null) return;
       final start = DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
       final end = toDate != null
           ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59)
-          : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
+          : DateTime(
+              fromDate!.year,
+              fromDate!.month,
+              fromDate!.day,
+              23,
+              59,
+              59,
+            );
 
       final startStr = start.toUtc().toIso8601String();
       final endStr = end.toUtc().toIso8601String();
@@ -328,7 +377,10 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
         url += '&where[branch][equals]=$selectedBranchId';
       }
 
-      final res = await http.get(Uri.parse(url), headers: {'Authorization': 'Bearer $token'});
+      final res = await http.get(
+        Uri.parse(url),
+        headers: {'Authorization': 'Bearer $token'},
+      );
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final List docs = data['docs'] ?? [];
@@ -337,8 +389,7 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
           final id = latest['id'] ?? latest['_id'];
           final idStr = id?.toString();
           if (idStr != null && idStr != _latestBillId) {
-            await _fetchBills(page: 1);
-            await _fetchOverview();
+            await Future.wait([_fetchBills(page: 1), _fetchOverview()]);
           }
         }
       }
@@ -364,7 +415,9 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
   void _showBillPopup(Map<String, dynamic> bill) {
     final items = List<Map<String, dynamic>>.from(bill['items'] ?? []);
     final total = _extractAmount(bill);
-    final method = (bill['paymentMethod'] ?? 'Unknown').toString().toUpperCase();
+    final method = (bill['paymentMethod'] ?? 'Unknown')
+        .toString()
+        .toUpperCase();
     final invoice = bill['invoiceNumber'] ?? 'N/A';
     final branch = bill['branch']?['name'] ?? 'Unknown';
 
@@ -393,11 +446,12 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
     final createdBy = bill['createdBy'];
     if (createdBy != null) {
       if (createdBy is Map) {
-         if (createdBy['employee'] is Map && createdBy['employee']['name'] != null) {
-            waiter = createdBy['employee']['name'].toString();
-         } else if (createdBy['email'] != null) {
-            waiter = createdBy['email'].toString();
-         }
+        if (createdBy['employee'] is Map &&
+            createdBy['employee']['name'] != null) {
+          waiter = createdBy['employee']['name'].toString();
+        } else if (createdBy['email'] != null) {
+          waiter = createdBy['email'].toString();
+        }
       } else if (createdBy is String && userMap.containsKey(createdBy)) {
         waiter = userMap[createdBy]!;
       }
@@ -413,65 +467,90 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
           width: 340,
           padding: const EdgeInsets.all(16),
           child: SingleChildScrollView(
-            child: Column(children: [
-              Align(
-                alignment: Alignment.topRight,
-                child: IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-              Text(
-                '🧾 $companyName',
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 18),
-                textAlign: TextAlign.center,
-              ),
-              Text(branch, style: const TextStyle(color: Colors.black54)),
-              const Divider(),
-              Text('Invoice: $invoice'),
-              if (date != null)
-                Text(DateFormat('MMM d, yyyy - hh:mm a').format(date.toLocal())),
-              const Divider(),
-
-              ...items.map((i) => Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                      child: Text(
-                        i['name'] ?? '',
-                        style: const TextStyle(fontSize: 14),
-                      )),
-                  Text(
-                    '${i['quantity']} x ${i['unitPrice']} = ${i['subtotal']}',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            child: Column(
+              children: [
+                Align(
+                  alignment: Alignment.topRight,
+                  child: IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
                   ),
-                ],
-              )),
+                ),
+                Text(
+                  '🧾 $companyName',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                Text(branch, style: const TextStyle(color: Colors.black54)),
+                const Divider(),
+                Text('Invoice: $invoice'),
+                if (date != null)
+                  Text(
+                    DateFormat('MMM d, yyyy - hh:mm a').format(date.toLocal()),
+                  ),
+                const Divider(),
 
-              const Divider(),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('Payment'),
-                Text(method)
-              ]),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('Waiter'),
-                Text(waiter)
-              ]),
-              const Divider(),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('Total Amount',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                Text('₹${total.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                        color: Colors.green, fontWeight: FontWeight.bold))
-              ]),
-              const SizedBox(height: 10),
-              const Text('Thank you for visiting!',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-              const Text('Powered by VSeyal POS',
-                  style: TextStyle(fontSize: 11, color: Colors.black54)),
-            ]),
+                ...items.map(
+                  (i) => Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          i['name'] ?? '',
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                      Text(
+                        '${i['quantity']} x ${i['unitPrice']} = ${i['subtotal']}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Divider(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [const Text('Payment'), Text(method)],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [const Text('Waiter'), Text(waiter)],
+                ),
+                const Divider(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Total Amount',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      '₹${total.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Thank you for visiting!',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+                const Text(
+                  'Powered by VSeyal POS',
+                  style: TextStyle(fontSize: 11, color: Colors.black54),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -510,19 +589,27 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
     if (selectedPaymentMethod == 'ALL') return allBills;
     final key = selectedPaymentMethod.toLowerCase();
     return allBills
-        .where((b) =>
-        (b['paymentMethod'] ?? '').toString().toLowerCase().contains(key))
+        .where(
+          (b) =>
+              (b['paymentMethod'] ?? '').toString().toLowerCase().contains(key),
+        )
         .toList();
   }
 
-  Widget _buildPaymentTile(String type, IconData icon, Color color, double value) {
+  Widget _buildPaymentTile(
+    String type,
+    IconData icon,
+    Color color,
+    double value,
+  ) {
     return GestureDetector(
       onTap: () => _togglePaymentFilter(type),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
         decoration: BoxDecoration(
-          color:
-          selectedPaymentMethod == type ? Colors.grey.shade200 : Colors.transparent,
+          color: selectedPaymentMethod == type
+              ? Colors.grey.shade200
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
         ),
         child: Row(
@@ -559,238 +646,289 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
     Widget mainContent = _loading && allBills.isEmpty
         ? const Center(child: CircularProgressIndicator())
         : Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: InkWell(
-              onTap: _pickDateRange,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    vertical: 10, horizontal: 12),
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.calendar_today,
-                        color: Colors.white, size: 18),
-                    const SizedBox(width: 8),
-                    Text(dateLabel,
-                        style: const TextStyle(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: InkWell(
+                    onTap: _pickDateRange,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 10,
+                        horizontal: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.calendar_today,
                             color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14)),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            dateLabel,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _loadingBranches
+                          ? const SizedBox(
+                              height: 48,
+                              child: Center(child: CircularProgressIndicator()),
+                            )
+                          : DropdownButtonFormField<String>(
+                              value: selectedBranchId,
+                              items: branches
+                                  .map(
+                                    (b) => DropdownMenuItem<String>(
+                                      value: b['id'],
+                                      child: Text(
+                                        b['name'] ?? 'Unnamed',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (v) => _onBranchChanged(v),
+                              decoration: InputDecoration(
+                                labelText: 'Branch',
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                  horizontal: 12,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
+                            ),
+                    ),
                   ],
                 ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(children: [
-            Expanded(
-              child: _loadingBranches
-                  ? const SizedBox(
-                  height: 48,
-                  child: Center(child: CircularProgressIndicator()))
-                  : DropdownButtonFormField<String>(
-                value: selectedBranchId,
-                items: branches
-                    .map((b) => DropdownMenuItem<String>(
-                  value: b['id'],
-                  child: Text(b['name'] ?? 'Unnamed',
-                      overflow: TextOverflow.ellipsis),
-                ))
-                    .toList(),
-                onChanged: (v) => _onBranchChanged(v),
-                decoration: InputDecoration(
-                  labelText: 'Branch',
-                  contentPadding: const EdgeInsets.symmetric(
-                      vertical: 12, horizontal: 12),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6)),
-                ),
-              ),
-            ),
-          ]),
-          const SizedBox(height: 12),
-          Card(
-            color: Colors.grey[100],  // UPDATED: Changed from pink[50] to grey[100] for consistency with waiter/time wise (light background)
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8)),
-            child: Padding(
-              padding: const EdgeInsets.all(14.0),
-              child: _loadingSummary
-                  ? const Center(child: CircularProgressIndicator())
-                  : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    const Text('Total Bills: ',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold)),
-                    Text('$overviewBills',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold)),
-                  ]),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children: [
-                      _buildPaymentTile(
-                          'CASH',
-                          Icons.money,
-                          Colors.green,
-                          cashTotal),
-                      _buildPaymentTile(
-                          'UPI', Icons.qr_code, Colors.blue, upiTotal),
-                      _buildPaymentTile(
-                          'CARD',
-                          Icons.credit_card,
-                          Colors.purple,
-                          cardTotal),
-                    ],
+                const SizedBox(height: 12),
+                Card(
+                  color: Colors
+                      .grey[100], // UPDATED: Changed from pink[50] to grey[100] for consistency with waiter/time wise (light background)
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(height: 10),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 12, horizontal: 14),
-                    decoration: BoxDecoration(
-                        color: Colors.black,
-                        borderRadius:
-                        BorderRadius.circular(6)),
-                    child: Row(
-                      mainAxisAlignment:
-                      MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Total Amount:',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight:
-                                FontWeight.bold)),
-                        Text(
-                            '₹${overviewAmount.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                                color: Colors.green,
-                                fontSize: 28,
-                                fontWeight:
-                                FontWeight.bold)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: _displayedBills.isEmpty
-                ? const Center(child: Text('No bills found'))
-                : ListView.builder(
-              controller: _scrollController,
-              itemCount: _displayedBills.length,
-              itemBuilder: (context, index) {
-                final bill = _displayedBills[index];
-                final branch =
-                    bill['branch']?['name'] ?? 'Unknown';
-                final amount = _extractAmount(bill);
-                final paymentMethod =
-                (bill['paymentMethod'] ?? 'unknown')
-                    .toString();
-                String waiterName = 'Unknown';
-                final createdBy = bill['createdBy'];
-                if (createdBy != null) {
-                  if (createdBy is Map) {
-                    if (createdBy['employee'] is Map && createdBy['employee']['name'] != null) {
-                      waiterName = createdBy['employee']['name'].toString().trim();
-                    } else if (createdBy['email'] != null) {
-                      waiterName = createdBy['email'].toString().trim();
-                    }
-                  } else if (createdBy is String && userMap.containsKey(createdBy)) {
-                    waiterName = userMap[createdBy]!;
-                  }
-                }
-
-                final createdAt = bill['createdAt'];
-                String timeText = '';
-                if (createdAt != null) {
-                  final dt = DateTime.tryParse(createdAt);
-                  if (dt != null) {
-                    if (toDate != null) {
-                      timeText = DateFormat('dd.MM.yy - hh:mm a')
-                          .format(dt.toLocal());
-                    } else {
-                      timeText = DateFormat('hh:mm a')
-                          .format(dt.toLocal());
-                    }
-                  }
-                }
-
-                final bgColor = index % 2 == 0
-                    ? Colors.white  // UPDATED: Changed to white / grey.shade50 for consistency with waiter/time wise
-                    : Colors.grey.shade50;
-
-                return GestureDetector(
-                  onTap: () => _showBillPopup(bill),
-                  child: Container(
-                    color: bgColor,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
-                    child: Column(
-                      crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                            mainAxisAlignment:
-                            MainAxisAlignment.spaceBetween,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14.0),
+                    child: _loadingSummary
+                        ? const Center(child: CircularProgressIndicator())
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Text(branch,
+                              Row(
+                                children: [
+                                  const Text(
+                                    'Total Bills: ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    '$overviewBills',
                                     style: const TextStyle(
-                                        fontWeight:
-                                        FontWeight.bold,
-                                        color: Colors.black,
-                                        fontSize: 15),
-                                    overflow:
-                                    TextOverflow.ellipsis),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                  '₹${amount.toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                      fontWeight:
-                                      FontWeight.bold,
-                                      color: Colors.green,
-                                      fontSize: 15)),
-                            ]),
-                        const SizedBox(height: 4),
-                        Text(
-                          '$timeText - $waiterName - ${paymentMethod.toUpperCase()}',
-                          style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.black54,
-                              fontWeight:
-                              FontWeight.w500),
-                        ),
-                      ],
-                    ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                children: [
+                                  _buildPaymentTile(
+                                    'CASH',
+                                    Icons.money,
+                                    Colors.green,
+                                    cashTotal,
+                                  ),
+                                  _buildPaymentTile(
+                                    'UPI',
+                                    Icons.qr_code,
+                                    Colors.blue,
+                                    upiTotal,
+                                  ),
+                                  _buildPaymentTile(
+                                    'CARD',
+                                    Icons.credit_card,
+                                    Colors.purple,
+                                    cardTotal,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                  horizontal: 14,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Total Amount:',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      '₹${overviewAmount.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                        color: Colors.green,
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
-                );
-              },
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: _displayedBills.isEmpty
+                      ? const Center(child: Text('No bills found'))
+                      : ListView.builder(
+                          controller: _scrollController,
+                          itemCount: _displayedBills.length,
+                          itemBuilder: (context, index) {
+                            final bill = _displayedBills[index];
+                            final branch = bill['branch']?['name'] ?? 'Unknown';
+                            final amount = _extractAmount(bill);
+                            final paymentMethod =
+                                (bill['paymentMethod'] ?? 'unknown').toString();
+                            String waiterName = 'Unknown';
+                            final createdBy = bill['createdBy'];
+                            if (createdBy != null) {
+                              if (createdBy is Map) {
+                                if (createdBy['employee'] is Map &&
+                                    createdBy['employee']['name'] != null) {
+                                  waiterName = createdBy['employee']['name']
+                                      .toString()
+                                      .trim();
+                                } else if (createdBy['email'] != null) {
+                                  waiterName = createdBy['email']
+                                      .toString()
+                                      .trim();
+                                }
+                              } else if (createdBy is String &&
+                                  userMap.containsKey(createdBy)) {
+                                waiterName = userMap[createdBy]!;
+                              }
+                            }
+
+                            final createdAt = bill['createdAt'];
+                            String timeText = '';
+                            if (createdAt != null) {
+                              final dt = DateTime.tryParse(createdAt);
+                              if (dt != null) {
+                                if (toDate != null) {
+                                  timeText = DateFormat(
+                                    'dd.MM.yy - hh:mm a',
+                                  ).format(dt.toLocal());
+                                } else {
+                                  timeText = DateFormat(
+                                    'hh:mm a',
+                                  ).format(dt.toLocal());
+                                }
+                              }
+                            }
+
+                            final bgColor = index % 2 == 0
+                                ? Colors
+                                      .white // UPDATED: Changed to white / grey.shade50 for consistency with waiter/time wise
+                                : Colors.grey.shade50;
+
+                            return GestureDetector(
+                              onTap: () => _showBillPopup(bill),
+                              child: Container(
+                                color: bgColor,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            branch,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black,
+                                              fontSize: 15,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        Text(
+                                          '₹${amount.toStringAsFixed(2)}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.green,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '$timeText - $waiterName - ${paymentMethod.toUpperCase()}',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.black54,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                if (_isLoadingMore)
+                  const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: CircularProgressIndicator(),
+                  ),
+              ],
             ),
-          ),
-          if (_isLoadingMore)
-            const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: CircularProgressIndicator()),
-        ],
-      ),
-    );
+          );
 
     return Scaffold(
       appBar: AppBar(
@@ -808,22 +946,22 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
       drawer: isDesktop
           ? null
           : const Drawer(
-        backgroundColor: Colors.white,
-        child: SafeArea(child: AppDrawer()),
-      ),
+              backgroundColor: Colors.white,
+              child: SafeArea(child: AppDrawer()),
+            ),
       body: isDesktop
           ? Row(
-        children: [
-          // Fixed Sidebar
-          Container(
-            width: 250,
-            color: Colors.white,
-            child: const AppDrawer(),
-          ),
-          // Main Content
-          Expanded(child: mainContent),
-        ],
-      )
+              children: [
+                // Fixed Sidebar
+                Container(
+                  width: 250,
+                  color: Colors.white,
+                  child: const AppDrawer(),
+                ),
+                // Main Content
+                Expanded(child: mainContent),
+              ],
+            )
           : mainContent,
     );
   }

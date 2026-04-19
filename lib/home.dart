@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login.dart';
+import 'admin_chat_page.dart';
 import 'branchwise_bills.dart';
 import 'bills_date_time_page.dart';
 import 'timewise_report.dart';
@@ -18,12 +20,15 @@ class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   Future<void> _logout(BuildContext context) async {
+    const storage = FlutterSecureStorage();
+    await storage.deleteAll();
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
+    if (!context.mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const LoginPage()),
-          (route) => false,
+      (route) => false,
     );
   }
 
@@ -50,14 +55,18 @@ class HomePage extends StatelessWidget {
         ),
       );
     } else {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => page),
-      );
+      Navigator.push(context, MaterialPageRoute(builder: (context) => page));
     }
   }
 
-  Widget _gridItem(BuildContext context, String title, IconData icon, VoidCallback onTap, Color gradientStart, Color gradientEnd) {
+  Widget _gridItem(
+    BuildContext context,
+    String title,
+    IconData icon,
+    VoidCallback onTap,
+    Color gradientStart,
+    Color gradientEnd,
+  ) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -70,7 +79,7 @@ class HomePage extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withValues(alpha: 0.2),
               spreadRadius: 2,
               blurRadius: 8,
               offset: const Offset(0, 4),
@@ -128,6 +137,14 @@ class HomePage extends StatelessWidget {
               crossAxisSpacing: 20,
               childAspectRatio: 1.0,
               children: [
+                _gridItem(
+                  context,
+                  'Chat',
+                  Icons.chat_bubble,
+                  () => _navigateTo(context, const AdminChatPage()),
+                  Colors.blue[800]!,
+                  Colors.lightBlue[400]!,
+                ),
                 _gridItem(
                   context,
                   'Branch',
@@ -214,12 +231,20 @@ class HomePage extends StatelessWidget {
           const SizedBox(height: 24),
           Card(
             elevation: 6,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             color: Colors.white,
-            shadowColor: Colors.black.withOpacity(0.3),
+            shadowColor: Colors.black.withValues(alpha: 0.3),
             child: ListTile(
               leading: const Icon(Icons.settings, color: Colors.black87),
-              title: const Text('Settings / Config', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+              title: const Text(
+                'Settings / Config',
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               trailing: const Icon(Icons.chevron_right, color: Colors.black87),
               onTap: () => _notImplemented(context, 'Settings'),
             ),
@@ -239,7 +264,7 @@ class HomePage extends StatelessWidget {
             Icon(Icons.admin_panel_settings, color: Colors.white),
             SizedBox(width: 8),
             Text(
-              'SuperAdmin Home',
+              'Admin Home',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 20,
@@ -257,31 +282,29 @@ class HomePage extends StatelessWidget {
             ),
         ],
         elevation: 4,
-        shadowColor: Colors.black.withOpacity(0.5),
+        shadowColor: Colors.black.withValues(alpha: 0.5),
       ),
       // ================= DRAWER (Mobile Only) ==================
       drawer: isDesktop
           ? null
           : const Drawer(
-        backgroundColor: Colors.white,
-        child: SafeArea(
-          child: AppDrawer(),
-        ),
-      ),
+              backgroundColor: Colors.white,
+              child: SafeArea(child: AppDrawer()),
+            ),
       // ================= MAIN BODY ==================
       body: isDesktop
           ? Row(
-        children: [
-          // Fixed Sidebar
-          Container(
-            width: 250,
-            color: Colors.white,
-            child: const AppDrawer(),
-          ),
-          // Main Content
-          Expanded(child: mainContent),
-        ],
-      )
+              children: [
+                // Fixed Sidebar
+                Container(
+                  width: 250,
+                  color: Colors.white,
+                  child: const AppDrawer(),
+                ),
+                // Main Content
+                Expanded(child: mainContent),
+              ],
+            )
           : mainContent,
     );
   }

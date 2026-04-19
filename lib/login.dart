@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'home.dart';
 import 'kitchen_order.dart'; // ADDED: Import for KitchenOrderPage
-import 'constants.dart';
 
 class IdleTimeoutWrapper extends StatefulWidget {
   final Widget child;
@@ -16,10 +16,11 @@ class IdleTimeoutWrapper extends StatefulWidget {
     this.timeout = const Duration(hours: 6),
   });
   @override
-  _IdleTimeoutWrapperState createState() => _IdleTimeoutWrapperState();
+  State<IdleTimeoutWrapper> createState() => _IdleTimeoutWrapperState();
 }
 
-class _IdleTimeoutWrapperState extends State<IdleTimeoutWrapper> with WidgetsBindingObserver {
+class _IdleTimeoutWrapperState extends State<IdleTimeoutWrapper>
+    with WidgetsBindingObserver {
   Timer? _timer;
   DateTime? _pauseTime;
 
@@ -31,6 +32,8 @@ class _IdleTimeoutWrapperState extends State<IdleTimeoutWrapper> with WidgetsBin
   Future<void> _logout() async {
     const storage = FlutterSecureStorage();
     await storage.deleteAll();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
     if (mounted) {
       Navigator.pushReplacement(
         context,
@@ -88,7 +91,7 @@ class _IdleTimeoutWrapperState extends State<IdleTimeoutWrapper> with WidgetsBin
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
   @override
-  _LoginPageState createState() => _LoginPageState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
@@ -116,18 +119,27 @@ class _LoginPageState extends State<LoginPage> {
         final data = jsonDecode(response.body);
         final user = data['user'];
         final role = user['role'];
-        if (role != 'superadmin' && role != 'kitchen') { // CHANGED: Allow 'kitchen' role in addition to 'superadmin'
-          _showError('Access denied: Only superadmin or kitchen roles can use this app.');
+        if (role != 'superadmin' && role != 'admin' && role != 'kitchen') {
+          _showError(
+            'Access denied: Only admin, superadmin, or kitchen roles can use this app.',
+          );
           setState(() => _isLoading = false);
           return;
         }
         const storage = FlutterSecureStorage();
-        await storage.write(key: 'token', value: data['token']);
+        final prefs = await SharedPreferences.getInstance();
+        final token = data['token'].toString();
+        final normalizedRole = role.toString();
+        await storage.write(key: 'token', value: token);
         await storage.write(key: 'email', value: fullEmail);
-        await storage.write(key: 'role', value: role);
+        await storage.write(key: 'role', value: normalizedRole);
+        await prefs.setString('token', token);
+        await prefs.setString('email', fullEmail);
+        await prefs.setString('role', normalizedRole);
         if (mounted) {
           Widget targetPage;
-          if (role == 'kitchen') { // ADDED: Navigate to KitchenOrderPage for 'kitchen' role
+          if (role == 'kitchen') {
+            // ADDED: Navigate to KitchenOrderPage for 'kitchen' role
             targetPage = const KitchenOrderPage();
           } else {
             targetPage = const HomePage();
@@ -155,7 +167,8 @@ class _LoginPageState extends State<LoginPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.redAccent, // CHANGED: Updated error color for premium feel
+        backgroundColor:
+            Colors.redAccent, // CHANGED: Updated error color for premium feel
       ),
     );
   }
@@ -163,7 +176,8 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[900], // CHANGED: Darker background for premium look
+      backgroundColor:
+          Colors.grey[900], // CHANGED: Darker background for premium look
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 400),
@@ -171,10 +185,16 @@ class _LoginPageState extends State<LoginPage> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Card(
               elevation: 8, // CHANGED: Increased elevation for depth
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), // CHANGED: Softer corners
-              color: Colors.white.withOpacity(0.95), // CHANGED: Slight transparency for premium overlay
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ), // CHANGED: Softer corners
+              color: Colors.white.withValues(
+                alpha: 0.95,
+              ), // CHANGED: Slight transparency for premium overlay
               child: Padding(
-                padding: const EdgeInsets.all(32), // CHANGED: More padding for spacious feel
+                padding: const EdgeInsets.all(
+                  32,
+                ), // CHANGED: More padding for spacious feel
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -185,7 +205,8 @@ class _LoginPageState extends State<LoginPage> {
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87, // CHANGED: Darker text for contrast
+                          color: Colors
+                              .black87, // CHANGED: Darker text for contrast
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -193,12 +214,18 @@ class _LoginPageState extends State<LoginPage> {
                         controller: _usernameController,
                         decoration: InputDecoration(
                           labelText: 'Username',
-                          prefixIcon: const Icon(Icons.person, color: Colors.black54), // CHANGED: Colored icon
+                          prefixIcon: const Icon(
+                            Icons.person,
+                            color: Colors.black54,
+                          ), // CHANGED: Colored icon
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12), // CHANGED: Rounded borders
+                            borderRadius: BorderRadius.circular(
+                              12,
+                            ), // CHANGED: Rounded borders
                           ),
                           filled: true, // ADDED: Filled background
-                          fillColor: Colors.grey[200], // ADDED: Light fill color
+                          fillColor:
+                              Colors.grey[200], // ADDED: Light fill color
                         ),
                         validator: (v) => v!.isEmpty ? 'Enter username' : null,
                         keyboardType: TextInputType.text,
@@ -211,18 +238,28 @@ class _LoginPageState extends State<LoginPage> {
                         obscureText: _obscurePassword,
                         decoration: InputDecoration(
                           labelText: 'Password',
-                          prefixIcon: const Icon(Icons.lock, color: Colors.black54), // CHANGED: Colored icon
+                          prefixIcon: const Icon(
+                            Icons.lock,
+                            color: Colors.black54,
+                          ), // CHANGED: Colored icon
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12), // CHANGED: Rounded borders
+                            borderRadius: BorderRadius.circular(
+                              12,
+                            ), // CHANGED: Rounded borders
                           ),
                           filled: true, // ADDED: Filled background
-                          fillColor: Colors.grey[200], // ADDED: Light fill color
+                          fillColor:
+                              Colors.grey[200], // ADDED: Light fill color
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                              _obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
                               color: Colors.black54, // CHANGED: Colored icon
                             ),
-                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                            onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
                           ),
                         ),
                         validator: (v) => v!.isEmpty ? 'Enter password' : null,
@@ -234,15 +271,29 @@ class _LoginPageState extends State<LoginPage> {
                       ElevatedButton(
                         onPressed: _isLoading ? null : _login,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black, // Kept black for premium
+                          backgroundColor:
+                              Colors.black, // Kept black for premium
                           foregroundColor: Colors.white,
-                          minimumSize: const Size(double.infinity, 56), // CHANGED: Taller button
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), // CHANGED: Rounded button
+                          minimumSize: const Size(
+                            double.infinity,
+                            56,
+                          ), // CHANGED: Taller button
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ), // CHANGED: Rounded button
                           elevation: 4, // ADDED: Button elevation
                         ),
                         child: _isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text('Login', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), // CHANGED: Larger text
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                            : const Text(
+                                'Login',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ), // CHANGED: Larger text
                       ),
                     ],
                   ),
