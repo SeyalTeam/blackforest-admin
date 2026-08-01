@@ -30,6 +30,7 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
 
   final ScrollController _scrollController = ScrollController();
   Timer? _autoRefreshTimer;
+  bool _isCheckingForNewBills = false;
 
   double overviewAmount = 0.0;
   int overviewBills = 0;
@@ -50,7 +51,7 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
     fromDate = DateTime.now();
     _initializePage();
     _scrollController.addListener(_onScroll);
-    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       _checkForNewBills();
     });
   }
@@ -236,7 +237,7 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
       final endStr = end.toUtc().toIso8601String();
 
       String url =
-          'https://blackforest.vseyal.com/api/billings?limit=3000&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr';
+          'https://blackforest.vseyal.com/api/billings?limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled';
 
       if (selectedBranchId != 'ALL') {
         url += '&where[branch][equals]=$selectedBranchId';
@@ -256,6 +257,9 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
         double card = 0.0;
 
         for (var bill in docs) {
+          final status = (bill['status'] ?? '').toString().toLowerCase().trim();
+          if (status != 'completed' && status != 'settled') continue;
+
           final amt = _extractAmount(bill);
           sum += amt;
 
@@ -309,7 +313,7 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
       final endStr = end.toUtc().toIso8601String();
 
       String url =
-          'https://blackforest.vseyal.com/api/billings?limit=$_limit&page=$page&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&sort=-createdAt';
+          'https://blackforest.vseyal.com/api/billings?limit=$_limit&page=$page&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled&sort=-createdAt';
 
       if (selectedBranchId != 'ALL') {
         url += '&where[branch][equals]=$selectedBranchId';
@@ -352,6 +356,8 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
 
   Future<void> _checkForNewBills() async {
     if (fromDate == null) return;
+    if (_isCheckingForNewBills) return;
+    _isCheckingForNewBills = true;
     try {
       final token = await _getToken();
       if (token == null) return;
@@ -371,7 +377,7 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
       final endStr = end.toUtc().toIso8601String();
 
       String url =
-          'https://blackforest.vseyal.com/api/billings?limit=1&sort=-createdAt&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr';
+          'https://blackforest.vseyal.com/api/billings?limit=1&sort=-createdAt&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled';
 
       if (selectedBranchId != 'ALL') {
         url += '&where[branch][equals]=$selectedBranchId';
@@ -395,6 +401,8 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
       }
     } catch (e) {
       debugPrint('Error checking new bills: $e');
+    } finally {
+      _isCheckingForNewBills = false;
     }
   }
 
@@ -487,6 +495,10 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
                 Text(branch, style: const TextStyle(color: Colors.black54)),
                 const Divider(),
                 Text('Invoice: $invoice'),
+                Text(
+                  'Status: ${bill['status']?.toString().toUpperCase() ?? 'N/A'}',
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
                 if (date != null)
                   Text(
                     DateFormat('MMM d, yyyy - hh:mm a').format(date.toLocal()),

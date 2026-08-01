@@ -217,7 +217,7 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
           : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
 
       // Use depth=0 to minimize payload. We will rehydrate nicely using maps.
-      var url = 'https://blackforest.vseyal.com/api/stock-orders?limit=3000&depth=0'
+      var url = 'https://blackforest.vseyal.com/api/stock-orders?limit=0&depth=0'
           '&where[deliveryDate][greater_than]=${start.toUtc().toIso8601String()}'
           '&where[deliveryDate][less_than]=${end.toUtc().toIso8601String()}';
 

@@ -7,7 +7,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'widgets/app_drawer.dart';
 
 class WaiterwiseReportPage extends StatefulWidget {
-  const WaiterwiseReportPage({super.key});
+  final bool isEmbedded;
+  const WaiterwiseReportPage({super.key, this.isEmbedded = false});
   @override
   State<WaiterwiseReportPage> createState() => _WaiterwiseReportPageState();
 }
@@ -34,6 +35,7 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
   // to detect new bills (smart refresh)
   String? _latestBillId;
   Timer? _smartTimer;
+  bool _isSmartRefreshInProgress = false;
 
   @override
   void initState() {
@@ -73,7 +75,9 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final docs = data['docs'] ?? [];
-        final list = <Map<String, String>>[{'id': 'ALL', 'name': 'All Branches'}];
+        final list = <Map<String, String>>[
+          {'id': 'ALL', 'name': 'All Branches'},
+        ];
         for (var b in docs) {
           final id = (b['id'] ?? b['_id'])?.toString();
           final name = (b['name'] ?? 'Unnamed Branch').toString();
@@ -100,7 +104,9 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final docs = data['docs'] ?? [];
-        final list = <Map<String, dynamic>>[{'id': 'ALL', 'name': 'All Waiters'}];
+        final list = <Map<String, dynamic>>[
+          {'id': 'ALL', 'name': 'All Waiters'},
+        ];
         for (var u in docs) {
           final id = (u['id'] ?? u['_id'])?.toString();
           // prefer employee.name if exists
@@ -124,7 +130,9 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
   // Smart timer that only triggers full fetch when new bill id changes
   void _startSmartRefresh() {
     _smartTimer?.cancel();
-    _smartTimer = Timer.periodic(const Duration(seconds: 8), (_) async {
+    _smartTimer = Timer.periodic(const Duration(seconds: 20), (_) async {
+      if (_isSmartRefreshInProgress) return;
+      _isSmartRefreshInProgress = true;
       try {
         final newId = await _checkLatestBillId();
         if (newId != null && newId != _latestBillId) {
@@ -134,6 +142,8 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
         }
       } catch (e) {
         debugPrint('smart refresh error: $e');
+      } finally {
+        _isSmartRefreshInProgress = false;
       }
     });
   }
@@ -143,12 +153,25 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
       final token = await _getToken();
       if (token == null || fromDate == null) return null;
       final start = DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
-      final end = toDate != null ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59) : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
-      var url = 'https://blackforest.vseyal.com/api/billings?limit=1&sort=-createdAt&where[createdAt][greater_than]=${start.toUtc().toIso8601String()}&where[createdAt][less_than]=${end.toUtc().toIso8601String()}';
+      final end = toDate != null
+          ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59)
+          : DateTime(
+              fromDate!.year,
+              fromDate!.month,
+              fromDate!.day,
+              23,
+              59,
+              59,
+            );
+      var url =
+          'https://blackforest.vseyal.com/api/billings?limit=1&sort=-createdAt&where[createdAt][greater_than]=${start.toUtc().toIso8601String()}&where[createdAt][less_than]=${end.toUtc().toIso8601String()}&where[status][in][0]=completed&where[status][in][1]=settled';
       if (selectedBranchId != 'ALL') {
         url += '&where[branch][equals]=$selectedBranchId';
       }
-      final res = await http.get(Uri.parse(url), headers: {'Authorization': 'Bearer $token'});
+      final res = await http.get(
+        Uri.parse(url),
+        headers: {'Authorization': 'Bearer $token'},
+      );
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final docs = data['docs'] ?? [];
@@ -176,8 +199,18 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
       final token = await _getToken();
       if (token == null) return;
       final start = DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
-      final end = toDate != null ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59) : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
-      var baseUrl = 'https://blackforest.vseyal.com/api/billings?limit=3000&where[createdAt][greater_than]=${start.toUtc().toIso8601String()}&where[createdAt][less_than]=${end.toUtc().toIso8601String()}&sort=createdAt';
+      final end = toDate != null
+          ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59)
+          : DateTime(
+              fromDate!.year,
+              fromDate!.month,
+              fromDate!.day,
+              23,
+              59,
+              59,
+            );
+      var baseUrl =
+          'https://blackforest.vseyal.com/api/billings?limit=0&where[status][in][0]=completed&where[status][in][1]=settled&where[createdAt][greater_than]=${start.toUtc().toIso8601String()}&where[createdAt][less_than]=${end.toUtc().toIso8601String()}&sort=createdAt';
       if (selectedBranchId != 'ALL') {
         baseUrl += '&where[branch][equals]=$selectedBranchId';
       }
@@ -185,7 +218,10 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
       int page = 1;
       while (true) {
         final url = '$baseUrl&page=$page';
-        final res = await http.get(Uri.parse(url), headers: {'Authorization': 'Bearer $token'});
+        final res = await http.get(
+          Uri.parse(url),
+          headers: {'Authorization': 'Bearer $token'},
+        );
         if (res.statusCode != 200) {
           debugPrint('billings fetch failed: ${res.statusCode}');
           break;
@@ -202,16 +238,23 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
       double totalSum = 0.0;
       int totalBills = 0;
       for (var bill in allDocs) {
+        final status = (bill['status'] ?? '').toString().toLowerCase().trim();
+        if (status != 'completed' && status != 'settled') continue;
+
         // find waiter id & name
         String waiterId = 'UNKNOWN';
         String waiterName = 'Unknown';
         final createdBy = bill['createdBy'];
         if (createdBy != null) {
           if (createdBy is Map) {
-            final id = createdBy['id'] ?? createdBy['_id'] ?? (createdBy['_id']?['\$oid']);
+            final id =
+                createdBy['id'] ??
+                createdBy['_id'] ??
+                (createdBy['_id']?['\$oid']);
             if (id != null) waiterId = id.toString();
             // prefer employee.name
-            if (createdBy['employee'] != null && createdBy['employee']['name'] != null) {
+            if (createdBy['employee'] != null &&
+                createdBy['employee']['name'] != null) {
               waiterName = createdBy['employee']['name'].toString();
             } else if (createdBy['email'] != null) {
               waiterName = createdBy['email'].toString();
@@ -220,7 +263,7 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
             waiterId = createdBy;
             // try match from waiters list
             final match = waiters.firstWhere(
-                  (w) => w['id'] == waiterId,
+              (w) => w['id'] == waiterId,
               orElse: () => {},
             );
             if (match.isNotEmpty) waiterName = match['name']!;
@@ -243,9 +286,12 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
         final entry = map[waiterId]!;
         entry['total'] = (entry['total'] as double) + amount;
         entry['bills'] = (entry['bills'] as int) + 1;
-        if (pm.contains('cash')) entry['cash'] = (entry['cash'] as double) + amount;
-        if (pm.contains('upi')) entry['upi'] = (entry['upi'] as double) + amount;
-        if (pm.contains('card')) entry['card'] = (entry['card'] as double) + amount;
+        if (pm.contains('cash'))
+          entry['cash'] = (entry['cash'] as double) + amount;
+        if (pm.contains('upi'))
+          entry['upi'] = (entry['upi'] as double) + amount;
+        if (pm.contains('card'))
+          entry['card'] = (entry['card'] as double) + amount;
         totalSum += amount;
         totalBills++;
       }
@@ -268,109 +314,84 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
       // Optionally filter to a particular waiter
       List<Map<String, dynamic>> filteredRows = rows;
       if (selectedWaiterId != 'ALL') {
-        filteredRows = rows.where((r) => r['waiterId'] == selectedWaiterId).toList();
+        filteredRows = rows
+            .where((r) => r['waiterId'] == selectedWaiterId)
+            .toList();
       }
       // sort by total descending so top performers show first
-      filteredRows.sort((a, b) => (b['total'] as double).compareTo(a['total'] as double));
-      // If initial load, populate all
-      if (initial) {
-        waiterSummaries = filteredRows;
-        // initialize previous totals
-        for (var r in waiterSummaries) {
-          final id = r['waiterId'].toString();
-          _previousTotals[id] = r['total'] as double;
+      filteredRows.sort(
+        (a, b) => (b['total'] as double).compareTo(a['total'] as double),
+      );
+
+      final previousById = <String, Map<String, dynamic>>{};
+      for (final row in waiterSummaries) {
+        final id = row['waiterId']?.toString();
+        if (id != null && id.isNotEmpty) {
+          previousById[id] = row;
         }
+      }
+
+      String? updatedWaiterId;
+      for (final row in filteredRows) {
+        final id = row['waiterId']?.toString();
+        if (id == null || id.isEmpty) continue;
+        final prev = previousById[id];
+        final currentTotal = (row['total'] ?? 0.0) as double;
+        final currentBills = (row['bills'] ?? 0) as int;
+        if (prev != null) {
+          final prevTotal = (prev['total'] ?? 0.0) as double;
+          final prevBills = (prev['bills'] ?? 0) as int;
+          if (updatedWaiterId == null &&
+              (prevTotal != currentTotal || prevBills != currentBills)) {
+            updatedWaiterId = id;
+          }
+          _previousTotals.putIfAbsent(id, () => prevTotal);
+        }
+      }
+
+      final nextPreviousTotals = <String, double>{};
+      for (final row in filteredRows) {
+        final id = row['waiterId']?.toString();
+        if (id == null || id.isEmpty) continue;
+        final currentTotal = (row['total'] ?? 0.0) as double;
+        nextPreviousTotals[id] = _previousTotals[id] ?? currentTotal;
+      }
+
+      String? latestId;
+      if (allDocs.isNotEmpty) {
+        final latest = allDocs.last;
+        final id = latest['id'] ?? latest['_id'] ?? (latest['_id']?['\$oid']);
+        latestId = id?.toString();
+      }
+
+      if (!mounted) return;
+      setState(() {
+        waiterSummaries = filteredRows;
         grandTotal = totalSum;
         grandBills = totalBills;
-        // set latest bill id for smart refresh baseline
-        if (allDocs.isNotEmpty) {
-          final latest = allDocs.last;
-          final id = latest['id'] ?? latest['_id'] ?? (latest['_id']?['\$oid']);
-          _latestBillId = id?.toString();
+        _previousTotals
+          ..clear()
+          ..addAll(nextPreviousTotals);
+        if (latestId != null) {
+          _latestBillId = latestId;
         }
-        setState(() {
-          _initialLoading = false;
-        });
-        return;
-      }
-      // --- Smart partial update logic (no full rebuild)
-      // Build a map for quick index lookup by waiterId
-      final idxById = <String, int>{};
-      for (int i = 0; i < waiterSummaries.length; i++) {
-        final id = waiterSummaries[i]['waiterId']?.toString() ?? '';
-        idxById[id] = i;
-      }
-      // Track which rows updated so we can animate and highlight them
-      final Set<String> updatedIds = {};
-      // Update existing rows or add new ones (only mutate changed rows)
-      for (var newRow in filteredRows) {
-        final id = newRow['waiterId'].toString();
-        final newTotal = (newRow['total'] ?? 0.0) as double;
-        final newBills = (newRow['bills'] ?? 0) as int;
-        if (idxById.containsKey(id)) {
-          final idx = idxById[id]!;
-          final old = waiterSummaries[idx];
-          final oldTotal = (old['total'] ?? 0.0) as double;
-          final oldBills = (old['bills'] ?? 0) as int;
-          // Only update row if number changed to avoid rebuilds/blinking
-          if (oldTotal != newTotal || oldBills != newBills) {
-            // set highlight id before updating so UI shows highlight
-            _justUpdatedWaiterId = id;
-            setState(() {
-              waiterSummaries[idx] = newRow;
-              // keep previousTotals entry for tween
-              _previousTotals.putIfAbsent(id, () => oldTotal);
-            });
-            updatedIds.add(id);
-            // remove highlight after small delay
-            Future.delayed(const Duration(milliseconds: 800), () {
-              if (mounted && _justUpdatedWaiterId == id) {
-                setState(() => _justUpdatedWaiterId = null);
-              }
-            });
+        _justUpdatedWaiterId = updatedWaiterId;
+        _initialLoading = false;
+      });
+
+      if (updatedWaiterId != null) {
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (mounted && _justUpdatedWaiterId == updatedWaiterId) {
+            setState(() => _justUpdatedWaiterId = null);
           }
-        } else {
-          // new waiter appears — add it
-          setState(() {
-            waiterSummaries.add(newRow);
-            _previousTotals.putIfAbsent(id, () => newTotal);
-            updatedIds.add(id);
-          });
-        }
-      }
-      // Remove waiters that no longer in filteredRows (if filter changed) — ensure not to rebuild redundantly
-      final newIds = filteredRows.map((r) => r['waiterId'].toString()).toSet();
-      final removeIndices = <int>[];
-      for (int i = 0; i < waiterSummaries.length; i++) {
-        final id = waiterSummaries[i]['waiterId'].toString();
-        if (!newIds.contains(id)) removeIndices.add(i);
-      }
-      // remove from end to keep indices valid
-      for (int i = removeIndices.length - 1; i >= 0; i--) {
-        final idx = removeIndices[i];
-        setState(() {
-          _previousTotals.remove(waiterSummaries[idx]['waiterId'].toString());
-          waiterSummaries.removeAt(idx);
         });
-      }
-      // Update grand totals (small setState)
-      // We set previous grand totals in _previousTotals keyed by '__grand__' to animate if needed
-      final previousGrand = grandTotal;
-      if (previousGrand != totalSum) {
-        setState(() {
-          grandTotal = totalSum;
-          grandBills = totalBills;
-        });
-      }
-      // finally ensure previous totals map has entries for all current rows
-      for (var r in waiterSummaries) {
-        final id = r['waiterId'].toString();
-        _previousTotals.putIfAbsent(id, () => r['total'] as double);
       }
     } catch (e) {
       debugPrint('fetchAndGroup error: $e');
     } finally {
-      if (initial && mounted) setState(() => _initialLoading = false);
+      if (initial && mounted && _initialLoading) {
+        setState(() => _initialLoading = false);
+      }
     }
   }
 
@@ -387,13 +408,25 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
     return 0.0;
   }
 
-  Future<List<Map<String, dynamic>>> _fetchWaiterBranchSummaries(String waiterId) async {
+  Future<List<Map<String, dynamic>>> _fetchWaiterBranchSummaries(
+    String waiterId,
+  ) async {
     try {
       final token = await _getToken();
       if (token == null) return [];
       final start = DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
-      final end = toDate != null ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59) : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
-      var baseUrl = 'https://blackforest.vseyal.com/api/billings?limit=3000&where[createdAt][greater_than]=${start.toUtc().toIso8601String()}&where[createdAt][less_than]=${end.toUtc().toIso8601String()}&where[createdBy][equals]=$waiterId&sort=createdAt';
+      final end = toDate != null
+          ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59)
+          : DateTime(
+              fromDate!.year,
+              fromDate!.month,
+              fromDate!.day,
+              23,
+              59,
+              59,
+            );
+      var baseUrl =
+          'https://blackforest.vseyal.com/api/billings?limit=0&where[status][in][0]=completed&where[status][in][1]=settled&where[createdAt][greater_than]=${start.toUtc().toIso8601String()}&where[createdAt][less_than]=${end.toUtc().toIso8601String()}&where[createdBy][equals]=$waiterId&sort=createdAt';
       if (selectedBranchId != 'ALL') {
         baseUrl += '&where[branch][equals]=$selectedBranchId';
       }
@@ -401,7 +434,10 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
       int page = 1;
       while (true) {
         final url = '$baseUrl&page=$page';
-        final res = await http.get(Uri.parse(url), headers: {'Authorization': 'Bearer $token'});
+        final res = await http.get(
+          Uri.parse(url),
+          headers: {'Authorization': 'Bearer $token'},
+        );
         if (res.statusCode != 200) {
           debugPrint('billings fetch failed: ${res.statusCode}');
           break;
@@ -416,19 +452,23 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
       // Group by branch
       final Map<String, Map<String, dynamic>> map = {};
       for (var bill in allDocs) {
+        final status = (bill['status'] ?? '').toString().toLowerCase().trim();
+        if (status != 'completed' && status != 'settled') continue;
+
         String branchId = 'UNKNOWN';
         String branchName = 'Unknown';
         final branch = bill['branch'];
         if (branch != null) {
           if (branch is Map) {
-            final id = branch['id'] ?? branch['_id'] ?? (branch['_id']?['\$oid']);
+            final id =
+                branch['id'] ?? branch['_id'] ?? (branch['_id']?['\$oid']);
             if (id != null) branchId = id.toString();
             branchName = (branch['name'] ?? 'Unknown').toString();
           } else if (branch is String) {
             branchId = branch;
             // try match from branches list
             final match = branches.firstWhere(
-                  (b) => b['id'] == branchId,
+              (b) => b['id'] == branchId,
               orElse: () => {'name': 'Unknown'},
             );
             branchName = match['name']!;
@@ -449,7 +489,9 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
       }
       // Convert to list and sort by total descending
       final List<Map<String, dynamic>> rows = map.values.toList();
-      rows.sort((a, b) => (b['total'] as double).compareTo(a['total'] as double));
+      rows.sort(
+        (a, b) => (b['total'] as double).compareTo(a['total'] as double),
+      );
       return rows;
     } catch (e) {
       debugPrint('_fetchWaiterBranchSummaries error: $e');
@@ -460,7 +502,9 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
   void _showWaiterDetails(String waiterId, String waiterName) {
     final safeFrom = fromDate ?? DateTime.now();
     final dateFmt = DateFormat('MMM d');
-    final dateLabel = toDate == null ? dateFmt.format(safeFrom) : '${dateFmt.format(safeFrom)} - ${dateFmt.format(toDate!)}';
+    final dateLabel = toDate == null
+        ? dateFmt.format(safeFrom)
+        : '${dateFmt.format(safeFrom)} - ${dateFmt.format(toDate!)}';
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -477,7 +521,9 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
                   child: Center(child: CircularProgressIndicator()),
                 );
               }
-              if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+              if (snapshot.hasError ||
+                  !snapshot.hasData ||
+                  snapshot.data!.isEmpty) {
                 return const SizedBox(
                   height: 300,
                   child: Center(child: Text('No data available')),
@@ -497,7 +543,12 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Center(child: Text('Waiter: $waiterName', style: const TextStyle(fontWeight: FontWeight.bold))),
+                      Center(
+                        child: Text(
+                          'Waiter: $waiterName',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
                       Center(child: Text('Date: $dateLabel')),
                       const Divider(),
                       ...branchesData.map((b) {
@@ -540,7 +591,9 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
       context: context,
       firstDate: DateTime(now.year - 3),
       lastDate: DateTime(now.year + 1),
-      initialDateRange: fromDate != null && toDate != null ? DateTimeRange(start: fromDate!, end: toDate!) : DateTimeRange(start: now, end: now),
+      initialDateRange: fromDate != null && toDate != null
+          ? DateTimeRange(start: fromDate!, end: toDate!)
+          : DateTimeRange(start: now, end: now),
     );
     if (picked != null) {
       setState(() {
@@ -565,71 +618,111 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
   Widget _buildDateSelector() {
     final safeFrom = fromDate ?? DateTime.now();
     final dateFmt = DateFormat('MMM d'); // e.g., Nov 14
-    final label = toDate == null ? dateFmt.format(safeFrom) : '${dateFmt.format(safeFrom)} - ${dateFmt.format(toDate!)}';
+    final label = toDate == null
+        ? dateFmt.format(safeFrom)
+        : '${dateFmt.format(safeFrom)} - ${dateFmt.format(toDate!)}';
     return InkWell(
       onTap: _pickDateRange,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-        decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(6)),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.calendar_today, color: Colors.white, size: 18),
-          const SizedBox(width: 8),
-          Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        ]),
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.calendar_today, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildWaiterFilter() {
     return _loadingWaiters
-        ? const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()))
+        ? const SizedBox(
+            height: 48,
+            child: Center(child: CircularProgressIndicator()),
+          )
         : DropdownButtonFormField<String>(
-      value: selectedWaiterId,
-      items: waiters
-          .map((w) => DropdownMenuItem<String>(
-        value: w['id'],
-        child: Text(w['name'] ?? 'Unnamed', overflow: TextOverflow.ellipsis),
-      ))
-          .toList(),
-      onChanged: (v) async {
-        if (v == null) return;
-        setState(() {
-          selectedWaiterId = v;
-        });
-        await _fetchAndGroup();
-      },
-      decoration: InputDecoration(
-        labelText: 'Waiter',
-        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-      ),
-    );
+            value: selectedWaiterId,
+            items: waiters
+                .map(
+                  (w) => DropdownMenuItem<String>(
+                    value: w['id'],
+                    child: Text(
+                      w['name'] ?? 'Unnamed',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: (v) async {
+              if (v == null) return;
+              setState(() {
+                selectedWaiterId = v;
+              });
+              await _fetchAndGroup();
+            },
+            decoration: InputDecoration(
+              labelText: 'Waiter',
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 12,
+                horizontal: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+          );
   }
 
   Widget _buildBranchFilter() {
     return _loadingBranches
-        ? const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()))
+        ? const SizedBox(
+            height: 48,
+            child: Center(child: CircularProgressIndicator()),
+          )
         : DropdownButtonFormField<String>(
-      value: selectedBranchId,
-      items: branches
-          .map((b) => DropdownMenuItem<String>(
-        value: b['id'],
-        child: Text(b['name'] ?? 'Unnamed', overflow: TextOverflow.ellipsis),
-      ))
-          .toList(),
-      onChanged: (v) async {
-        if (v == null) return;
-        setState(() {
-          selectedBranchId = v;
-        });
-        await _fetchAndGroup();
-      },
-      decoration: InputDecoration(
-        labelText: 'Branch',
-        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-      ),
-    );
+            value: selectedBranchId,
+            items: branches
+                .map(
+                  (b) => DropdownMenuItem<String>(
+                    value: b['id'],
+                    child: Text(
+                      b['name'] ?? 'Unnamed',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: (v) async {
+              if (v == null) return;
+              setState(() {
+                selectedBranchId = v;
+              });
+              await _fetchAndGroup();
+            },
+            decoration: InputDecoration(
+              labelText: 'Branch',
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 12,
+                horizontal: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+          );
   }
 
   Widget _buildRow(int index) {
@@ -643,7 +736,9 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
     final card = (r['card'] ?? 0.0) as double;
     final avg = (r['avg'] ?? 0.0) as double;
     final bg = index % 2 == 0 ? Colors.white : Colors.grey.shade50;
-    final highlight = waiterId == _justUpdatedWaiterId ? Colors.green.withOpacity(0.08) : bg;
+    final highlight = waiterId == _justUpdatedWaiterId
+        ? Colors.green.withOpacity(0.08)
+        : bg;
     return InkWell(
       onTap: () => _showWaiterDetails(waiterId, waiterName),
       child: AnimatedContainer(
@@ -653,89 +748,149 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
         decoration: BoxDecoration(
           color: highlight,
           borderRadius: BorderRadius.circular(10),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 3, offset: Offset(0, 1))],
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 3,
+              offset: Offset(0, 1),
+            ),
+          ],
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // first row: waiter name (left), bills chip (left), amount (right)
-          Row(children: [
-            Expanded(
-              flex: 6,
-              child: Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      waiterName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black87,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // first row: waiter name (left), bills chip (left), amount (right)
+            Row(
+              children: [
+                Expanded(
+                  flex: 6,
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          waiterName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                        ),
                       ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 4,
+                          horizontal: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '$bills bills',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // amount - fixed width to align vertically
+                SizedBox(
+                  width: 140,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(
+                        begin: _previousTotals[waiterId] ?? total,
+                        end: total,
+                      ),
+                      duration: const Duration(milliseconds: 700),
+                      builder: (context, val, _) {
+                        return Text(
+                          '₹${val.toStringAsFixed(2)}',
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        );
+                      },
+                      onEnd: () {
+                        _previousTotals[waiterId] = total;
+                      },
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      '$bills bills',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // second row: payment breakdown + avg
+            Row(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.money,
+                          size: 16,
+                          color: Colors.black54,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '₹${cash.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(
+                          Icons.qr_code,
+                          size: 16,
+                          color: Colors.black54,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '₹${upi.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(
+                          Icons.credit_card,
+                          size: 16,
+                          color: Colors.black54,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '₹${card.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-            // amount - fixed width to align vertically
-            SizedBox(
-              width: 140,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween<double>(begin: _previousTotals[waiterId] ?? total, end: total),
-                  duration: const Duration(milliseconds: 700),
-                  builder: (context, val, _) {
-                    return Text('₹${val.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green));
-                  },
-                  onEnd: () {
-                    _previousTotals[waiterId] = total;
-                  },
                 ),
-              ),
-            ),
-          ]),
-          const SizedBox(height: 10),
-          // second row: payment breakdown + avg
-          Row(children: [
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    const Icon(Icons.money, size: 16, color: Colors.black54),
-                    const SizedBox(width: 6),
-                    Text('₹${cash.toStringAsFixed(0)}', style: TextStyle(fontSize: 13, color: Colors.grey[700])),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.qr_code, size: 16, color: Colors.black54),
-                    const SizedBox(width: 6),
-                    Text('₹${upi.toStringAsFixed(0)}', style: TextStyle(fontSize: 13, color: Colors.grey[700])),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.credit_card, size: 16, color: Colors.black54),
-                    const SizedBox(width: 6),
-                    Text('₹${card.toStringAsFixed(0)}', style: TextStyle(fontSize: 13, color: Colors.grey[700])),
-                  ],
+                Text(
+                  'Avg ₹${avg.toStringAsFixed(2)}',
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
                 ),
-              ),
+              ],
             ),
-            Text('Avg ₹${avg.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
-          ]),
-        ]),
+          ],
+        ),
       ),
     );
   }
@@ -744,11 +899,26 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
     return Container(
       color: Colors.black,
       padding: const EdgeInsets.all(12),
-      child: Row(children: [
-        Text('Total Bills: $grandBills', style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
-        const Spacer(),
-        Text('₹${grandTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 20)),
-      ]),
+      child: Row(
+        children: [
+          Text(
+            'Total Bills: $grandBills',
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            '₹${grandTotal.toStringAsFixed(2)}',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.green,
+              fontSize: 20,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -758,11 +928,14 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
     final isDesktop = width >= 1024;
     final safeFrom = fromDate ?? DateTime.now();
     final dateFmt = DateFormat('MMM d'); // e.g., Nov 14
-    final dateLabel = toDate == null ? dateFmt.format(safeFrom) : '${dateFmt.format(safeFrom)} - ${dateFmt.format(toDate!)}';
+    final dateLabel = toDate == null
+        ? dateFmt.format(safeFrom)
+        : '${dateFmt.format(safeFrom)} - ${dateFmt.format(toDate!)}';
 
     Widget mainContent = Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(children: [
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        children: [
           // Row 1: compact calendar (left) and refresh already in appbar; kept simple
           Align(alignment: Alignment.centerLeft, child: _buildDateSelector()),
           const SizedBox(height: 12),
@@ -779,16 +952,36 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
                 : waiterSummaries.isEmpty
                 ? const Center(child: Text('No data for selected range'))
                 : ListView.builder(
-              physics: const BouncingScrollPhysics(),
-              itemCount: waiterSummaries.length,
-              itemBuilder: (context, index) => _buildRow(index),
-            ),
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: waiterSummaries.length,
+                    itemBuilder: (context, index) => _buildRow(index),
+                  ),
           ),
           const SizedBox(height: 12),
           // Footer summary
           _buildFooter(),
-        ]),
+        ],
+      ),
+    );
+
+    if (widget.isEmbedded) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Waiter-wise Report'),
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          automaticallyImplyLeading: false,
+          actions: [
+            IconButton(
+              tooltip: 'Refresh (reset to today)',
+              onPressed: _onRefreshPressed,
+              icon: const Icon(Icons.refresh, color: Colors.white),
+            ),
+          ],
+        ),
+        body: mainContent,
       );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -806,20 +999,20 @@ class _WaiterwiseReportPageState extends State<WaiterwiseReportPage> {
       drawer: isDesktop
           ? null
           : const Drawer(
-        backgroundColor: Colors.white,
-        child: SafeArea(child: AppDrawer()),
-      ),
+              backgroundColor: Colors.white,
+              child: SafeArea(child: AppDrawer()),
+            ),
       body: isDesktop
           ? Row(
-        children: [
-          Container(
-            width: 250,
-            color: Colors.white,
-            child: const AppDrawer(),
-          ),
-          Expanded(child: mainContent),
-        ],
-      )
+              children: [
+                Container(
+                  width: 250,
+                  color: Colors.white,
+                  child: const AppDrawer(),
+                ),
+                Expanded(child: mainContent),
+              ],
+            )
           : mainContent,
     );
   }

@@ -34,9 +34,11 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
   int _previousGrandBills = 0;
   String _lastUpdatedTime = '';
   String? _peakTimeLabel; // for highlight
-  final Map<String, double> _previousAmounts = {}; // for tween comparison (keeps per-hour previous amount if needed)
+  final Map<String, double> _previousAmounts =
+      {}; // for tween comparison (keeps per-hour previous amount if needed)
   Timer? _smartTimer;
   String? _latestBillIdChecked; // ID used to detect new bills
+  bool _isLatestBillCheckInProgress = false;
 
   @override
   void initState() {
@@ -44,7 +46,10 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
     fromDate = DateTime.now();
     _previousGrandTotal = 0.0;
     _previousGrandBills = 0;
-    Future.wait([_fetchBranches(), _fetchUsers()]).then((_) => _fetchAndGroup());
+    Future.wait([
+      _fetchBranches(),
+      _fetchUsers(),
+    ]).then((_) => _fetchAndGroup());
     // start smart live refresh
     _startSmartLiveRefresh();
   }
@@ -58,28 +63,43 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
   void _startSmartLiveRefresh() {
     // Check for a new bill periodically (keeps light requests, only fetching 'latest' lightweight)
     _smartTimer?.cancel();
-    _smartTimer = Timer.periodic(const Duration(seconds: 6), (_) async {
+    _smartTimer = Timer.periodic(const Duration(seconds: 15), (_) async {
       await _checkLatestBillAndApply();
     });
   }
 
   Future<void> _checkLatestBillAndApply() async {
+    if (_isLatestBillCheckInProgress) return;
+    _isLatestBillCheckInProgress = true;
     try {
       const storage = FlutterSecureStorage();
       final token = await storage.read(key: 'token');
       if (token == null || fromDate == null) return;
       final start = DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
-      final end = toDate != null ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59) : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
+      final end = toDate != null
+          ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59)
+          : DateTime(
+              fromDate!.year,
+              fromDate!.month,
+              fromDate!.day,
+              23,
+              59,
+              59,
+            );
       final startStr = start.toUtc().toIso8601String();
       final endStr = end.toUtc().toIso8601String();
-      String url = 'https://blackforest.vseyal.com/api/billings?limit=1&sort=-createdAt&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr';
+      String url =
+          'https://blackforest.vseyal.com/api/billings?limit=1&sort=-createdAt&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled';
       if (selectedBranchId != 'ALL') {
         url += '&where[branch][equals]=$selectedBranchId';
       }
       if (selectedEmployeeId != 'ALL') {
         url += '&where[createdBy][equals]=$selectedEmployeeId';
       }
-      final res = await http.get(Uri.parse(url), headers: {'Authorization': 'Bearer $token'});
+      final res = await http.get(
+        Uri.parse(url),
+        headers: {'Authorization': 'Bearer $token'},
+      );
       if (res.statusCode != 200) return;
       final data = jsonDecode(res.body);
       final docs = data['docs'] ?? [];
@@ -102,6 +122,8 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       }
     } catch (e) {
       debugPrint('Smart check error: $e');
+    } finally {
+      _isLatestBillCheckInProgress = false;
     }
   }
 
@@ -145,10 +167,15 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
         final entry = timeSummaries[idx];
         entry['amount'] = (entry['amount'] as double) + amt;
         entry['bills'] = (entry['bills'] as int) + 1;
-        entry['cash'] = (entry['cash'] as double) + (pm.contains('cash') ? amt : 0.0);
-        entry['upi'] = (entry['upi'] as double) + (pm.contains('upi') ? amt : 0.0);
-        entry['card'] = (entry['card'] as double) + (pm.contains('card') ? amt : 0.0);
-        entry['avg'] = (entry['bills'] > 0) ? (entry['amount'] / entry['bills']) : 0.0;
+        entry['cash'] =
+            (entry['cash'] as double) + (pm.contains('cash') ? amt : 0.0);
+        entry['upi'] =
+            (entry['upi'] as double) + (pm.contains('upi') ? amt : 0.0);
+        entry['card'] =
+            (entry['card'] as double) + (pm.contains('card') ? amt : 0.0);
+        entry['avg'] = (entry['bills'] > 0)
+            ? (entry['amount'] / entry['bills'])
+            : 0.0;
         // ensure previous amounts tracking for any future animation needs
         _previousAmounts[entry['time'] as String] = entry['amount'] as double;
         // Force rebuild to show updated numbers (row will update but without big animations)
@@ -167,7 +194,9 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
           'avg': amt,
         };
         // insert in correct position (descending hour order)
-        final insertIndex = timeSummaries.indexWhere((r) => (r['hour'] as int) < hour);
+        final insertIndex = timeSummaries.indexWhere(
+          (r) => (r['hour'] as int) < hour,
+        );
         if (insertIndex == -1) {
           timeSummaries.add(newRow);
         } else {
@@ -191,17 +220,30 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       final token = await storage.read(key: 'token');
       if (token == null) return;
       final start = DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
-      final end = toDate != null ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59) : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
+      final end = toDate != null
+          ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59)
+          : DateTime(
+              fromDate!.year,
+              fromDate!.month,
+              fromDate!.day,
+              23,
+              59,
+              59,
+            );
       final startStr = start.toUtc().toIso8601String();
       final endStr = end.toUtc().toIso8601String();
-      String url = 'https://blackforest.vseyal.com/api/billings?limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr';
+      String url =
+          'https://blackforest.vseyal.com/api/billings?limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled';
       if (selectedBranchId != 'ALL') {
         url += '&where[branch][equals]=$selectedBranchId';
       }
       if (selectedEmployeeId != 'ALL') {
         url += '&where[createdBy][equals]=$selectedEmployeeId';
       }
-      final res = await http.get(Uri.parse(url), headers: {'Authorization': 'Bearer $token'});
+      final res = await http.get(
+        Uri.parse(url),
+        headers: {'Authorization': 'Bearer $token'},
+      );
       if (res.statusCode != 200) return;
       final data = jsonDecode(res.body);
       final docs = data['docs'] ?? [];
@@ -211,6 +253,9 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       double upi = 0.0;
       double card = 0.0;
       for (var b in docs) {
+        final status = (b['status'] ?? '').toString().toLowerCase().trim();
+        if (status != 'completed' && status != 'settled') continue;
+
         final amt = _extractAmount(b);
         sum += amt;
         bills++;
@@ -236,7 +281,9 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       _peakTimeLabel = null;
       return;
     }
-    final peak = timeSummaries.reduce((a, b) => (a['amount'] as double) >= (b['amount'] as double) ? a : b);
+    final peak = timeSummaries.reduce(
+      (a, b) => (a['amount'] as double) >= (b['amount'] as double) ? a : b,
+    );
     _peakTimeLabel = peak['time'] as String;
   }
 
@@ -253,7 +300,9 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final docs = data['docs'] ?? [];
-        final list = <Map<String, String>>[{'id': 'ALL', 'name': 'All Branches'}];
+        final list = <Map<String, String>>[
+          {'id': 'ALL', 'name': 'All Branches'},
+        ];
         for (var b in docs) {
           final id = (b['id'] ?? b['_id'])?.toString();
           final name = (b['name'] ?? 'Unnamed Branch').toString();
@@ -281,7 +330,9 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final docs = data['docs'] ?? [];
-        final list = <Map<String, String>>[{'id': 'ALL', 'name': 'All Waiters'}];
+        final list = <Map<String, String>>[
+          {'id': 'ALL', 'name': 'All Waiters'},
+        ];
         for (var u in docs) {
           final id = (u['id'] ?? u['_id'])?.toString();
           String name = '';
@@ -307,7 +358,9 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       context: context,
       firstDate: DateTime(now.year - 3),
       lastDate: DateTime(now.year + 1),
-      initialDateRange: fromDate != null && toDate != null ? DateTimeRange(start: fromDate!, end: toDate!) : DateTimeRange(start: now, end: now),
+      initialDateRange: fromDate != null && toDate != null
+          ? DateTimeRange(start: fromDate!, end: toDate!)
+          : DateTimeRange(start: now, end: now),
     );
     if (picked != null) {
       setState(() {
@@ -328,17 +381,30 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       final token = await storage.read(key: 'token');
       if (token == null) return;
       final start = DateTime(fromDate!.year, fromDate!.month, fromDate!.day);
-      final end = toDate != null ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59) : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
+      final end = toDate != null
+          ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59)
+          : DateTime(
+              fromDate!.year,
+              fromDate!.month,
+              fromDate!.day,
+              23,
+              59,
+              59,
+            );
       final startStr = start.toUtc().toIso8601String();
       final endStr = end.toUtc().toIso8601String();
-      var url = 'https://blackforest.vseyal.com/api/billings?limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&sort=createdAt';
+      var url =
+          'https://blackforest.vseyal.com/api/billings?limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled&sort=createdAt';
       if (selectedBranchId != 'ALL') {
         url += '&where[branch][equals]=$selectedBranchId';
       }
       if (selectedEmployeeId != 'ALL') {
         url += '&where[createdBy][equals]=$selectedEmployeeId';
       }
-      final res = await http.get(Uri.parse(url), headers: {'Authorization': 'Bearer $token'});
+      final res = await http.get(
+        Uri.parse(url),
+        headers: {'Authorization': 'Bearer $token'},
+      );
       List docs = [];
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
@@ -355,6 +421,9 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       double upi = 0.0;
       double card = 0.0;
       for (var bill in docs) {
+        final status = (bill['status'] ?? '').toString().toLowerCase().trim();
+        if (status != 'completed' && status != 'settled') continue;
+
         final createdAtRaw = bill['createdAt'] ?? bill['created_at'];
         DateTime? dt = _parseCreatedAtRaw(createdAtRaw);
         if (dt == null) continue;
@@ -412,7 +481,9 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       String? peak;
       if (rows.isNotEmpty) {
         final sortedByAmt = List.from(rows);
-        sortedByAmt.sort((a, b) => (b['amount'] as double).compareTo(a['amount'] as double));
+        sortedByAmt.sort(
+          (a, b) => (b['amount'] as double).compareTo(a['amount'] as double),
+        );
         peak = sortedByAmt.first['time'] as String;
       }
       // store previous amounts for animation references (if needed)
@@ -467,9 +538,13 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       }
       if (createdAtRaw is Map) {
         // handle {"$date":"..."} style
-        final d = createdAtRaw['\$date'] ?? createdAtRaw['date'] ?? createdAtRaw['\$t'];
+        final d =
+            createdAtRaw['\$date'] ??
+            createdAtRaw['date'] ??
+            createdAtRaw['\$t'];
         if (d is String) return DateTime.tryParse(d);
-        if (d is Map && d['\$date'] != null) return DateTime.tryParse(d['\$date']);
+        if (d is Map && d['\$date'] != null)
+          return DateTime.tryParse(d['\$date']);
       }
     } catch (_) {
       return null;
@@ -509,7 +584,12 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
         builder: (ctx) => AlertDialog(
           title: Text('${_hourLabel(hour)}'),
           content: Text('No data'),
-          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Close'))],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Close'),
+            ),
+          ],
         ),
       );
       return;
@@ -529,19 +609,25 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
         branch = branchRaw;
       } else if (branchRaw is Map && branchRaw['id'] != null) {
         // Optionally map ID to name from branches list
-        final found = branches.firstWhere((br) => br['id'] == branchRaw['id'].toString(), orElse: () => {'name': 'Unknown'});
+        final found = branches.firstWhere(
+          (br) => br['id'] == branchRaw['id'].toString(),
+          orElse: () => {'name': 'Unknown'},
+        );
         branch = found['name'] ?? 'Unknown';
       }
       final amt = _extractAmount(bill);
       final pm = (bill['paymentMethod'] ?? '').toLowerCase();
-      branchMap.putIfAbsent(branch, () => {
-        'branch': branch,
-        'total': 0.0,
-        'bills': 0,
-        'cash': 0.0,
-        'upi': 0.0,
-        'card': 0.0,
-      });
+      branchMap.putIfAbsent(
+        branch,
+        () => {
+          'branch': branch,
+          'total': 0.0,
+          'bills': 0,
+          'cash': 0.0,
+          'upi': 0.0,
+          'card': 0.0,
+        },
+      );
       final s = branchMap[branch]!;
       s['total'] += amt;
       s['bills'] += 1;
@@ -554,7 +640,8 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       if (pm.contains('upi')) popupUpi += amt;
       if (pm.contains('card')) popupCard += amt;
     }
-    final list = branchMap.values.toList()..sort((a, b) => (b['total'] as double).compareTo(a['total'] as double));
+    final list = branchMap.values.toList()
+      ..sort((a, b) => (b['total'] as double).compareTo(a['total'] as double));
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -575,7 +662,9 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
             itemCount: list.length,
             itemBuilder: (c, i) {
               final s = list[i];
-              final pct = popupTotal > 0 ? ((s['total'] / popupTotal) * 100).toStringAsFixed(1) : '0.0';
+              final pct = popupTotal > 0
+                  ? ((s['total'] / popupTotal) * 100).toStringAsFixed(1)
+                  : '0.0';
               return Card(
                 margin: const EdgeInsets.symmetric(vertical: 4),
                 child: Padding(
@@ -583,21 +672,45 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(s['branch'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text(
+                        s['branch'],
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text('₹${(s['total'] as double).toStringAsFixed(2)} ($pct%)', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                      Text(
+                        '₹${(s['total'] as double).toStringAsFixed(2)} ($pct%)',
+                        style: const TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.money, size: 16, color: Colors.black54),
+                          const Icon(
+                            Icons.money,
+                            size: 16,
+                            color: Colors.black54,
+                          ),
                           const SizedBox(width: 6),
                           Text('₹${(s['cash'] as double).toStringAsFixed(0)}'),
                           const SizedBox(width: 12),
-                          const Icon(Icons.qr_code, size: 16, color: Colors.black54),
+                          const Icon(
+                            Icons.qr_code,
+                            size: 16,
+                            color: Colors.black54,
+                          ),
                           const SizedBox(width: 6),
                           Text('₹${(s['upi'] as double).toStringAsFixed(0)}'),
                           const SizedBox(width: 12),
-                          const Icon(Icons.credit_card, size: 16, color: Colors.black54),
+                          const Icon(
+                            Icons.credit_card,
+                            size: 16,
+                            color: Colors.black54,
+                          ),
                           const SizedBox(width: 6),
                           Text('₹${(s['card'] as double).toStringAsFixed(0)}'),
                         ],
@@ -613,7 +726,12 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
     );
   }
 
-  Widget _buildRow(BuildContext context, Map<String, dynamic> row, bool isPeak, int index) {
+  Widget _buildRow(
+    BuildContext context,
+    Map<String, dynamic> row,
+    bool isPeak,
+    int index,
+  ) {
     final timeLabel = row['time']?.toString() ?? '';
     final amount = (row['amount'] ?? 0.0) as double;
     final bills = (row['bills'] ?? 0) as int;
@@ -622,7 +740,9 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
     final card = (row['card'] ?? 0.0) as double;
     final avg = (row['avg'] ?? 0.0) as double;
     final bg = index % 2 == 0 ? Colors.white : Colors.grey.shade50;
-    final highlight = isPeak ? Colors.amber.withOpacity(0.12) : Colors.transparent;
+    final highlight = isPeak
+        ? Colors.amber.withOpacity(0.12)
+        : Colors.transparent;
     return GestureDetector(
       onTap: () => _showBranchPopup(row['hour'] as int),
       child: AnimatedContainer(
@@ -632,7 +752,13 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
         decoration: BoxDecoration(
           color: highlight == Colors.transparent ? bg : highlight,
           borderRadius: BorderRadius.circular(10),
-          boxShadow: const [ BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 1)), ],
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 4,
+              offset: Offset(0, 1),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -655,7 +781,10 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 4,
+                          horizontal: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.grey.shade200,
                           borderRadius: BorderRadius.circular(6),
@@ -702,21 +831,46 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
                       children: [
                         Icon(Icons.money, size: 16, color: Colors.black54),
                         const SizedBox(width: 8),
-                        Text('₹${cash.toStringAsFixed(0)}', style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+                        Text(
+                          '₹${cash.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[700],
+                          ),
+                        ),
                         const SizedBox(width: 12),
                         Icon(Icons.qr_code, size: 16, color: Colors.black54),
                         const SizedBox(width: 8),
-                        Text('₹${upi.toStringAsFixed(0)}', style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+                        Text(
+                          '₹${upi.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[700],
+                          ),
+                        ),
                         const SizedBox(width: 12),
-                        Icon(Icons.credit_card, size: 16, color: Colors.black54),
+                        Icon(
+                          Icons.credit_card,
+                          size: 16,
+                          color: Colors.black54,
+                        ),
                         const SizedBox(width: 8),
-                        Text('₹${card.toStringAsFixed(0)}', style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+                        Text(
+                          '₹${card.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[700],
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text('Avg ₹${avg.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                Text(
+                  'Avg ₹${avg.toStringAsFixed(2)}',
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                ),
               ],
             ),
           ],
@@ -749,7 +903,9 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
     final isDesktop = width >= 1024;
     final safeFrom = fromDate ?? DateTime.now();
     final dateFmt = DateFormat('MMM d');
-    final dateLabel = toDate == null ? '${dateFmt.format(safeFrom)}' : '${dateFmt.format(safeFrom)} - ${dateFmt.format(toDate!)}';
+    final dateLabel = toDate == null
+        ? '${dateFmt.format(safeFrom)}'
+        : '${dateFmt.format(safeFrom)} - ${dateFmt.format(toDate!)}';
 
     Widget mainContent = Padding(
       padding: const EdgeInsets.all(12),
@@ -760,15 +916,26 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
             onTap: _pickRangeAndRefresh,
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-              decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(6)),
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(6),
+              ),
               child: Row(
                 children: [
-                  const Icon(Icons.calendar_today, color: Colors.white, size: 18),
+                  const Icon(
+                    Icons.calendar_today,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       dateLabel,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -782,41 +949,76 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
             children: [
               Expanded(
                 child: _loadingUsers
-                    ? const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()))
+                    ? const SizedBox(
+                        height: 48,
+                        child: Center(child: CircularProgressIndicator()),
+                      )
                     : DropdownButtonFormField<String>(
-                  value: selectedEmployeeId,
-                  items: employees.map((e) => DropdownMenuItem<String>(
-                    value: e['id'],
-                    child: Text(e['name'] ?? '', overflow: TextOverflow.ellipsis),
-                  )).toList(),
-                  onChanged: _onEmployeeChanged,
-                  decoration: InputDecoration(
-                    labelText: 'Waiter',
-                    contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                  ),
-                ),
+                        value: selectedEmployeeId,
+                        items: employees
+                            .map(
+                              (e) => DropdownMenuItem<String>(
+                                value: e['id'],
+                                child: Text(
+                                  e['name'] ?? '',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: _onEmployeeChanged,
+                        decoration: InputDecoration(
+                          labelText: 'Waiter',
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 12,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ),
               ),
             ],
           ),
           const SizedBox(height: 12),
           // Branch filter
-          Row(children: [
-            Expanded(
-              child: _loadingBranches
-                  ? const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()))
-                  : DropdownButtonFormField<String>(
-                value: selectedBranchId,
-                items: branches.map((b) => DropdownMenuItem<String>(value: b['id'], child: Text(b['name'] ?? 'Unnamed', overflow: TextOverflow.ellipsis))).toList(),
-                onChanged: _onBranchChanged,
-                decoration: InputDecoration(
-                  labelText: 'Branch',
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                ),
+          Row(
+            children: [
+              Expanded(
+                child: _loadingBranches
+                    ? const SizedBox(
+                        height: 48,
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    : DropdownButtonFormField<String>(
+                        value: selectedBranchId,
+                        items: branches
+                            .map(
+                              (b) => DropdownMenuItem<String>(
+                                value: b['id'],
+                                child: Text(
+                                  b['name'] ?? 'Unnamed',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: _onBranchChanged,
+                        decoration: InputDecoration(
+                          labelText: 'Branch',
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 12,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ),
               ),
-            ),
-          ]),
+            ],
+          ),
           const SizedBox(height: 12),
           // list
           Expanded(
@@ -825,14 +1027,16 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
                 : timeSummaries.isEmpty
                 ? const Center(child: Text('No data for selected range'))
                 : ListView.builder(
-              physics: const BouncingScrollPhysics(),
-              itemCount: timeSummaries.length,
-              itemBuilder: (context, index) {
-                final r = timeSummaries[index];
-                final isPeak = (_peakTimeLabel != null && _peakTimeLabel == r['time']);
-                return _buildRow(context, r, isPeak, index);
-              },
-            ),
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: timeSummaries.length,
+                    itemBuilder: (context, index) {
+                      final r = timeSummaries[index];
+                      final isPeak =
+                          (_peakTimeLabel != null &&
+                          _peakTimeLabel == r['time']);
+                      return _buildRow(context, r, isPeak, index);
+                    },
+                  ),
           ),
           const SizedBox(height: 10),
           Card(
@@ -848,8 +1052,21 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Total Bills: $grandBills', style: const TextStyle(color: Colors.white, fontSize: 15)),
-                      Text('₹${grandTotal.toStringAsFixed(2)}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 26)),
+                      Text(
+                        'Total Bills: $grandBills',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                        ),
+                      ),
+                      Text(
+                        '₹${grandTotal.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 26,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -857,19 +1074,52 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
                     children: [
                       const Icon(Icons.money, color: Colors.white70, size: 20),
                       const SizedBox(width: 6),
-                      Text('₹${grandCash.toStringAsFixed(0)}', style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold)),
+                      Text(
+                        '₹${grandCash.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(width: 14),
-                      const Icon(Icons.qr_code, color: Colors.white70, size: 20),
+                      const Icon(
+                        Icons.qr_code,
+                        color: Colors.white70,
+                        size: 20,
+                      ),
                       const SizedBox(width: 6),
-                      Text('₹${grandUpi.toStringAsFixed(0)}', style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold)),
+                      Text(
+                        '₹${grandUpi.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(width: 14),
-                      const Icon(Icons.credit_card, color: Colors.white70, size: 20),
+                      const Icon(
+                        Icons.credit_card,
+                        color: Colors.white70,
+                        size: 20,
+                      ),
                       const SizedBox(width: 6),
-                      Text('₹${grandCard.toStringAsFixed(0)}', style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold)),
+                      Text(
+                        '₹${grandCard.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          color: Colors.grey[400],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  if (_lastUpdatedTime.isNotEmpty) Text('Last updated: $_lastUpdatedTime', style: const TextStyle(fontSize: 12, color: Colors.white54)),
+                  if (_lastUpdatedTime.isNotEmpty)
+                    Text(
+                      'Last updated: $_lastUpdatedTime',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white54,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -901,20 +1151,20 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       drawer: isDesktop
           ? null
           : const Drawer(
-        backgroundColor: Colors.white,
-        child: SafeArea(child: AppDrawer()),
-      ),
+              backgroundColor: Colors.white,
+              child: SafeArea(child: AppDrawer()),
+            ),
       body: isDesktop
           ? Row(
-        children: [
-          Container(
-            width: 250,
-            color: Colors.white,
-            child: const AppDrawer(),
-          ),
-          Expanded(child: mainContent),
-        ],
-      )
+              children: [
+                Container(
+                  width: 250,
+                  color: Colors.white,
+                  child: const AppDrawer(),
+                ),
+                Expanded(child: mainContent),
+              ],
+            )
           : mainContent,
     );
   }

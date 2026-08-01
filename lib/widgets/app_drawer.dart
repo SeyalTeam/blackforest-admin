@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../home.dart';
 import '../admin_chat_page.dart';
 import '../branchwise_bills.dart';
 import '../bills_date_time_page.dart';
@@ -36,7 +37,7 @@ class AppDrawer extends StatelessWidget {
     }
 
     if (MediaQuery.of(context).size.width >= 1024) {
-      Navigator.push(
+      Navigator.pushReplacement(
         context,
         PageRouteBuilder(
           pageBuilder: (context, animation, secondaryAnimation) => page,
@@ -48,7 +49,10 @@ class AppDrawer extends StatelessWidget {
         ),
       );
     } else {
-      Navigator.push(context, MaterialPageRoute(builder: (context) => page));
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => page),
+      );
     }
   }
 
@@ -80,6 +84,11 @@ class AppDrawer extends StatelessWidget {
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
+              ListTile(
+                leading: const Icon(Icons.dashboard, color: Colors.black87),
+                title: const Text('Dashboard'),
+                onTap: () => _navigateTo(context, const HomePage()),
+              ),
               // 1. Branch
               ListTile(
                 leading: const Icon(Icons.chat_bubble, color: Colors.black87),

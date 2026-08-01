@@ -8,7 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'widgets/app_drawer.dart';
 
 class BranchwiseBillsPage extends StatefulWidget {
-  const BranchwiseBillsPage({super.key});
+  final bool isEmbedded;
+  const BranchwiseBillsPage({super.key, this.isEmbedded = false});
 
   @override
   State<BranchwiseBillsPage> createState() => _BranchwiseBillsPageState();
@@ -59,7 +60,7 @@ class _BranchwiseBillsPageState extends State<BranchwiseBillsPage> {
     _liveRefreshTimer?.cancel();
 
     // Here we mimic a "live" smart refresh via periodic check for new bill ID
-    _liveRefreshTimer = Timer.periodic(const Duration(seconds: 5), (
+    _liveRefreshTimer = Timer.periodic(const Duration(seconds: 20), (
       timer,
     ) async {
       if (!mounted) {
@@ -88,7 +89,7 @@ class _BranchwiseBillsPageState extends State<BranchwiseBillsPage> {
         final responses = await Future.wait([
           http.get(
             Uri.parse(
-              'https://blackforest.vseyal.com/api/billings?depth=0&limit=1&sort=-createdAt&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr',
+              'https://blackforest.vseyal.com/api/billings?depth=0&limit=1&sort=-createdAt&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled',
             ),
             headers: {'Authorization': 'Bearer $token'},
           ),
@@ -158,13 +159,13 @@ class _BranchwiseBillsPageState extends State<BranchwiseBillsPage> {
       final responses = await Future.wait([
         http.get(
           Uri.parse(
-            'https://blackforest.vseyal.com/api/billings?depth=0&limit=3000&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr',
+            'https://blackforest.vseyal.com/api/billings?depth=0&limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled',
           ),
           headers: {'Authorization': 'Bearer $token'},
         ),
         http.get(
           Uri.parse(
-            'https://blackforest.vseyal.com/api/expenses?depth=0&limit=3000&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr',
+            'https://blackforest.vseyal.com/api/expenses?depth=0&limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr',
           ),
           headers: {'Authorization': 'Bearer $token'},
         ),
@@ -195,6 +196,9 @@ class _BranchwiseBillsPageState extends State<BranchwiseBillsPage> {
       int totalBills = 0;
 
       for (var bill in billDocs) {
+        final status = (bill['status'] ?? '').toString().toLowerCase().trim();
+        if (status != 'completed' && status != 'settled') continue;
+
         final branch = _extractBranchName(bill);
         final amount = _extractAmount(bill);
         final payment = (bill['paymentMethod'] ?? '')
@@ -794,6 +798,25 @@ class _BranchwiseBillsPageState extends State<BranchwiseBillsPage> {
               ],
             ),
           );
+
+    if (widget.isEmbedded) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Branch Wise Bills'),
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          automaticallyImplyLeading: false,
+          actions: [
+            IconButton(
+              tooltip: 'Manual Refresh',
+              onPressed: _fetchBranchSummaries,
+              icon: const Icon(Icons.refresh, color: Colors.white),
+            ),
+          ],
+        ),
+        body: mainContent,
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(

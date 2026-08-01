@@ -12,7 +12,7 @@ import 'package:intl/intl.dart';
 import 'package:mime/mime.dart';
 
 const String _chatApiBaseUrl = 'https://blackforest.vseyal.com/api';
-const Duration _chatPollInterval = Duration(seconds: 20);
+const Duration _chatPollInterval = Duration(seconds: 30);
 const int _maxChatAttachmentBytes = 50 * 1024 * 1024;
 const List<String> _chatAttachmentExtensions = <String>[
   'jpg',
@@ -35,7 +35,8 @@ const List<String> _chatAttachmentExtensions = <String>[
 ];
 
 class AdminChatPage extends StatefulWidget {
-  const AdminChatPage({super.key});
+  final bool isEmbedded;
+  const AdminChatPage({super.key, this.isEmbedded = false});
 
   @override
   State<AdminChatPage> createState() => _AdminChatPageState();
@@ -183,6 +184,7 @@ class _AdminChatPageState extends State<AdminChatPage> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
+        automaticallyImplyLeading: !widget.isEmbedded,
         title: const Text(
           'Employee Chats',
           style: TextStyle(fontWeight: FontWeight.bold),
@@ -734,6 +736,7 @@ class _EmployeeChatThreadPageState extends State<_EmployeeChatThreadPage>
   }) async {
     final thread = _thread;
     if (thread == null) return;
+    if (_isRefreshing && !showLoader) return;
 
     final previousMessageCount = _buildDisplayMessages().length;
     final wasNearBottom = _isNearBottom();

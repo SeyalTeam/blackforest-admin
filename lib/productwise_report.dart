@@ -201,7 +201,7 @@ class _ProductwiseReportPageState extends State<ProductwiseReportPage> {
 
       // 2. Fetch Data
       String url =
-          'https://blackforest.vseyal.com/api/billings?limit=3000&depth=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr';
+          'https://blackforest.vseyal.com/api/billings?limit=0&depth=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled';
 
       if (selectedBranchId != 'ALL') {
         url += '&where[branch][equals]=$selectedBranchId';
@@ -886,6 +886,9 @@ Future<Map<String, dynamic>> _processBillingData(Map<String, dynamic> params) as
   }
 
   for (var bill in docs) {
+    final status = (bill['status'] ?? '').toString().toLowerCase().trim();
+    if (status != 'completed' && status != 'settled') continue;
+
     // Identify Branch Name
     String branchName = 'Unknown Branch';
     final branch = bill['branch'];

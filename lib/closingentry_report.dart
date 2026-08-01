@@ -10,6 +10,7 @@ class ClosingEntryReportPage extends StatefulWidget {
   final bool? initialCombinedView;
   final DateTime? initialFromDate;
   final DateTime? initialToDate;
+  final bool isEmbedded;
 
   const ClosingEntryReportPage({
     super.key,
@@ -17,6 +18,7 @@ class ClosingEntryReportPage extends StatefulWidget {
     this.initialCombinedView,
     this.initialFromDate,
     this.initialToDate,
+    this.isEmbedded = false,
   });
 
   @override
@@ -709,6 +711,33 @@ class _ClosingEntryReportPageState extends State<ClosingEntryReportPage> {
         ),
       ],
     );
+
+    if (widget.isEmbedded) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text("Closing Entries"),
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          automaticallyImplyLeading: false,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () {
+                setState(() {
+                  selectedBranchId = "ALL";
+                  _combinedView = true;
+                  _branchFilterEnabled = true;
+                  fromDate = DateTime.now();
+                  toDate = DateTime.now();
+                });
+                _fetchEntries();
+              },
+            )
+          ],
+        ),
+        body: mainContent,
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
