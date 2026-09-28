@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'widgets/app_drawer.dart';
+import 'api_service.dart';
+import 'metadata_service.dart';
 
 class TimewiseReportPage extends StatefulWidget {
   const TimewiseReportPage({super.key});
@@ -293,23 +295,12 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       const storage = FlutterSecureStorage();
       final token = await storage.read(key: 'token');
       if (token == null) return;
-      final res = await http.get(
-        Uri.parse('https://blackforest.vseyal.com/api/branches?limit=3000'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final docs = data['docs'] ?? [];
-        final list = <Map<String, String>>[
-          {'id': 'ALL', 'name': 'All Branches'},
-        ];
-        for (var b in docs) {
-          final id = (b['id'] ?? b['_id'])?.toString();
-          final name = (b['name'] ?? 'Unnamed Branch').toString();
-          if (id != null) list.add({'id': id, 'name': name});
-        }
-        setState(() => branches = list);
-      }
+      final temp = await MetadataService().fetchBranches(token);
+      final list = <Map<String, String>>[
+        {'id': 'ALL', 'name': 'All Branches'},
+      ];
+      temp.forEach((id, name) => list.add({'id': id, 'name': name}));
+      setState(() => branches = list);
     } catch (e) {
       debugPrint('fetch branches error: $e');
     } finally {
@@ -323,28 +314,12 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       const storage = FlutterSecureStorage();
       final token = await storage.read(key: 'token');
       if (token == null) return;
-      final res = await http.get(
-        Uri.parse('https://blackforest.vseyal.com/api/users?limit=3000'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final docs = data['docs'] ?? [];
-        final list = <Map<String, String>>[
-          {'id': 'ALL', 'name': 'All Waiters'},
-        ];
-        for (var u in docs) {
-          final id = (u['id'] ?? u['_id'])?.toString();
-          String name = '';
-          if (u['employee'] != null && u['employee']['name'] != null) {
-            name = u['employee']['name'].toString();
-          } else if (u['email'] != null) {
-            name = u['email'].toString();
-          }
-          if (id != null && name.isNotEmpty) list.add({'id': id, 'name': name});
-        }
-        setState(() => employees = list);
-      }
+      final temp = await MetadataService().fetchUsers(token);
+      final list = <Map<String, String>>[
+        {'id': 'ALL', 'name': 'All Waiters'},
+      ];
+      temp.forEach((id, name) => list.add({'id': id, 'name': name}));
+      setState(() => employees = list);
     } catch (e) {
       debugPrint('fetch users error: $e');
     } finally {

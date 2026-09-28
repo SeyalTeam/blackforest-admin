@@ -11,6 +11,8 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'widgets/app_drawer.dart';
+import 'api_service.dart';
+import 'metadata_service.dart';
 
 class StockOrderReportPage extends StatefulWidget {
   final String? initialBranchId;
@@ -90,32 +92,15 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
     setState(() => _loadingBranches = true);
     try {
       final token = await _getToken();
-      final res = await http.get(
-        Uri.parse('https://blackforest.vseyal.com/api/branches?limit=3000'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final docs = data['docs'] ?? [];
-        
-        final bMap = <String, String>{};
-        final bList = <Map<String, String>>[];
-
-        for (var b in docs) {
-          final id = (b['id'] ?? b['_id'])?.toString();
-          final name = (b['name'] ?? 'Unnamed Branch').toString();
-          if (id != null) {
-            bMap[id] = name;
-            bList.add({'id': id, 'name': name});
-          }
-        }
-        setState(() {
-          branchesMap = bMap;
-          branchesList = bList;
-           // Keep backward compatibility if 'branches' list is used elsewhere as List<Map>
-           branches = bList; 
-        });
-      }
+      if (token == null) return;
+      final bMap = await MetadataService().fetchBranches(token);
+      final bList = <Map<String, String>>[];
+      bMap.forEach((id, name) => bList.add({'id': id, 'name': name}));
+      setState(() {
+        branchesMap = bMap;
+        branchesList = bList;
+        branches = bList;
+      });
     } catch (e) {
       debugPrint('fetchBranches error: $e');
     } finally {
@@ -126,26 +111,11 @@ class _StockOrderReportPageState extends State<StockOrderReportPage> {
   Future<void> _fetchDepartments() async {
     try {
       final token = await _getToken();
-      final res = await http.get(
-        Uri.parse('https://blackforest.vseyal.com/api/departments?limit=3000'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final docs = data['docs'] ?? [];
-        
-        final dMap = <String, String>{};
-        for(var d in docs) {
-          final id = (d['id'] ?? d['_id'])?.toString();
-           final name = (d['name'] ?? 'Unnamed').toString();
-           if(id != null) dMap[id] = name;
-        }
-
-        setState(() {
-          departments = docs.cast<Map<String, dynamic>>();
-          departmentsMap = dMap;
-        });
-      }
+      if (token == null) return;
+      final dMap = await MetadataService().fetchDepartments(token);
+      setState(() {
+        departmentsMap = dMap;
+      });
     } catch (e) {
       debugPrint('fetchDepartments error: $e');
     }

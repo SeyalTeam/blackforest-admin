@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'widgets/app_drawer.dart';
+import 'api_service.dart';
+import 'metadata_service.dart';
 
 class BillsDateTimePage extends StatefulWidget {
   const BillsDateTimePage({super.key});
@@ -96,21 +98,8 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
     try {
       final token = await _getToken();
       if (token == null) return;
-      final res = await http.get(
-        Uri.parse('https://blackforest.vseyal.com/api/companies?limit=3000'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final docs = data['docs'] ?? [];
-        final Map<String, String> temp = {};
-        for (var c in docs) {
-          final id = c['id'] ?? c['_id'];
-          final name = c['name'] ?? 'Unnamed Company';
-          if (id != null) temp[id.toString()] = name.toString();
-        }
-        setState(() => companyMap = temp);
-      }
+      final temp = await MetadataService().fetchCompanies(token);
+      setState(() => companyMap = temp);
     } catch (e) {
       debugPrint('Error fetching companies: $e');
     }
@@ -160,25 +149,14 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
     try {
       final token = await _getToken();
       if (token == null) return;
-      final res = await http.get(
-        Uri.parse('https://blackforest.vseyal.com/api/branches?limit=3000'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final List docs = data['docs'] ?? [];
-        final List<Map<String, String>> list = [
-          {'id': 'ALL', 'name': 'All Branches'},
-        ];
-        for (var b in docs) {
-          final id = b['id'] ?? b['_id'];
-          final name = b['name'] ?? 'Unnamed Branch';
-          if (id != null) {
-            list.add({'id': id.toString(), 'name': name.toString()});
-          }
-        }
-        setState(() => branches = list);
-      }
+      final temp = await MetadataService().fetchBranches(token);
+      final List<Map<String, String>> list = [
+        {'id': 'ALL', 'name': 'All Branches'},
+      ];
+      temp.forEach((id, name) {
+        list.add({'id': id, 'name': name});
+      });
+      setState(() => branches = list);
     } catch (e) {
       debugPrint('Error fetching branches: $e');
     } finally {
@@ -190,27 +168,8 @@ class _BillsDateTimePageState extends State<BillsDateTimePage> {
     try {
       final token = await _getToken();
       if (token == null) return;
-      final res = await http.get(
-        Uri.parse('https://blackforest.vseyal.com/api/users?limit=3000'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final List users = data['docs'] ?? [];
-        for (var user in users) {
-          final id = user['id'] ?? user['_id'];
-          final employee = user['employee'];
-          String name = '';
-
-          if (employee is Map && employee['name'] != null) {
-            name = employee['name'].toString().trim();
-          } else if (user['email'] != null) {
-            name = user['email'].toString().trim();
-          }
-
-          if (id != null && name.isNotEmpty) userMap[id.toString()] = name;
-        }
-      }
+      final temp = await MetadataService().fetchUsers(token);
+      setState(() => userMap = temp);
     } catch (e) {
       debugPrint('Error fetching users: $e');
     }

@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'widgets/app_drawer.dart';
+import 'api_service.dart';
+import 'metadata_service.dart';
 
 class BranchwiseBillsPage extends StatefulWidget {
   final bool isEmbedded;
@@ -374,23 +376,9 @@ class _BranchwiseBillsPageState extends State<BranchwiseBillsPage> {
     final token = await _getToken();
     if (token == null) return;
     try {
-      final response = await http.get(
-        Uri.parse(
-          'https://blackforest.vseyal.com/api/branches?depth=0&limit=3000',
-        ),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (response.statusCode != 200) return;
-      final docs = (jsonDecode(response.body)['docs'] ?? []) as List;
+      final bMap = await MetadataService().fetchBranches(token);
       _branchNameById.clear();
-      for (final branch in docs) {
-        if (branch is! Map) continue;
-        final id = _extractDocId(branch);
-        final name = (branch['name'] ?? '').toString().trim();
-        if (id != null && name.isNotEmpty) {
-          _branchNameById[id] = name;
-        }
-      }
+      _branchNameById.addAll(bMap);
     } catch (e) {
       debugPrint('Branch lookup fetch error: $e');
     }

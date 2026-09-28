@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'widgets/app_drawer.dart';
 import 'constants.dart';
+import 'api_service.dart';
+import 'metadata_service.dart';
 
 class ReturnOrdersPage extends StatefulWidget {
   final String? initialBranchId;
@@ -68,23 +70,13 @@ class _ReturnOrdersPageState extends State<ReturnOrdersPage> {
     setState(() => _loadingBranches = true);
     try {
       final token = await _getToken();
-      final res = await http.get(
-        Uri.parse('https://blackforest.vseyal.com/api/branches?limit=3000'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final docs = data['docs'] ?? [];
-        final list = <Map<String, String>>[
-          {'id': 'ALL', 'name': 'All Branches'}
-        ];
-        for (var b in docs) {
-          final id = (b['id'] ?? b['_id'])?.toString();
-          final name = (b['name'] ?? 'Unnamed Branch').toString();
-          if (id != null) list.add({'id': id, 'name': name});
-        }
-        setState(() => branches = list);
-      }
+      if (token == null) return;
+      final temp = await MetadataService().fetchBranches(token);
+      final list = <Map<String, String>>[
+        {'id': 'ALL', 'name': 'All Branches'}
+      ];
+      temp.forEach((id, name) => list.add({'id': id, 'name': name}));
+      setState(() => branches = list);
     } catch (e) {
       debugPrint('fetchBranches error: $e');
     } finally {
