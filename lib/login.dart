@@ -109,7 +109,11 @@ class _LoginPageState extends State<LoginPage> {
       final fullEmail = '$username@bf.com';
       final response = await http.post(
         Uri.parse('https://blackforest.vseyal.com/api/users/login'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'x-app-secret': 'BF_REPORT_SECRET_2024',
+          'x-app-key': 'BF_REPORT_SECRET_2024',
+        },
         body: jsonEncode({
           'email': fullEmail,
           'password': _passwordController.text.trim(),

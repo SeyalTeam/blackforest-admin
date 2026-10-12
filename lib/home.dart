@@ -1494,20 +1494,27 @@ class _HomePageState extends State<HomePage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
-                children: [
-                  Icon(Icons.point_of_sale_rounded, color: Color(0xFF059669), size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Closing Settlement (Today)',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A),
+              Expanded(
+                child: Row(
+                  children: const [
+                    Icon(Icons.point_of_sale_rounded, color: Color(0xFF059669), size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Closing Settlement (Today)',
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 4),
               TextButton(
                 onPressed: () => _navigateTo(context, const ClosingEntryReportPage()),
                 style: TextButton.styleFrom(
@@ -1621,20 +1628,27 @@ class _HomePageState extends State<HomePage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
-                children: [
-                  Icon(Icons.leaderboard_rounded, color: Color(0xFFD97706), size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Top Performing Outlets',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A),
+              Expanded(
+                child: Row(
+                  children: const [
+                    Icon(Icons.leaderboard_rounded, color: Color(0xFFD97706), size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Top Performing Outlets',
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 4),
               TextButton(
                 onPressed: () => _navigateTo(context, const BranchwiseBillsPage()),
                 style: TextButton.styleFrom(
