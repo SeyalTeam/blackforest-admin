@@ -5,6 +5,7 @@ import 'dart:io' as io;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum CallStatus {
   idle,
@@ -22,8 +23,14 @@ class LiveCallService extends ChangeNotifier {
   static final LiveCallService instance = LiveCallService._internal();
   LiveCallService._internal();
 
-  static const String _wsHost = 'blackforest.vseyal.com';
+  static const List<String> _wsHosts = [
+    'admin.theblackforestcakes.com',
+    'blackforest.vseyal.com',
+  ];
   static const String _wsPath = '/ws/v1';
+
+  String? _activeWsHost;
+  String? get activeWsHost => _activeWsHost;
 
   io.WebSocket? _socket;
   StreamSubscription? _socketSub;
@@ -80,41 +87,65 @@ class LiveCallService extends ChangeNotifier {
         return token.trim();
       }
     } catch (_) {}
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token') ?? prefs.getString('auth_token') ?? prefs.getString('jwt');
+      if (token != null && token.trim().isNotEmpty) {
+        return token.trim();
+      }
+    } catch (_) {}
     return null;
   }
 
-  Future<void> connectSocket() async {
-    if (_socket != null && _socket!.readyState == io.WebSocket.open) return;
+  Future<bool> connectSocket() async {
+    if (_socket != null && _socket!.readyState == io.WebSocket.open) return true;
     try {
       final token = await _readToken();
-      if (token == null || token.isEmpty) return;
+      if (token == null || token.isEmpty) {
+        debugPrint('LiveCallService: cannot connect socket, token is missing');
+        return false;
+      }
 
-      final uri = Uri(scheme: 'wss', host: _wsHost, path: _wsPath);
-      _socket = await io.WebSocket.connect(
-        uri.toString(),
-        headers: {'Authorization': 'Bearer $token'},
-      );
+      for (final host in _wsHosts) {
+        try {
+          final uri = Uri(scheme: 'wss', host: host, path: _wsPath);
+          debugPrint('LiveCallService: connecting to $uri ...');
+          final socket = await io.WebSocket.connect(
+            uri.toString(),
+            headers: {'Authorization': 'Bearer $token'},
+          ).timeout(const Duration(seconds: 6));
 
-      _socketSub?.cancel();
-      _socketSub = _socket!.listen(
-        _handleIncomingSocketFrame,
-        onError: (err) {
-          debugPrint('LiveCallService: socket error: $err');
-          _closeSocket();
-        },
-        onDone: () {
-          debugPrint('LiveCallService: socket closed');
-          _closeSocket();
-        },
-      );
+          _socket = socket;
+          _activeWsHost = host;
+          debugPrint('LiveCallService: connected successfully to $host');
 
-      _pingTimer?.cancel();
-      _pingTimer = Timer.periodic(const Duration(seconds: 20), (_) {
-        _sendSocketMessage({'action': 'ping'});
-      });
+          _socketSub?.cancel();
+          _socketSub = _socket!.listen(
+            _handleIncomingSocketFrame,
+            onError: (err) {
+              debugPrint('LiveCallService: socket error: $err');
+              _closeSocket();
+            },
+            onDone: () {
+              debugPrint('LiveCallService: socket closed');
+              _closeSocket();
+            },
+          );
+
+          _pingTimer?.cancel();
+          _pingTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+            _sendSocketMessage({'action': 'ping'});
+          });
+
+          return true;
+        } catch (e) {
+          debugPrint('LiveCallService: failed connecting to $host: $e');
+        }
+      }
     } catch (e) {
       debugPrint('LiveCallService: failed to connect socket: $e');
     }
+    return false;
   }
 
   void _closeSocket() {
@@ -130,10 +161,13 @@ class LiveCallService extends ChangeNotifier {
   void _sendSocketMessage(Map<String, dynamic> msg) {
     if (_socket != null && _socket!.readyState == io.WebSocket.open) {
       try {
+        debugPrint('LiveCallService: sending socket message: ${msg['signalType'] ?? msg['action']}');
         _socket!.add(jsonEncode(msg));
       } catch (e) {
         debugPrint('LiveCallService: error sending message: $e');
       }
+    } else {
+      debugPrint('LiveCallService: cannot send message, socket is closed or null');
     }
   }
 
@@ -151,7 +185,15 @@ class LiveCallService extends ChangeNotifier {
     _isSpeakerOn = false;
     notifyListeners();
 
-    await connectSocket();
+    debugPrint('LiveCallService: startCall to $waiterName ($waiterUserId), callId: $_currentCallId');
+
+    final connected = await connectSocket();
+    if (!connected || _socket == null || _socket!.readyState != io.WebSocket.open) {
+      _status = CallStatus.error;
+      _errorMessage = 'Could not connect to live call server. Please check internet connection.';
+      notifyListeners();
+      return;
+    }
 
     try {
       _peerConnection = await createPeerConnection(_iceConfig);
