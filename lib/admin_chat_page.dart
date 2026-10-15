@@ -11,6 +11,8 @@ import 'package:http_parser/http_parser.dart';
 import 'package:intl/intl.dart';
 import 'package:mime/mime.dart';
 
+import 'live_call_screen.dart';
+
 const String _chatApiBaseUrl = 'https://blackforest.vseyal.com/api';
 const Duration _chatPollInterval = Duration(seconds: 30);
 const int _maxChatAttachmentBytes = 50 * 1024 * 1024;
@@ -1199,9 +1201,37 @@ class _EmployeeChatThreadPageState extends State<_EmployeeChatThreadPage>
         ),
         actions: [
           IconButton(
-            tooltip: 'Call',
-            onPressed: () {},
-            icon: const Icon(Icons.call_outlined),
+            tooltip: widget.employee.role.trim().toLowerCase() == 'waiter'
+                ? 'Call Waiter (Live Audio)'
+                : 'Call (Only available for waiters)',
+            onPressed: () {
+              if (widget.employee.role.trim().toLowerCase() == 'waiter') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => LiveCallScreen(
+                      waiterUserId: widget.employee.userId,
+                      waiterName: widget.employee.employeeName,
+                      waiterRole: widget.employee.role,
+                    ),
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Live audio call is currently enabled only for Waiters.',
+                    ),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+            icon: Icon(
+              Icons.call,
+              color: widget.employee.role.trim().toLowerCase() == 'waiter'
+                  ? const Color(0xFF25D366)
+                  : Colors.grey,
+            ),
           ),
           IconButton(
             tooltip: 'More',
