@@ -202,7 +202,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF25D366).withOpacity(0.3),
+                          color: const Color(0xFF25D366).withValues(alpha: 0.3),
                           blurRadius: glow + 10,
                           spreadRadius: glow * 0.5,
                         ),
@@ -374,8 +374,8 @@ class _ControlCircleButton extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: isActive
-                  ? activeColor.withOpacity(0.2)
-                  : (enabled ? Colors.white.withOpacity(0.08) : Colors.white10),
+                  ? activeColor.withValues(alpha: 0.2)
+                  : (enabled ? Colors.white.withValues(alpha: 0.08) : Colors.white10),
               border: Border.all(
                 color: isActive
                     ? activeColor

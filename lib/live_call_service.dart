@@ -25,7 +25,6 @@ class LiveCallService extends ChangeNotifier {
 
   static const List<String> _wsHosts = [
     'admin.theblackforestcakes.com',
-    'blackforest.vseyal.com',
   ];
   static const String _wsPath = '/ws/v1';
 
@@ -231,6 +230,7 @@ class LiveCallService extends ChangeNotifier {
       _peerConnection!.onTrack = (event) {
         if (event.streams.isNotEmpty) {
           _remoteStream = event.streams[0];
+          _applyAudioRouting();
           notifyListeners();
         }
       };
@@ -378,13 +378,34 @@ class LiveCallService extends ChangeNotifier {
   void _onConnected() {
     if (_status == CallStatus.connected) return;
     _status = CallStatus.connected;
+    _isSpeakerOn = false;
     _durationSeconds = 0;
     _durationTimer?.cancel();
     _durationTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       _durationSeconds++;
       notifyListeners();
     });
+
+    _applyAudioRouting();
     notifyListeners();
+  }
+
+  Future<void> _applyAudioRouting() async {
+    try {
+      await Helper.setSpeakerphoneOn(_isSpeakerOn);
+      Future.delayed(const Duration(milliseconds: 300), () async {
+        try {
+          await Helper.setSpeakerphoneOn(_isSpeakerOn);
+        } catch (_) {}
+      });
+      Future.delayed(const Duration(milliseconds: 800), () async {
+        try {
+          await Helper.setSpeakerphoneOn(_isSpeakerOn);
+        } catch (_) {}
+      });
+    } catch (e) {
+      debugPrint('LiveCallService: _applyAudioRouting error: $e');
+    }
   }
 
   Future<void> toggleMute() async {
@@ -400,6 +421,7 @@ class LiveCallService extends ChangeNotifier {
     _isSpeakerOn = !_isSpeakerOn;
     try {
       await Helper.setSpeakerphoneOn(_isSpeakerOn);
+      debugPrint('LiveCallService: speakerphone toggled to $_isSpeakerOn');
     } catch (e) {
       debugPrint('LiveCallService: setSpeakerphoneOn error: $e');
     }
@@ -429,6 +451,10 @@ class LiveCallService extends ChangeNotifier {
   Future<void> _cleanupWebrtc() async {
     _durationTimer?.cancel();
     _durationTimer = null;
+
+    try {
+      await Helper.setSpeakerphoneOn(false);
+    } catch (_) {}
 
     try {
       _localStream?.getTracks().forEach((track) => track.stop());
