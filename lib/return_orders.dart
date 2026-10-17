@@ -94,7 +94,7 @@ class _ReturnOrdersPageState extends State<ReturnOrdersPage> {
           ? DateTime(toDate!.year, toDate!.month, toDate!.day, 23, 59, 59)
           : DateTime(fromDate!.year, fromDate!.month, fromDate!.day, 23, 59, 59);
       
-      var url = 'https://blackforest.vseyal.com/api/return-orders?limit=0&depth=1'
+      var url = 'https://admin.theblackforestcakes.com/api/return-orders?limit=0&depth=1'
           '&where[createdAt][greater_than]=${start.toUtc().toIso8601String()}'
           '&where[createdAt][less_than]=${end.toUtc().toIso8601String()}';
       
@@ -349,7 +349,7 @@ class _ReturnOrdersPageState extends State<ReturnOrdersPage> {
       // Update all orders in the group
       for (var orderId in orderIds) {
         debugPrint('Updating order: $orderId');
-        final url = 'https://blackforest.vseyal.com/api/return-orders/$orderId';
+        final url = 'https://admin.theblackforestcakes.com/api/return-orders/$orderId';
         debugPrint('PATCH URL: $url');
         
         final res = await http.patch(
@@ -580,7 +580,7 @@ class _ReturnOrdersPageState extends State<ReturnOrdersPage> {
         return;
       }
       
-      final imageUrl = 'https://blackforest.vseyal.com/api/media/file/$photoIdentifier';
+      final imageUrl = 'https://admin.theblackforestcakes.com/api/media/file/$photoIdentifier';
       debugPrint('Loading image from: $imageUrl');
       
       showDialog(

@@ -58,7 +58,7 @@ class _CategorywiseReportPageState extends State<CategorywiseReportPage> {
       final token = await _getToken();
       if (token == null) return;
       final res = await http.get(
-        Uri.parse('https://blackforest.vseyal.com/api/branches?limit=3000'),
+        Uri.parse('https://admin.theblackforestcakes.com/api/branches?limit=3000'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -87,7 +87,7 @@ class _CategorywiseReportPageState extends State<CategorywiseReportPage> {
       final token = await _getToken();
       if (token == null) return;
       final res = await http.get(
-        Uri.parse('https://blackforest.vseyal.com/api/categories?limit=3000'),
+        Uri.parse('https://admin.theblackforestcakes.com/api/categories?limit=3000'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -115,7 +115,7 @@ class _CategorywiseReportPageState extends State<CategorywiseReportPage> {
       if (token == null) return;
       // Fetch only needed fields if possible, but Payload limits often depth. depth=0 gives IDs.
       final res = await http.get(
-        Uri.parse('https://blackforest.vseyal.com/api/products?limit=5000&depth=0'),
+        Uri.parse('https://admin.theblackforestcakes.com/api/products?limit=5000&depth=0'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -181,7 +181,7 @@ class _CategorywiseReportPageState extends State<CategorywiseReportPage> {
 
       // 2. Fetch Data
       String url =
-          'https://blackforest.vseyal.com/api/billings?limit=0&depth=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled';
+          'https://admin.theblackforestcakes.com/api/billings?limit=0&depth=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled';
 
       if (selectedBranchId != 'ALL') {
         url += '&where[branch][equals]=$selectedBranchId';

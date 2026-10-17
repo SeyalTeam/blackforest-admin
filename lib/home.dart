@@ -15,6 +15,7 @@ import 'closingentry_report.dart';
 import 'expensewise_report.dart';
 import 'return_orders.dart';
 import 'stockorder_report.dart';
+import 'inventory_report.dart';
 import 'categorywise_report.dart';
 import 'productwise_report.dart';
 import 'kitchen_order.dart';
@@ -192,6 +193,16 @@ class _HomePageState extends State<HomePage> {
       page: StockOrderReportPage(),
     ),
     ReportModule(
+      id: 'inventory_report',
+      title: 'Inventory Report',
+      subtitle: 'Live in-stock counts',
+      icon: Icons.inventory_rounded,
+      primaryColor: Color(0xFF0D9488),
+      lightColor: Color(0xFFCCFBF1),
+      category: 'Finance',
+      page: InventoryReportPage(),
+    ),
+    ReportModule(
       id: 'staff_chat',
       title: 'Staff Comms',
       subtitle: 'Branch chat & announcements',
@@ -301,19 +312,19 @@ class _HomePageState extends State<HomePage> {
       final responses = await Future.wait([
         http.get(
           Uri.parse(
-            'https://blackforest.vseyal.com/api/billings?depth=0&limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled',
+            'https://admin.theblackforestcakes.com/api/billings?depth=0&limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled',
           ),
           headers: {'Authorization': 'Bearer $token'},
         ),
         http.get(
           Uri.parse(
-            'https://blackforest.vseyal.com/api/expenses?depth=0&limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr',
+            'https://admin.theblackforestcakes.com/api/expenses?depth=0&limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr',
           ),
           headers: {'Authorization': 'Bearer $token'},
         ),
         http.get(
           Uri.parse(
-            'https://blackforest.vseyal.com/api/closing-entries?depth=1&limit=10000&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr',
+            'https://admin.theblackforestcakes.com/api/closing-entries?depth=1&limit=10000&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr',
           ),
           headers: {'Authorization': 'Bearer $token'},
         ),
@@ -521,7 +532,7 @@ class _HomePageState extends State<HomePage> {
     try {
       final response = await http.get(
         Uri.parse(
-          'https://blackforest.vseyal.com/api/branches?depth=0&limit=3000',
+          'https://admin.theblackforestcakes.com/api/branches?depth=0&limit=3000',
         ),
         headers: {'Authorization': 'Bearer $token'},
       );

@@ -91,7 +91,7 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       final startStr = start.toUtc().toIso8601String();
       final endStr = end.toUtc().toIso8601String();
       String url =
-          'https://blackforest.vseyal.com/api/billings?limit=1&sort=-createdAt&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled';
+          'https://admin.theblackforestcakes.com/api/billings?limit=1&sort=-createdAt&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled';
       if (selectedBranchId != 'ALL') {
         url += '&where[branch][equals]=$selectedBranchId';
       }
@@ -235,7 +235,7 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       final startStr = start.toUtc().toIso8601String();
       final endStr = end.toUtc().toIso8601String();
       String url =
-          'https://blackforest.vseyal.com/api/billings?limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled';
+          'https://admin.theblackforestcakes.com/api/billings?limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled';
       if (selectedBranchId != 'ALL') {
         url += '&where[branch][equals]=$selectedBranchId';
       }
@@ -369,7 +369,7 @@ class _TimewiseReportPageState extends State<TimewiseReportPage> {
       final startStr = start.toUtc().toIso8601String();
       final endStr = end.toUtc().toIso8601String();
       var url =
-          'https://blackforest.vseyal.com/api/billings?limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled&sort=createdAt';
+          'https://admin.theblackforestcakes.com/api/billings?limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled&sort=createdAt';
       if (selectedBranchId != 'ALL') {
         url += '&where[branch][equals]=$selectedBranchId';
       }

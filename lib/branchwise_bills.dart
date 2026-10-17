@@ -91,13 +91,13 @@ class _BranchwiseBillsPageState extends State<BranchwiseBillsPage> {
         final responses = await Future.wait([
           http.get(
             Uri.parse(
-              'https://blackforest.vseyal.com/api/billings?depth=0&limit=1&sort=-createdAt&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled',
+              'https://admin.theblackforestcakes.com/api/billings?depth=0&limit=1&sort=-createdAt&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled',
             ),
             headers: {'Authorization': 'Bearer $token'},
           ),
           http.get(
             Uri.parse(
-              'https://blackforest.vseyal.com/api/expenses?depth=0&limit=1&sort=-createdAt&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr',
+              'https://admin.theblackforestcakes.com/api/expenses?depth=0&limit=1&sort=-createdAt&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr',
             ),
             headers: {'Authorization': 'Bearer $token'},
           ),
@@ -161,13 +161,13 @@ class _BranchwiseBillsPageState extends State<BranchwiseBillsPage> {
       final responses = await Future.wait([
         http.get(
           Uri.parse(
-            'https://blackforest.vseyal.com/api/billings?depth=0&limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled',
+            'https://admin.theblackforestcakes.com/api/billings?depth=0&limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled',
           ),
           headers: {'Authorization': 'Bearer $token'},
         ),
         http.get(
           Uri.parse(
-            'https://blackforest.vseyal.com/api/expenses?depth=0&limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr',
+            'https://admin.theblackforestcakes.com/api/expenses?depth=0&limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr',
           ),
           headers: {'Authorization': 'Bearer $token'},
         ),

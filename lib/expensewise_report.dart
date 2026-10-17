@@ -73,7 +73,7 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
     try {
       final token = await _getToken();
       final res = await http.get(
-        Uri.parse('https://blackforest.vseyal.com/api/branches?limit=3000'),
+        Uri.parse('https://admin.theblackforestcakes.com/api/branches?limit=3000'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
@@ -133,7 +133,7 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
               59,
             );
       var url =
-          'https://blackforest.vseyal.com/api/expenses?limit=1&sort=-createdAt'
+          'https://admin.theblackforestcakes.com/api/expenses?limit=1&sort=-createdAt'
           '&where[createdAt][greater_than]=${start.toUtc().toIso8601String()}'
           '&where[createdAt][less_than]=${end.toUtc().toIso8601String()}';
       if (selectedBranchId != 'ALL') {
@@ -185,7 +185,7 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
               59,
             );
       var baseUrl =
-          'https://blackforest.vseyal.com/api/expenses?limit=0&where[createdAt][greater_than]=${start.toUtc().toIso8601String()}&where[createdAt][less_than]=${end.toUtc().toIso8601String()}&sort=createdAt';
+          'https://admin.theblackforestcakes.com/api/expenses?limit=0&where[createdAt][greater_than]=${start.toUtc().toIso8601String()}&where[createdAt][less_than]=${end.toUtc().toIso8601String()}&sort=createdAt';
       if (selectedBranchId != 'ALL') {
         baseUrl += '&where[branch][equals]=$selectedBranchId';
       }
@@ -612,7 +612,7 @@ class _ExpensewiseReportPageState extends State<ExpensewiseReportPage> {
       updatedDetails[detailIndex]['source'] = d['source'];
 
       final res = await http.patch(
-        Uri.parse('https://blackforest.vseyal.com/api/expenses/$expenseId'),
+        Uri.parse('https://admin.theblackforestcakes.com/api/expenses/$expenseId'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',

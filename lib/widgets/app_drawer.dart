@@ -11,6 +11,7 @@ import '../closingentry_report.dart';
 import '../expensewise_report.dart';
 import '../return_orders.dart';
 import '../stockorder_report.dart';
+import '../inventory_report.dart';
 import '../categorywise_report.dart';
 import '../productwise_report.dart';
 import '../kitchen_order.dart';
@@ -205,6 +206,13 @@ class AppDrawer extends StatelessWidget {
                   title: 'Stock Orders',
                   color: const Color(0xFF78350F),
                   onTap: () => _navigateTo(context, const StockOrderReportPage()),
+                ),
+                _drawerTile(
+                  context,
+                  icon: Icons.inventory_rounded,
+                  title: 'Inventory Report',
+                  color: const Color(0xFF0D9488),
+                  onTap: () => _navigateTo(context, const InventoryReportPage()),
                 ),
                 _drawerTile(
                   context,

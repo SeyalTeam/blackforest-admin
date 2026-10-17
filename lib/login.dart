@@ -108,7 +108,7 @@ class _LoginPageState extends State<LoginPage> {
       final username = _usernameController.text.trim();
       final fullEmail = '$username@bf.com';
       final response = await http.post(
-        Uri.parse('https://blackforest.vseyal.com/api/users/login'),
+        Uri.parse('https://admin.theblackforestcakes.com/api/users/login'),
         headers: {
           'Content-Type': 'application/json',
           'x-app-secret': 'BF_REPORT_SECRET_2024',
