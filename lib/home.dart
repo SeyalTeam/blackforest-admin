@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'login.dart';
 import 'admin_chat_page.dart';
+import 'admin_contact_book_page.dart';
 import 'branchwise_bills.dart';
 import 'bills_date_time_page.dart';
 import 'timewise_report.dart';
@@ -201,6 +202,16 @@ class _HomePageState extends State<HomePage> {
       lightColor: Color(0xFFCCFBF1),
       category: 'Finance',
       page: InventoryReportPage(),
+    ),
+    ReportModule(
+      id: 'contact_book',
+      title: 'Contact Book & Calls',
+      subtitle: 'Staff phonebook & live calling',
+      icon: Icons.contact_phone_rounded,
+      primaryColor: Color(0xFF0D9488),
+      lightColor: Color(0xFFCCFBF1),
+      category: 'Finance',
+      page: AdminContactBookPage(),
     ),
     ReportModule(
       id: 'staff_chat',

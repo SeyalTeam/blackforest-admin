@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../home.dart';
 import '../admin_chat_page.dart';
+import '../admin_contact_book_page.dart';
 import '../branchwise_bills.dart';
 import '../bills_date_time_page.dart';
 import '../timewise_report.dart';
@@ -213,6 +214,13 @@ class AppDrawer extends StatelessWidget {
                   title: 'Inventory Report',
                   color: const Color(0xFF0D9488),
                   onTap: () => _navigateTo(context, const InventoryReportPage()),
+                ),
+                _drawerTile(
+                  context,
+                  icon: Icons.contact_phone_rounded,
+                  title: 'Contact Book & Calls',
+                  color: const Color(0xFF0D9488),
+                  onTap: () => _navigateTo(context, const AdminContactBookPage()),
                 ),
                 _drawerTile(
                   context,

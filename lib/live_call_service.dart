@@ -7,6 +7,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'admin_call_history_service.dart';
+
 enum CallStatus {
   idle,
   connecting,
@@ -186,6 +188,13 @@ class LiveCallService extends ChangeNotifier {
 
     debugPrint('LiveCallService: startCall to $waiterName ($waiterUserId), callId: $_currentCallId');
 
+    AdminCallHistoryService.recordCallStarted(
+      callId: _currentCallId!,
+      userId: waiterUserId,
+      name: waiterName,
+      role: 'Waiter',
+    );
+
     final connected = await connectSocket();
     if (!connected || _socket == null || _socket!.readyState != io.WebSocket.open) {
       _status = CallStatus.error;
@@ -313,6 +322,13 @@ class LiveCallService extends ChangeNotifier {
           _status = CallStatus.declined;
           _errorMessage = data['reason']?.toString() ?? 'Call declined';
           notifyListeners();
+          if (_currentCallId != null) {
+            AdminCallHistoryService.updateCallEnded(
+              callId: _currentCallId!,
+              status: 'declined',
+              durationSeconds: _durationSeconds,
+            );
+          }
           _scheduleAutoCleanup();
           break;
 
@@ -320,6 +336,13 @@ class LiveCallService extends ChangeNotifier {
           _status = CallStatus.offline;
           _errorMessage = data['message']?.toString() ?? 'Waiter is offline';
           notifyListeners();
+          if (_currentCallId != null) {
+            AdminCallHistoryService.updateCallEnded(
+              callId: _currentCallId!,
+              status: 'offline',
+              durationSeconds: 0,
+            );
+          }
           _scheduleAutoCleanup();
           break;
 
@@ -327,12 +350,26 @@ class LiveCallService extends ChangeNotifier {
           _status = CallStatus.busy;
           _errorMessage = 'Waiter is on another call';
           notifyListeners();
+          if (_currentCallId != null) {
+            AdminCallHistoryService.updateCallEnded(
+              callId: _currentCallId!,
+              status: 'busy',
+              durationSeconds: 0,
+            );
+          }
           _scheduleAutoCleanup();
           break;
 
         case 'end':
           _status = CallStatus.ended;
           notifyListeners();
+          if (_currentCallId != null) {
+            AdminCallHistoryService.updateCallEnded(
+              callId: _currentCallId!,
+              status: _durationSeconds > 0 ? 'connected' : 'missed',
+              durationSeconds: _durationSeconds,
+            );
+          }
           _scheduleAutoCleanup();
           break;
       }
@@ -386,6 +423,10 @@ class LiveCallService extends ChangeNotifier {
       notifyListeners();
     });
 
+    if (_currentCallId != null) {
+      AdminCallHistoryService.updateCallConnected(callId: _currentCallId!);
+    }
+
     _applyAudioRouting();
     notifyListeners();
   }
@@ -436,6 +477,13 @@ class LiveCallService extends ChangeNotifier {
         'signalType': 'end',
         'targetUserId': _targetUserId,
       });
+    }
+    if (_currentCallId != null) {
+      AdminCallHistoryService.updateCallEnded(
+        callId: _currentCallId!,
+        status: _durationSeconds > 0 ? 'connected' : 'missed',
+        durationSeconds: _durationSeconds,
+      );
     }
     _status = CallStatus.ended;
     notifyListeners();

@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import 'package:mime/mime.dart';
 
 import 'live_call_screen.dart';
+import 'admin_contact_book_page.dart';
 
 const String _chatApiBaseUrl = 'https://admin.theblackforestcakes.com/api';
 const Duration _chatPollInterval = Duration(seconds: 30);
@@ -192,6 +193,18 @@ class _AdminChatPageState extends State<AdminChatPage> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Contact Book & Calls',
+            icon: const Icon(Icons.contact_phone_rounded),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AdminContactBookPage(),
+                ),
+              );
+            },
+          ),
           IconButton(
             tooltip: 'Refresh',
             onPressed: _isRefreshing
