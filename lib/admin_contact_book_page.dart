@@ -197,12 +197,28 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
     }
   }
 
-  Future<void> _loadHistory() async {
+  Future<void> _loadHistory({bool showLoader = true}) async {
+    if (showLoader && mounted && _history.isEmpty) {
+      setState(() {
+        _isLoadingHistory = true;
+      });
+    }
     try {
-      final history = await AdminCallHistoryService.getHistory();
+      // 1. Load local cache immediately
+      final cached = await AdminCallHistoryService.getHistory(syncRemote: false);
+      if (mounted && cached.isNotEmpty) {
+        setState(() {
+          _history = cached;
+          _isLoadingHistory = false;
+        });
+      }
+
+      // 2. Fetch permanent call history from backend MongoDB
+      final token = await _readToken();
+      final remote = await AdminCallHistoryService.syncHistoryFromBackend(token);
       if (!mounted) return;
       setState(() {
-        _history = history;
+        _history = remote;
         _isLoadingHistory = false;
       });
     } catch (_) {
@@ -795,32 +811,40 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
 
     final history = _filteredHistory;
     if (history.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              _activeTab == ContactBookTab.missed
-                  ? Icons.phone_missed_rounded
-                  : Icons.phone_callback_rounded,
-              size: 56,
-              color: const Color(0xFF94A3B8),
+      return RefreshIndicator(
+        onRefresh: _loadHistory,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.6,
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _activeTab == ContactBookTab.missed
+                      ? Icons.phone_missed_rounded
+                      : Icons.phone_callback_rounded,
+                  size: 56,
+                  color: const Color(0xFF94A3B8),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _activeTab == ContactBookTab.missed
+                      ? 'No missed calls recorded'
+                      : (_activeTab == ContactBookTab.received
+                          ? 'No received calls recorded'
+                          : 'No call history yet'),
+                  style: const TextStyle(fontSize: 15, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Call staff directly from the Contacts tab.',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              _activeTab == ContactBookTab.missed
-                  ? 'No missed calls recorded'
-                  : (_activeTab == ContactBookTab.received
-                      ? 'No received calls recorded'
-                      : 'No call history yet'),
-              style: const TextStyle(fontSize: 15, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Call staff directly from the Contacts tab.',
-              style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-            ),
-          ],
+          ),
         ),
       );
     }
