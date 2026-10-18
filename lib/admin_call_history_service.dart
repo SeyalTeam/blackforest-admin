@@ -36,6 +36,17 @@ class AdminCallLogEntry {
   bool get isOutgoing => direction.toLowerCase() == 'outgoing';
   bool get isIncoming => direction.toLowerCase() == 'incoming';
 
+  // Dialed (Outgoing calls made by admin)
+  bool get isDialed => isOutgoing;
+  bool get isDialedAnswered => isOutgoing && isConnected;
+  bool get isDialedNoAnswer => isOutgoing && !isConnected;
+
+  // Received (Incoming calls answered by admin)
+  bool get isReceived => isIncoming && isConnected;
+
+  // Missed (Incoming calls NOT answered by admin)
+  bool get isIncomingMissed => isIncoming && !isConnected;
+
   DateTime? get callTime => DateTime.tryParse(timestampIso)?.toLocal();
 
   String get formattedDuration {

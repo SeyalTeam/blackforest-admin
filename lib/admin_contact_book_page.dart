@@ -16,8 +16,9 @@ const String _chatApiBaseUrl = 'https://admin.theblackforestcakes.com/api';
 enum ContactBookTab {
   contacts,
   allCalls,
-  missed,
+  dialed,
   received,
+  missed,
 }
 
 class ContactItem {
@@ -47,6 +48,22 @@ class ContactItem {
     final userId = _relId(json['id'] ?? json['_id']);
     final employee = json['employee'];
     final employeeId = _relId(employee is Map ? (employee['id'] ?? employee['_id']) : employee) ?? userId;
+
+    // Filter out inactive or blocked employees
+    if (json['loginBlocked'] == true) return null;
+    if (json['status'] != null && json['status'].toString().trim().toLowerCase() == 'inactive') {
+      return null;
+    }
+    if (json['isActive'] == false || json['active'] == false) return null;
+    if (employee is Map) {
+      final empStatus = employee['status']?.toString().trim().toLowerCase();
+      if (empStatus != null && empStatus.isNotEmpty && empStatus != 'active') {
+        return null;
+      }
+      if (employee['isActive'] == false || employee['active'] == false) {
+        return null;
+      }
+    }
 
     String? name;
     if (employee is Map && employee['name'] != null && employee['name'].toString().trim().isNotEmpty) {
@@ -250,10 +267,13 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
     final q = _searchController.text.trim().toLowerCase();
     return _history.where((entry) {
       // Filter by tab
-      if (_activeTab == ContactBookTab.missed && !entry.isMissed) {
+      if (_activeTab == ContactBookTab.dialed && !entry.isDialed) {
         return false;
       }
-      if (_activeTab == ContactBookTab.received && !entry.isConnected) {
+      if (_activeTab == ContactBookTab.received && !entry.isReceived) {
+        return false;
+      }
+      if (_activeTab == ContactBookTab.missed && !entry.isIncomingMissed) {
         return false;
       }
       if (q.isEmpty) return true;
@@ -287,8 +307,9 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
 
   @override
   Widget build(BuildContext context) {
-    final missedCount = _history.where((e) => e.isMissed).length;
-    final receivedCount = _history.where((e) => e.isConnected).length;
+    final dialedCount = _history.where((e) => e.isDialed).length;
+    final receivedCount = _history.where((e) => e.isReceived).length;
+    final missedCount = _history.where((e) => e.isIncomingMissed).length;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
@@ -358,7 +379,7 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
       ),
       body: Column(
         children: [
-          // TOP SEGMENT BUTTONS: Contacts | Call History | Missed | Received
+          // TOP SEGMENT BUTTONS: Contacts | Call History | Dialed | Received | Missed
           Container(
             color: Colors.white,
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
@@ -381,11 +402,11 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
                   ),
                   const SizedBox(width: 8),
                   _buildTopTabButton(
-                    tab: ContactBookTab.missed,
-                    label: 'Missed',
-                    icon: Icons.call_missed_rounded,
-                    count: missedCount > 0 ? missedCount : null,
-                    countColor: Colors.redAccent,
+                    tab: ContactBookTab.dialed,
+                    label: 'Dialed',
+                    icon: Icons.call_made_rounded,
+                    count: dialedCount > 0 ? dialedCount : null,
+                    countColor: const Color(0xFF0284C7),
                   ),
                   const SizedBox(width: 8),
                   _buildTopTabButton(
@@ -394,6 +415,14 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
                     icon: Icons.call_received_rounded,
                     count: receivedCount > 0 ? receivedCount : null,
                     countColor: const Color(0xFF059669),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildTopTabButton(
+                    tab: ContactBookTab.missed,
+                    label: 'Missed',
+                    icon: Icons.call_missed_rounded,
+                    count: missedCount > 0 ? missedCount : null,
+                    countColor: Colors.redAccent,
                   ),
                 ],
               ),
@@ -779,11 +808,12 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(22),
                       onTap: () {
-                        Navigator.push(
+                        AdminChatPage.openThreadForStaff(
                           context,
-                          MaterialPageRoute(
-                            builder: (context) => const AdminChatPage(),
-                          ),
+                          userId: c.userId,
+                          employeeId: c.employeeId,
+                          name: c.name,
+                          role: c.role,
                         );
                       },
                       child: const Padding(
@@ -824,19 +854,23 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  _activeTab == ContactBookTab.missed
-                      ? Icons.phone_missed_rounded
-                      : Icons.phone_callback_rounded,
+                  _activeTab == ContactBookTab.dialed
+                      ? Icons.call_made_rounded
+                      : (_activeTab == ContactBookTab.missed
+                          ? Icons.phone_missed_rounded
+                          : Icons.phone_callback_rounded),
                   size: 56,
                   color: const Color(0xFF94A3B8),
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  _activeTab == ContactBookTab.missed
-                      ? 'No missed calls recorded'
-                      : (_activeTab == ContactBookTab.received
-                          ? 'No received calls recorded'
-                          : 'No call history yet'),
+                  _activeTab == ContactBookTab.dialed
+                      ? 'No dialed calls recorded'
+                      : (_activeTab == ContactBookTab.missed
+                          ? 'No missed calls recorded'
+                          : (_activeTab == ContactBookTab.received
+                              ? 'No received calls recorded'
+                              : 'No call history yet')),
                   style: const TextStyle(fontSize: 15, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 6),
@@ -894,13 +928,22 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
     IconData statusIcon;
     String statusText;
 
-    if (entry.isConnected) {
+    if (entry.isOutgoing) {
+      statusIcon = Icons.call_made_rounded;
+      if (entry.isConnected) {
+        statusColor = const Color(0xFF059669);
+        statusText = entry.durationSeconds > 0
+            ? 'Dialed • ${entry.formattedDuration}'
+            : 'Dialed • Answered';
+      } else {
+        statusColor = const Color(0xFF64748B);
+        statusText = 'Dialed • No Answer';
+      }
+    } else if (entry.isConnected) {
       statusColor = const Color(0xFF059669);
-      statusIcon = entry.isOutgoing
-          ? Icons.call_made_rounded
-          : Icons.call_received_rounded;
+      statusIcon = Icons.call_received_rounded;
       statusText = entry.durationSeconds > 0
-          ? 'Connected • ${entry.formattedDuration}'
+          ? 'Answered • ${entry.formattedDuration}'
           : 'Answered';
     } else if (entry.isDeclined) {
       statusColor = Colors.red.shade700;
@@ -927,7 +970,9 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         leading: CircleAvatar(
           radius: 20,
-          backgroundColor: statusColor.withValues(alpha: 0.12),
+          backgroundColor: entry.isDialed && !entry.isConnected
+              ? const Color(0xFFF1F5F9)
+              : statusColor.withValues(alpha: 0.12),
           child: Icon(statusIcon, color: statusColor, size: 20),
         ),
         title: Row(

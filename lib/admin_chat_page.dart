@@ -39,7 +39,36 @@ const List<String> _chatAttachmentExtensions = <String>[
 
 class AdminChatPage extends StatefulWidget {
   final bool isEmbedded;
-  const AdminChatPage({super.key, this.isEmbedded = false});
+  final String? targetStaffUserId;
+  const AdminChatPage({
+    super.key,
+    this.isEmbedded = false,
+    this.targetStaffUserId,
+  });
+
+  /// Opens chat thread directly for a specific employee
+  static Future<void> openThreadForStaff(
+    BuildContext context, {
+    required String userId,
+    required String employeeId,
+    required String name,
+    required String role,
+  }) async {
+    final employee = _ChatEmployee(
+      userId: userId,
+      employeeId: employeeId,
+      employeeName: name,
+      role: role,
+    );
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => _EmployeeChatThreadPage(
+          employee: employee,
+        ),
+      ),
+    );
+  }
 
   @override
   State<AdminChatPage> createState() => _AdminChatPageState();
@@ -50,6 +79,7 @@ class _AdminChatPageState extends State<AdminChatPage> {
 
   bool _isLoading = true;
   bool _isRefreshing = false;
+  bool _didAutoOpenTarget = false;
   String? _loadError;
   List<_ChatEmployee> _employees = const [];
 
@@ -138,6 +168,24 @@ class _AdminChatPageState extends State<AdminChatPage> {
       setState(() {
         _employees = employees;
       });
+
+      if (widget.targetStaffUserId != null &&
+          widget.targetStaffUserId!.isNotEmpty &&
+          !_didAutoOpenTarget) {
+        _didAutoOpenTarget = true;
+        final match = employees.where(
+          (e) =>
+              e.userId == widget.targetStaffUserId ||
+              e.employeeId == widget.targetStaffUserId,
+        ).toList();
+        if (match.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _openThread(match.first);
+            }
+          });
+        }
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
