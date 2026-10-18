@@ -453,8 +453,9 @@ class _LiveCallScreenState extends State<LiveCallScreen>
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _ControlCircleButton extends StatelessWidget {
