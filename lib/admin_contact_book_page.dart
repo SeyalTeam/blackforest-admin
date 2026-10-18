@@ -41,8 +41,13 @@ class ContactItem {
   });
 
   bool get isWaiter => role.trim().toLowerCase() == 'waiter';
+  bool get isSupervisor => role.trim().toLowerCase() == 'supervisor';
+  bool get isCashier => role.trim().toLowerCase() == 'cashier';
+  bool get isKitchen => role.trim().toLowerCase() == 'kitchen' || role.trim().toLowerCase() == 'chef';
+  bool get isDriver => role.trim().toLowerCase() == 'driver';
+  bool get isManager => role.trim().toLowerCase() == 'manager' || role.trim().toLowerCase() == 'branch manager';
 
-  static ContactItem? fromJson(dynamic json) {
+  static ContactItem? fromJson(dynamic json, {String? branchOverride}) {
     if (json is! Map<String, dynamic>) return null;
 
     final userId = _relId(json['id'] ?? json['_id']);
@@ -83,7 +88,9 @@ class ContactItem {
     phone ??= json['phone']?.toString().trim() ?? json['mobile']?.toString().trim();
 
     String? branch;
-    if (employee is Map && employee['branch'] != null) {
+    if (branchOverride != null && branchOverride.trim().isNotEmpty) {
+      branch = branchOverride.trim();
+    } else if (employee is Map && employee['branch'] != null) {
       final b = employee['branch'];
       branch = b is Map ? b['name']?.toString() : b.toString();
     } else if (json['branch'] != null) {
@@ -180,6 +187,73 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
         throw Exception('Session expired. Please log in again.');
       }
 
+      final prefs = await SharedPreferences.getInstance();
+      final myUserId = (prefs.getString('user_id') ?? prefs.getString('userId'))?.trim() ?? '';
+      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+      // 1. Fetch today's attendances to identify live punched-in staff
+      final activePunchedInUserIds = <String>{};
+      final userPunchedInBranchNameMap = <String, String>{};
+
+      try {
+        final attUrl = Uri.parse(
+          '$_chatApiBaseUrl/attendance?where[dateString][equals]=$today&limit=500&depth=1',
+        );
+        final attRes = await http.get(
+          attUrl,
+          headers: {'Authorization': 'Bearer $token'},
+        );
+
+        if (attRes.statusCode == 200) {
+          final attData = jsonDecode(utf8.decode(attRes.bodyBytes));
+          final attDocs = (attData is Map ? attData['docs'] : null) as List? ?? [];
+
+          for (final doc in attDocs) {
+            if (doc is! Map) continue;
+            final uId = ContactItem._relId(doc['user']);
+            final empId = ContactItem._relId(doc['employee']);
+            String? branchName;
+            if (doc['loginBranch'] is Map) {
+              branchName = doc['loginBranch']['name']?.toString().trim();
+            }
+
+            final activities = (doc['activities'] as List?) ?? [];
+            final sessions = activities.where((a) {
+              if (a is! Map) return false;
+              final type = a['type']?.toString();
+              return type == null || type == 'session';
+            }).toList();
+
+            bool isCurrentlyPunchedIn = false;
+            if (sessions.isNotEmpty) {
+              final lastSession = sessions.last as Map;
+              final status = lastSession['status']?.toString().toLowerCase();
+              final punchOut = lastSession['punchOut'];
+              final hasNoPunchOut = punchOut == null || punchOut.toString().trim().isEmpty;
+              isCurrentlyPunchedIn = (status != 'closed') && hasNoPunchOut;
+            }
+
+            if (isCurrentlyPunchedIn) {
+              if (uId != null && uId.isNotEmpty) {
+                activePunchedInUserIds.add(uId);
+                if (branchName != null && branchName.isNotEmpty) {
+                  userPunchedInBranchNameMap[uId] = branchName;
+                }
+              }
+              if (empId != null && empId.isNotEmpty) {
+                activePunchedInUserIds.add(empId);
+                if (branchName != null && branchName.isNotEmpty) {
+                  userPunchedInBranchNameMap[empId] = branchName;
+                }
+              }
+            }
+          }
+        }
+      } catch (attErr) {
+        debugPrint('AdminContactBookPage: error fetching attendance: $attErr');
+      }
+
+      // 2. Fetch all staff users
       final res = await http.get(
         Uri.parse('$_chatApiBaseUrl/users?limit=3000&depth=1&sort=name'),
         headers: {'Authorization': 'Bearer $token'},
@@ -194,7 +268,24 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
 
       final list = <ContactItem>[];
       for (final doc in docs) {
-        final c = ContactItem.fromJson(doc);
+        if (doc is! Map) continue;
+        final uId = ContactItem._relId(doc['id'] ?? doc['_id']);
+        final empId = ContactItem._relId(
+          doc['employee'] is Map ? doc['employee']['id'] ?? doc['employee']['_id'] : doc['employee'],
+        );
+
+        if (uId == null || (myUserId.isNotEmpty && uId == myUserId)) continue;
+
+        // REQUIREMENT: ONLY SHOW STAFF WHO ARE CURRENTLY PUNCHED IN!
+        // If they did not punch in or if they have punched out, DO NOT SHOW THEM (they left the branch)
+        final isPunchedIn = activePunchedInUserIds.contains(uId) ||
+            (empId != null && activePunchedInUserIds.contains(empId));
+        if (!isPunchedIn) continue;
+
+        final branchOverride = userPunchedInBranchNameMap[uId] ??
+            (empId != null ? userPunchedInBranchNameMap[empId] : null);
+
+        final c = ContactItem.fromJson(doc, branchOverride: branchOverride);
         if (c != null) {
           list.add(c);
         }
@@ -251,9 +342,16 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
   List<ContactItem> get _filteredContacts {
     final q = _searchController.text.trim().toLowerCase();
     return _contacts.where((c) {
-      if (_selectedRoleFilter != 'ALL' &&
-          c.role.trim().toUpperCase() != _selectedRoleFilter.toUpperCase()) {
-        return false;
+      if (_selectedRoleFilter != 'ALL') {
+        final r = c.role.trim().toUpperCase();
+        final f = _selectedRoleFilter.toUpperCase();
+        if (f == 'KITCHEN') {
+          if (r != 'KITCHEN' && r != 'CHEF') return false;
+        } else if (f == 'MANAGER') {
+          if (r != 'MANAGER' && r != 'BRANCH MANAGER' && r != 'ADMIN') return false;
+        } else if (r != f) {
+          return false;
+        }
       }
       if (q.isEmpty) return true;
       return c.name.toLowerCase().contains(q) ||
@@ -474,7 +572,9 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
                         _buildRoleChip('ALL', 'All'),
                         _buildRoleChip('WAITER', 'Waiters'),
                         _buildRoleChip('CASHIER', 'Cashiers'),
+                        _buildRoleChip('SUPERVISOR', 'Supervisors'),
                         _buildRoleChip('KITCHEN', 'Kitchen'),
+                        _buildRoleChip('DRIVER', 'Drivers'),
                         _buildRoleChip('MANAGER', 'Managers'),
                       ],
                     ),
@@ -603,6 +703,61 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
     );
   }
 
+  Color _roleBgColor(String role) {
+    final r = role.trim().toLowerCase();
+    if (r == 'waiter') return const Color(0xFFDCFCE7);
+    if (r == 'supervisor') return const Color(0xFFEDE9FE);
+    if (r == 'driver') return const Color(0xFFFEF3C7);
+    if (r == 'cashier') return const Color(0xFFE0F2FE);
+    if (r == 'kitchen' || r == 'chef') return const Color(0xFFFFEDD5);
+    if (r == 'manager' || r == 'branch manager') return const Color(0xFFFCE7F3);
+    return const Color(0xFFF1F5F9);
+  }
+
+  Color _roleTextColor(String role) {
+    final r = role.trim().toLowerCase();
+    if (r == 'waiter') return const Color(0xFF15803D);
+    if (r == 'supervisor') return const Color(0xFF6D28D9);
+    if (r == 'driver') return const Color(0xFFB45309);
+    if (r == 'cashier') return const Color(0xFF0369A1);
+    if (r == 'kitchen' || r == 'chef') return const Color(0xFFC2410C);
+    if (r == 'manager' || r == 'branch manager') return const Color(0xFFBE185D);
+    return const Color(0xFF475569);
+  }
+
+  Color _roleBorderColor(String role) {
+    final r = role.trim().toLowerCase();
+    if (r == 'waiter') return const Color(0xFF86EFAC);
+    if (r == 'supervisor') return const Color(0xFFDDD6FE);
+    if (r == 'driver') return const Color(0xFFFDE68A);
+    if (r == 'cashier') return const Color(0xFFBAE6FD);
+    if (r == 'kitchen' || r == 'chef') return const Color(0xFFFED7AA);
+    if (r == 'manager' || r == 'branch manager') return const Color(0xFFFBCFE8);
+    return const Color(0xFFCBD5E1);
+  }
+
+  Color _avatarBgColor(String role) {
+    final r = role.trim().toLowerCase();
+    if (r == 'waiter') return const Color(0xFFEAF8F1);
+    if (r == 'supervisor') return const Color(0xFFF3E8FF);
+    if (r == 'driver') return const Color(0xFFFEF3C7);
+    if (r == 'cashier') return const Color(0xFFE0F2FE);
+    if (r == 'kitchen' || r == 'chef') return const Color(0xFFFFEDD5);
+    if (r == 'manager' || r == 'branch manager') return const Color(0xFFFCE7F3);
+    return const Color(0xFFF1F5F9);
+  }
+
+  Color _avatarTextColor(String role) {
+    final r = role.trim().toLowerCase();
+    if (r == 'waiter') return const Color(0xFF059669);
+    if (r == 'supervisor') return const Color(0xFF7C3AED);
+    if (r == 'driver') return const Color(0xFFD97706);
+    if (r == 'cashier') return const Color(0xFF0284C7);
+    if (r == 'kitchen' || r == 'chef') return const Color(0xFFEA580C);
+    if (r == 'manager' || r == 'branch manager') return const Color(0xFFDB2777);
+    return const Color(0xFF475569);
+  }
+
   // CONTACTS LIST
   Widget _buildContactsList() {
     if (_isLoadingContacts) {
@@ -649,7 +804,9 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
             const SizedBox(height: 12),
             Text(
               _searchController.text.isEmpty
-                  ? 'No contacts found'
+                  ? (_selectedRoleFilter == 'ALL'
+                      ? 'No employees are currently punched in'
+                      : 'No $_selectedRoleFilter staff currently punched in')
                   : 'No contacts match "${_searchController.text}"',
               style: const TextStyle(fontSize: 15, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
             ),
@@ -666,7 +823,6 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
         separatorBuilder: (_, __) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           final c = contacts[index];
-          final isWaiter = c.isWaiter;
 
           return Container(
             decoration: BoxDecoration(
@@ -685,12 +841,8 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               leading: CircleAvatar(
                 radius: 22,
-                backgroundColor: isWaiter
-                    ? const Color(0xFFEAF8F1)
-                    : const Color(0xFFE0F2FE),
-                foregroundColor: isWaiter
-                    ? const Color(0xFF059669)
-                    : const Color(0xFF0284C7),
+                backgroundColor: _avatarBgColor(c.role),
+                foregroundColor: _avatarTextColor(c.role),
                 child: Text(
                   c.name.isNotEmpty ? c.name[0].toUpperCase() : '?',
                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
@@ -714,14 +866,10 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
-                      color: isWaiter
-                          ? const Color(0xFFDCFCE7)
-                          : const Color(0xFFF1F5F9),
+                      color: _roleBgColor(c.role),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                        color: isWaiter
-                            ? const Color(0xFF86EFAC)
-                            : const Color(0xFFCBD5E1),
+                        color: _roleBorderColor(c.role),
                       ),
                     ),
                     child: Text(
@@ -729,9 +877,7 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
-                        color: isWaiter
-                            ? const Color(0xFF15803D)
-                            : const Color(0xFF475569),
+                        color: _roleTextColor(c.role),
                         letterSpacing: 0.4,
                       ),
                     ),
@@ -771,31 +917,17 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
                 children: [
                   // DIRECT CALL BUTTON
                   Material(
-                    color: isWaiter
-                        ? const Color(0xFF10B981)
-                        : Colors.grey.shade300,
+                    color: const Color(0xFF10B981),
                     borderRadius: BorderRadius.circular(22),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(22),
-                      onTap: () {
-                        if (isWaiter) {
-                          _initiateCall(c.userId, c.name, c.role);
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Live calling is active for Waiters. (${c.name} is ${c.role})'),
-                              behavior: SnackBarBehavior.floating,
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(9),
+                      onTap: () => _initiateCall(c.userId, c.name, c.role),
+                      child: const Padding(
+                        padding: EdgeInsets.all(9),
                         child: Icon(
                           Icons.call_rounded,
                           size: 19,
-                          color: isWaiter ? Colors.white : Colors.grey.shade600,
+                          color: Colors.white,
                         ),
                       ),
                     ),
