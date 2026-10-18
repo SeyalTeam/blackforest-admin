@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'admin_call_history_service.dart';
 import 'admin_chat_page.dart';
 import 'live_call_screen.dart';
+import 'live_call_service.dart';
 
 const String _chatApiBaseUrl = 'https://admin.theblackforestcakes.com/api';
 
@@ -122,6 +123,7 @@ class _AdminContactBookPageState extends State<AdminContactBookPage> {
   @override
   void initState() {
     super.initState();
+    LiveCallService.instance.connectSocket();
     _activeTab = widget.initialTab;
     _loadContacts();
     _loadHistory();

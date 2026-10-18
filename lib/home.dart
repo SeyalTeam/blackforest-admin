@@ -20,6 +20,7 @@ import 'inventory_report.dart';
 import 'categorywise_report.dart';
 import 'productwise_report.dart';
 import 'kitchen_order.dart';
+import 'live_call_service.dart';
 import 'widgets/app_drawer.dart';
 
 class ReportModule {
@@ -228,6 +229,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    LiveCallService.instance.connectSocket();
     _fetchDashboardData();
   }
 
