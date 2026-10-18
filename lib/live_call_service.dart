@@ -654,18 +654,20 @@ class LiveCallService extends ChangeNotifier {
           break;
 
         case 'user_offline':
-          _stopRingtone();
-          _status = CallStatus.offline;
-          _errorMessage = data['message']?.toString() ?? 'Waiter is offline';
-          notifyListeners();
-          if (_currentCallId != null) {
-            AdminCallHistoryService.updateCallEnded(
-              callId: _currentCallId!,
-              status: 'offline',
-              durationSeconds: 0,
-            );
+          if (!_isIncoming && (_currentCallId == callId || _status == CallStatus.connecting || _status == CallStatus.ringing)) {
+            _stopRingtone();
+            _status = CallStatus.offline;
+            _errorMessage = data['message']?.toString() ?? 'Staff is offline';
+            notifyListeners();
+            if (_currentCallId != null) {
+              AdminCallHistoryService.updateCallEnded(
+                callId: _currentCallId!,
+                status: 'offline',
+                durationSeconds: 0,
+              );
+            }
+            _scheduleAutoCleanup();
           }
-          _scheduleAutoCleanup();
           break;
 
         case 'busy':
