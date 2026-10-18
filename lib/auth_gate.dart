@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'login.dart';
 import 'home.dart';
 import 'kitchen_order.dart';
+import 'live_call_service.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -26,6 +27,10 @@ class _AuthGateState extends State<AuthGate> {
     const storage = FlutterSecureStorage();
     final token = await storage.read(key: 'token');
     final role = await storage.read(key: 'role');
+
+    if (token != null && token.isNotEmpty) {
+      LiveCallService.instance.connectSocket();
+    }
 
     // If token exists, trust it and proceed (offline-friendly)
     if (mounted) {

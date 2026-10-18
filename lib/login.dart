@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home.dart';
 import 'kitchen_order.dart'; // ADDED: Import for KitchenOrderPage
+import 'live_call_service.dart';
 
 class IdleTimeoutWrapper extends StatefulWidget {
   final Widget child;
@@ -140,6 +141,7 @@ class _LoginPageState extends State<LoginPage> {
         await prefs.setString('token', token);
         await prefs.setString('email', fullEmail);
         await prefs.setString('role', normalizedRole);
+        LiveCallService.instance.connectSocket();
         if (mounted) {
           Widget targetPage;
           if (role == 'kitchen') {

@@ -2,12 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as io;
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'admin_call_history_service.dart';
+import 'live_call_screen.dart';
 
 enum CallStatus {
   idle,
@@ -29,6 +32,19 @@ class LiveCallService extends ChangeNotifier {
     'admin.theblackforestcakes.com',
   ];
   static const String _wsPath = '/ws/v1';
+
+  GlobalKey<NavigatorState>? _navigatorKey;
+  void init(GlobalKey<NavigatorState> navKey) {
+    _navigatorKey = navKey;
+    connectSocket();
+  }
+
+  final AudioPlayer _ringtonePlayer = AudioPlayer();
+  Timer? _reconnectTimer;
+
+  bool _isIncoming = false;
+  bool get isIncoming => _isIncoming;
+  dynamic _pendingOfferSdp;
 
   String? _activeWsHost;
   String? get activeWsHost => _activeWsHost;
@@ -79,6 +95,66 @@ class LiveCallService extends ChangeNotifier {
     ],
     'sdpSemantics': 'unified-plan',
   };
+
+  Future<void> _startRingtone() async {
+    try {
+      await _ringtonePlayer.setReleaseMode(ReleaseMode.loop);
+      await _ringtonePlayer.play(AssetSource('sounds/table.mp3'));
+    } catch (e) {
+      debugPrint('LiveCallService: error playing ringtone: $e');
+    }
+  }
+
+  Future<void> _stopRingtone() async {
+    try {
+      await _ringtonePlayer.stop();
+      await _ringtonePlayer.release();
+    } catch (_) {}
+  }
+
+  void _showIncomingCallScreen({
+    required String waiterUserId,
+    required String waiterName,
+  }) {
+    void push() {
+      final context = _navigatorKey?.currentContext;
+      if (context == null) {
+        debugPrint('LiveCallService: context is null, retrying incoming screen in 250ms...');
+        Future.delayed(const Duration(milliseconds: 250), () {
+          if (_status == CallStatus.ringing && _isIncoming) {
+            _showIncomingCallScreen(
+              waiterUserId: waiterUserId,
+              waiterName: waiterName,
+            );
+          }
+        });
+        return;
+      }
+
+      bool isAlreadyOnScreen = false;
+      Navigator.of(context).popUntil((route) {
+        if (route.settings.name == 'admin_live_call_screen') {
+          isAlreadyOnScreen = true;
+        }
+        return true;
+      });
+
+      if (!isAlreadyOnScreen) {
+        _navigatorKey?.currentState?.push(
+          MaterialPageRoute(
+            settings: const RouteSettings(name: 'admin_live_call_screen'),
+            builder: (ctx) => LiveCallScreen(
+              waiterUserId: waiterUserId,
+              waiterName: waiterName,
+              isIncoming: true,
+            ),
+          ),
+        );
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => push());
+  }
 
   Future<String?> _readToken() async {
     try {
@@ -157,6 +233,18 @@ class LiveCallService extends ChangeNotifier {
       _socket?.close();
     } catch (_) {}
     _socket = null;
+    _scheduleReconnect();
+  }
+
+  void _scheduleReconnect() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(const Duration(seconds: 4), () async {
+      final token = await _readToken();
+      if (token != null && token.isNotEmpty && (_socket == null || _socket!.readyState != io.WebSocket.open)) {
+        debugPrint('LiveCallService: auto-reconnecting socket in background...');
+        connectSocket();
+      }
+    });
   }
 
   void _sendSocketMessage(Map<String, dynamic> msg) {
@@ -176,6 +264,8 @@ class LiveCallService extends ChangeNotifier {
     required String waiterUserId,
     required String waiterName,
   }) async {
+    await _stopRingtone();
+    _isIncoming = false;
     _status = CallStatus.connecting;
     _errorMessage = null;
     _targetUserId = waiterUserId;
@@ -193,6 +283,7 @@ class LiveCallService extends ChangeNotifier {
       userId: waiterUserId,
       name: waiterName,
       role: 'Waiter',
+      direction: 'outgoing',
     );
 
     final connected = await connectSocket();
@@ -282,6 +373,125 @@ class LiveCallService extends ChangeNotifier {
     }
   }
 
+  Future<void> acceptIncomingCall() async {
+    await _stopRingtone();
+    _status = CallStatus.connecting;
+    _isSpeakerOn = false;
+    notifyListeners();
+
+    try {
+      _peerConnection = await createPeerConnection(_iceConfig);
+
+      final constraints = <String, dynamic>{
+        'audio': {
+          'echoCancellation': true,
+          'noiseSuppression': true,
+          'autoGainControl': true,
+        },
+        'video': false,
+      };
+
+      _localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      for (final track in _localStream!.getAudioTracks()) {
+        await _peerConnection!.addTrack(track, _localStream!);
+      }
+
+      _peerConnection!.onIceCandidate = (candidate) {
+        if (candidate.candidate != null && _targetUserId != null) {
+          _sendSocketMessage({
+            'action': 'call_signal',
+            'callId': _currentCallId,
+            'signalType': 'ice_candidate',
+            'targetUserId': _targetUserId,
+            'candidate': {
+              'candidate': candidate.candidate,
+              'sdpMid': candidate.sdpMid,
+              'sdpMLineIndex': candidate.sdpMLineIndex,
+            },
+          });
+        }
+      };
+
+      _peerConnection!.onTrack = (event) {
+        if (event.streams.isNotEmpty) {
+          _remoteStream = event.streams[0];
+          _applyAudioRouting();
+          notifyListeners();
+        }
+      };
+
+      _peerConnection!.onConnectionState = (state) {
+        debugPrint('LiveCallService: incoming peer connection state: $state');
+        if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+          _onConnected();
+        } else if (state ==
+                RTCPeerConnectionState.RTCPeerConnectionStateDisconnected ||
+            state == RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
+            state == RTCPeerConnectionState.RTCPeerConnectionStateClosed) {
+          if (_status == CallStatus.connected) {
+            endCall();
+          }
+        }
+      };
+
+      if (_pendingOfferSdp != null) {
+        final sdpMap = _pendingOfferSdp is Map
+            ? Map<String, dynamic>.from(_pendingOfferSdp)
+            : jsonDecode(_pendingOfferSdp.toString());
+        final description = RTCSessionDescription(
+          sdpMap['sdp']?.toString() ?? '',
+          sdpMap['type']?.toString() ?? 'offer',
+        );
+        await _peerConnection!.setRemoteDescription(description);
+
+        final answer = await _peerConnection!.createAnswer({
+          'offerToReceiveAudio': 1,
+          'offerToReceiveVideo': 0,
+        });
+        await _peerConnection!.setLocalDescription(answer);
+
+        _sendSocketMessage({
+          'action': 'call_signal',
+          'callId': _currentCallId,
+          'signalType': 'answer',
+          'targetUserId': _targetUserId,
+          'sdp': answer.toMap(),
+        });
+
+        _onConnected();
+      }
+    } catch (e) {
+      debugPrint('LiveCallService: error answering call: $e');
+      _status = CallStatus.error;
+      _errorMessage = 'Could not answer call: $e';
+      notifyListeners();
+      await _cleanupWebrtc();
+    }
+  }
+
+  Future<void> declineIncomingCall() async {
+    await _stopRingtone();
+    if (_targetUserId != null && _currentCallId != null) {
+      _sendSocketMessage({
+        'action': 'call_signal',
+        'callId': _currentCallId,
+        'signalType': 'reject',
+        'targetUserId': _targetUserId,
+        'reason': 'Declined by Admin',
+      });
+    }
+    if (_currentCallId != null) {
+      AdminCallHistoryService.updateCallEnded(
+        callId: _currentCallId!,
+        status: 'declined',
+        durationSeconds: 0,
+      );
+    }
+    _status = CallStatus.declined;
+    notifyListeners();
+    _scheduleAutoCleanup();
+  }
+
   void _handleIncomingSocketFrame(dynamic frame) {
     try {
       Map<String, dynamic>? data;
@@ -293,10 +503,63 @@ class LiveCallService extends ChangeNotifier {
       if (data == null) return;
 
       final eventType = data['eventType']?.toString();
-      if (eventType != 'call_signal') return;
+      final action = data['action']?.toString();
+      if (eventType != 'call_signal' && action != 'call_signal') return;
 
       final signalType = data['signalType']?.toString();
       final callId = data['callId']?.toString();
+      final senderId = data['senderId']?.toString() ?? data['userId']?.toString();
+      final senderName = data['senderName']?.toString() ?? data['callerName']?.toString() ?? 'Waiter';
+
+      if (signalType == 'offer') {
+        if (_status != CallStatus.idle) {
+          if (senderId != null) {
+            _sendSocketMessage({
+              'action': 'call_signal',
+              'callId': callId,
+              'signalType': 'busy',
+              'targetUserId': senderId,
+            });
+          }
+          return;
+        }
+
+        _isIncoming = true;
+        _currentCallId = callId ?? 'call_${DateTime.now().millisecondsSinceEpoch}';
+        _targetUserId = senderId;
+        _targetUserName = senderName;
+        _pendingOfferSdp = data['sdp'];
+        _status = CallStatus.ringing;
+        _durationSeconds = 0;
+        _isMuted = false;
+        _isSpeakerOn = false;
+        notifyListeners();
+
+        if (senderId != null) {
+          _sendSocketMessage({
+            'action': 'call_signal',
+            'callId': _currentCallId,
+            'signalType': 'ringing',
+            'targetUserId': senderId,
+          });
+        }
+
+        _startRingtone();
+
+        AdminCallHistoryService.recordCallStarted(
+          callId: _currentCallId!,
+          userId: senderId ?? 'unknown',
+          name: senderName,
+          role: 'Waiter',
+          direction: 'incoming',
+        );
+
+        _showIncomingCallScreen(
+          waiterUserId: senderId ?? '',
+          waiterName: senderName,
+        );
+        return;
+      }
 
       if (_currentCallId != null && callId != null && _currentCallId != callId) {
         return;
@@ -304,7 +567,7 @@ class LiveCallService extends ChangeNotifier {
 
       switch (signalType) {
         case 'ringing':
-          if (_status == CallStatus.connecting) {
+          if (_status == CallStatus.connecting && !_isIncoming) {
             _status = CallStatus.ringing;
             notifyListeners();
           }
@@ -319,6 +582,7 @@ class LiveCallService extends ChangeNotifier {
           break;
 
         case 'reject':
+          _stopRingtone();
           _status = CallStatus.declined;
           _errorMessage = data['reason']?.toString() ?? 'Call declined';
           notifyListeners();
@@ -333,6 +597,7 @@ class LiveCallService extends ChangeNotifier {
           break;
 
         case 'user_offline':
+          _stopRingtone();
           _status = CallStatus.offline;
           _errorMessage = data['message']?.toString() ?? 'Waiter is offline';
           notifyListeners();
@@ -347,6 +612,7 @@ class LiveCallService extends ChangeNotifier {
           break;
 
         case 'busy':
+          _stopRingtone();
           _status = CallStatus.busy;
           _errorMessage = 'Waiter is on another call';
           notifyListeners();
@@ -361,12 +627,16 @@ class LiveCallService extends ChangeNotifier {
           break;
 
         case 'end':
+          _stopRingtone();
+          final wasRinging = _status == CallStatus.ringing;
           _status = CallStatus.ended;
           notifyListeners();
           if (_currentCallId != null) {
             AdminCallHistoryService.updateCallEnded(
               callId: _currentCallId!,
-              status: _durationSeconds > 0 ? 'connected' : 'missed',
+              status: _durationSeconds > 0
+                  ? 'connected'
+                  : (wasRinging ? 'missed' : 'ended'),
               durationSeconds: _durationSeconds,
             );
           }
@@ -470,6 +740,7 @@ class LiveCallService extends ChangeNotifier {
   }
 
   Future<void> endCall() async {
+    await _stopRingtone();
     if (_targetUserId != null && _currentCallId != null) {
       _sendSocketMessage({
         'action': 'call_signal',
@@ -497,8 +768,11 @@ class LiveCallService extends ChangeNotifier {
   }
 
   Future<void> _cleanupWebrtc() async {
+    await _stopRingtone();
     _durationTimer?.cancel();
     _durationTimer = null;
+    _pendingOfferSdp = null;
+    _isIncoming = false;
 
     try {
       await Helper.setSpeakerphoneOn(false);

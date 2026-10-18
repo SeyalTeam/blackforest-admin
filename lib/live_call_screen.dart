@@ -6,12 +6,14 @@ class LiveCallScreen extends StatefulWidget {
   final String waiterUserId;
   final String waiterName;
   final String waiterRole;
+  final bool isIncoming;
 
   const LiveCallScreen({
     super.key,
     required this.waiterUserId,
     required this.waiterName,
     this.waiterRole = 'Waiter',
+    this.isIncoming = false,
   });
 
   @override
@@ -35,12 +37,14 @@ class _LiveCallScreenState extends State<LiveCallScreen>
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _callService.startCall(
-        waiterUserId: widget.waiterUserId,
-        waiterName: widget.waiterName,
-      );
-    });
+    if (!widget.isIncoming) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _callService.startCall(
+          waiterUserId: widget.waiterUserId,
+          waiterName: widget.waiterName,
+        );
+      });
+    }
   }
 
   @override
@@ -71,10 +75,13 @@ class _LiveCallScreenState extends State<LiveCallScreen>
   }
 
   String _getStatusText() {
+    if (widget.isIncoming && _callService.status == CallStatus.ringing) {
+      return 'Incoming Call from Waiter...';
+    }
     switch (_callService.status) {
       case CallStatus.idle:
       case CallStatus.connecting:
-        return 'Calling...';
+        return widget.isIncoming ? 'Connecting...' : 'Calling...';
       case CallStatus.ringing:
         return 'Ringing...';
       case CallStatus.connected:
@@ -111,9 +118,23 @@ class _LiveCallScreenState extends State<LiveCallScreen>
   Widget build(BuildContext context) {
     final status = _callService.status;
     final isConnected = status == CallStatus.connected;
+    final isIncomingRinging = widget.isIncoming && status == CallStatus.ringing;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F1A20),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final nav = Navigator.of(context);
+        if (isIncomingRinging) {
+          await _callService.declineIncomingCall();
+          if (nav.canPop()) nav.pop();
+        } else {
+          await _callService.endCall();
+          if (nav.canPop()) nav.pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0F1A20),
       body: SafeArea(
         child: Column(
           children: [
@@ -264,77 +285,169 @@ class _LiveCallScreenState extends State<LiveCallScreen>
                 borderRadius: BorderRadius.circular(32),
                 border: Border.all(color: Colors.white10),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // Speakerphone Toggle
-                  _ControlCircleButton(
-                    icon: _callService.isSpeakerOn
-                        ? Icons.volume_up
-                        : Icons.volume_down_outlined,
-                    label: 'Speaker',
-                    isActive: _callService.isSpeakerOn,
-                    onTap: _callService.status == CallStatus.connected
-                        ? _callService.toggleSpeaker
-                        : null,
-                  ),
-
-                  // Mic Mute Toggle
-                  _ControlCircleButton(
-                    icon: _callService.isMuted ? Icons.mic_off : Icons.mic,
-                    label: _callService.isMuted ? 'Muted' : 'Mute',
-                    isActive: _callService.isMuted,
-                    activeColor: Colors.amber,
-                    onTap: _callService.status == CallStatus.connected
-                        ? _callService.toggleMute
-                        : null,
-                  ),
-
-                  // End Call Button
-                  GestureDetector(
-                    onTap: () {
-                      _callService.endCall();
-                      if (Navigator.of(context).canPop()) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+              child: isIncomingRinging
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        Container(
-                          width: 58,
-                          height: 58,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.redAccent,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.redAccent,
-                                blurRadius: 10,
-                                spreadRadius: 1,
+                        // Decline Call Button
+                        GestureDetector(
+                          onTap: () async {
+                            final nav = Navigator.of(context);
+                            await _callService.declineIncomingCall();
+                            if (nav.canPop()) {
+                              nav.pop();
+                            }
+                          },
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 58,
+                                height: 58,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.redAccent,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.redAccent,
+                                      blurRadius: 10,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.call_end,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'Decline',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ],
                           ),
-                          child: const Icon(
-                            Icons.call_end,
-                            color: Colors.white,
-                            size: 28,
+                        ),
+
+                        // Answer Call Button
+                        GestureDetector(
+                          onTap: () async {
+                            await _callService.acceptIncomingCall();
+                          },
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 58,
+                                height: 58,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Color(0xFF25D366),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Color(0xFF25D366),
+                                      blurRadius: 10,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.call,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'Answer',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'End',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white70,
-                            fontWeight: FontWeight.w500,
+                      ],
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        // Speakerphone Toggle
+                        _ControlCircleButton(
+                          icon: _callService.isSpeakerOn
+                              ? Icons.volume_up
+                              : Icons.volume_down_outlined,
+                          label: 'Speaker',
+                          isActive: _callService.isSpeakerOn,
+                          onTap: _callService.status == CallStatus.connected
+                              ? _callService.toggleSpeaker
+                              : null,
+                        ),
+
+                        // Mic Mute Toggle
+                        _ControlCircleButton(
+                          icon: _callService.isMuted ? Icons.mic_off : Icons.mic,
+                          label: _callService.isMuted ? 'Muted' : 'Mute',
+                          isActive: _callService.isMuted,
+                          activeColor: Colors.amber,
+                          onTap: _callService.status == CallStatus.connected
+                              ? _callService.toggleMute
+                              : null,
+                        ),
+
+                        // End Call Button
+                        GestureDetector(
+                          onTap: () async {
+                            final nav = Navigator.of(context);
+                            await _callService.endCall();
+                            if (nav.canPop()) {
+                              nav.pop();
+                            }
+                          },
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 58,
+                                height: 58,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.redAccent,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.redAccent,
+                                      blurRadius: 10,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.call_end,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'End',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
             ),
             const SizedBox(height: 8),
           ],
