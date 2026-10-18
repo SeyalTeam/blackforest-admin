@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io' as io;
 
 import 'package:audioplayers/audioplayers.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -172,6 +171,59 @@ class LiveCallService extends ChangeNotifier {
       }
     } catch (_) {}
     return null;
+  }
+
+  String? _extractUserIdFromJwt(String? token) {
+    if (token == null || token.isEmpty) return null;
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      var payload = parts[1];
+      while (payload.length % 4 != 0) {
+        payload += '=';
+      }
+      final decodedJson = jsonDecode(utf8.decode(base64Url.decode(payload)));
+      return (decodedJson['id'] ?? decodedJson['_id'] ?? decodedJson['sub'] ?? decodedJson['userId'])?.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> _readUserId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final id = prefs.getString('user_id') ?? prefs.getString('userId');
+      if (id != null && id.trim().isNotEmpty) return id.trim();
+    } catch (_) {}
+    try {
+      const storage = FlutterSecureStorage();
+      final id = await storage.read(key: 'user_id');
+      if (id != null && id.trim().isNotEmpty) return id.trim();
+    } catch (_) {}
+    try {
+      final token = await _readToken();
+      final id = _extractUserIdFromJwt(token);
+      if (id != null && id.trim().isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_id', id.trim());
+        return id.trim();
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<String?> _readUserName() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final name = prefs.getString('user_name') ?? prefs.getString('userName');
+      if (name != null && name.trim().isNotEmpty) return name.trim();
+    } catch (_) {}
+    try {
+      const storage = FlutterSecureStorage();
+      final name = await storage.read(key: 'user_name');
+      if (name != null && name.trim().isNotEmpty) return name.trim();
+    } catch (_) {}
+    return 'Super Admin';
   }
 
   Future<bool> connectSocket() async {
@@ -355,14 +407,19 @@ class LiveCallService extends ChangeNotifier {
       });
       await _peerConnection!.setLocalDescription(offer);
 
+      final adminUserId = (await _readUserId()) ?? '';
+      final adminUserName = (await _readUserName()) ?? 'Super Admin';
+
       _sendSocketMessage({
         'action': 'call_signal',
         'callId': _currentCallId,
         'signalType': 'offer',
         'targetUserId': _targetUserId,
+        'senderId': adminUserId,
+        'callerUserId': adminUserId,
+        'callerName': adminUserName,
+        'callerRole': 'Super Admin',
         'sdp': offer.toMap(),
-        'callerName': 'Admin',
-        'callerRole': 'admin',
       });
     } catch (e) {
       debugPrint('LiveCallService: error starting call: $e');

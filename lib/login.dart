@@ -135,12 +135,18 @@ class _LoginPageState extends State<LoginPage> {
         final prefs = await SharedPreferences.getInstance();
         final token = data['token'].toString();
         final normalizedRole = role.toString();
+        final userId = (user['id'] ?? user['_id'])?.toString() ?? '';
+        final userName = (user['name'] ?? user['username'] ?? 'Super Admin').toString();
         await storage.write(key: 'token', value: token);
         await storage.write(key: 'email', value: fullEmail);
         await storage.write(key: 'role', value: normalizedRole);
+        await storage.write(key: 'user_id', value: userId);
+        await storage.write(key: 'user_name', value: userName);
         await prefs.setString('token', token);
         await prefs.setString('email', fullEmail);
         await prefs.setString('role', normalizedRole);
+        await prefs.setString('user_id', userId);
+        await prefs.setString('user_name', userName);
         LiveCallService.instance.connectSocket();
         if (mounted) {
           Widget targetPage;
