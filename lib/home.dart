@@ -20,6 +20,7 @@ import 'inventory_report.dart';
 import 'categorywise_report.dart';
 import 'productwise_report.dart';
 import 'kitchen_order.dart';
+import 'cash_drawer_control_page.dart';
 import 'live_call_service.dart';
 import 'widgets/app_drawer.dart';
 
@@ -79,6 +80,7 @@ class _HomePageState extends State<HomePage> {
   String selectedBranch = 'ALL';
   String? _token;
   final Map<String, String> _branchNameById = {};
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   final List<ReportModule> _allModules = const [
     ReportModule(
@@ -183,6 +185,17 @@ class _HomePageState extends State<HomePage> {
       category: 'Finance',
       page: ClosingEntryReportPage(),
       badge: 'DAILY',
+    ),
+    ReportModule(
+      id: 'cash_drawer_control',
+      title: 'Cash Drawer Control',
+      subtitle: 'Branch drawer access & toggle',
+      icon: Icons.lock_open_rounded,
+      primaryColor: Color(0xFF10B981),
+      lightColor: Color(0xFFD1FAE5),
+      category: 'Finance',
+      page: CashDrawerControlPage(),
+      badge: 'ACCESS',
     ),
     ReportModule(
       id: 'stock_orders',
@@ -325,19 +338,19 @@ class _HomePageState extends State<HomePage> {
       final responses = await Future.wait([
         http.get(
           Uri.parse(
-            'https://admin.theblackforestcakes.com/api/billings?depth=0&limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled',
+            'https://blackforest.vseyal.com/api/billings?depth=0&limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr&where[status][in][0]=completed&where[status][in][1]=settled',
           ),
           headers: {'Authorization': 'Bearer $token'},
         ),
         http.get(
           Uri.parse(
-            'https://admin.theblackforestcakes.com/api/expenses?depth=0&limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr',
+            'https://blackforest.vseyal.com/api/expenses?depth=0&limit=0&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr',
           ),
           headers: {'Authorization': 'Bearer $token'},
         ),
         http.get(
           Uri.parse(
-            'https://admin.theblackforestcakes.com/api/closing-entries?depth=1&limit=10000&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr',
+            'https://blackforest.vseyal.com/api/closing-entries?depth=1&limit=10000&where[createdAt][greater_than]=$startStr&where[createdAt][less_than]=$endStr',
           ),
           headers: {'Authorization': 'Bearer $token'},
         ),
@@ -545,7 +558,7 @@ class _HomePageState extends State<HomePage> {
     try {
       final response = await http.get(
         Uri.parse(
-          'https://admin.theblackforestcakes.com/api/branches?depth=0&limit=3000',
+          'https://blackforest.vseyal.com/api/branches?depth=0&limit=3000',
         ),
         headers: {'Authorization': 'Bearer $token'},
       );
@@ -625,6 +638,7 @@ class _HomePageState extends State<HomePage> {
     ];
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: const Color(0xFFF8FAFC),
       drawer: const Drawer(
         backgroundColor: Colors.white,
@@ -761,6 +775,10 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
+      drawer: const Drawer(
+        backgroundColor: Colors.white,
+        child: SafeArea(child: AppDrawer()),
+      ),
       appBar: _buildFixedHeader(context, isDesktop),
       body: RefreshIndicator(
         onRefresh: _fetchDashboardData,
@@ -834,11 +852,19 @@ class _HomePageState extends State<HomePage> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 if (!isDesktop) ...[
-                  IconButton(
-                    icon: const Icon(Icons.menu_rounded, color: Colors.white),
-                    onPressed: () => Scaffold.of(context).openDrawer(),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+                  Builder(
+                    builder: (btnContext) => IconButton(
+                      icon: const Icon(Icons.menu_rounded, color: Colors.white),
+                      onPressed: () {
+                        if (_scaffoldKey.currentState != null) {
+                          _scaffoldKey.currentState!.openDrawer();
+                        } else {
+                          Scaffold.of(btnContext).openDrawer();
+                        }
+                      },
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
                   ),
                   const SizedBox(width: 14),
                 ],

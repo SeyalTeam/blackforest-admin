@@ -24,4 +24,10 @@ class ApiService {
     final uri = endpoint.startsWith('http') ? Uri.parse(endpoint) : Uri.parse('$baseUrl$endpoint');
     return http.post(uri, headers: getHeaders(token), body: jsonEncode(body));
   }
+
+  /// Helper to patch JSON data
+  static Future<http.Response> patch(String endpoint, {required Map<String, dynamic> body, String? token}) async {
+    final uri = endpoint.startsWith('http') ? Uri.parse(endpoint) : Uri.parse('$baseUrl$endpoint');
+    return http.patch(uri, headers: getHeaders(token), body: jsonEncode(body));
+  }
 }

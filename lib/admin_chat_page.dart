@@ -14,7 +14,7 @@ import 'package:mime/mime.dart';
 import 'live_call_screen.dart';
 import 'admin_contact_book_page.dart';
 
-const String _chatApiBaseUrl = 'https://admin.theblackforestcakes.com/api';
+const String _chatApiBaseUrl = 'https://blackforest.vseyal.com/api';
 const Duration _chatPollInterval = Duration(seconds: 30);
 const int _maxChatAttachmentBytes = 50 * 1024 * 1024;
 const List<String> _chatAttachmentExtensions = <String>[

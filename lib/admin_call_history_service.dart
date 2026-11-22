@@ -129,7 +129,7 @@ class AdminCallHistoryService {
   static const String _storageKey = 'admin_call_history_v1';
   static const int _maxEntries = 500;
 
-  static const String _apiBaseUrl = 'https://admin.theblackforestcakes.com/api';
+  static const String _apiBaseUrl = 'https://blackforest.vseyal.com/api';
 
   static Future<List<AdminCallLogEntry>> getHistory({bool syncRemote = false, String? token}) async {
     try {

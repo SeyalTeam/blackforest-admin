@@ -28,7 +28,7 @@ class LiveCallService extends ChangeNotifier {
   LiveCallService._internal();
 
   static const List<String> _wsHosts = [
-    'admin.theblackforestcakes.com',
+    'blackforest.vseyal.com',
   ];
   static const String _wsPath = '/ws/v1';
 

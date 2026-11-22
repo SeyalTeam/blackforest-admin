@@ -16,6 +16,7 @@ import '../inventory_report.dart';
 import '../categorywise_report.dart';
 import '../productwise_report.dart';
 import '../kitchen_order.dart';
+import '../cash_drawer_control_page.dart';
 import '../login.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -200,6 +201,13 @@ class AppDrawer extends StatelessWidget {
                   title: 'Closing Entries',
                   color: const Color(0xFF059669),
                   onTap: () => _navigateTo(context, const ClosingEntryReportPage()),
+                ),
+                _drawerTile(
+                  context,
+                  icon: Icons.lock_open_rounded,
+                  title: 'Cash Drawer Control',
+                  color: const Color(0xFF10B981),
+                  onTap: () => _navigateTo(context, const CashDrawerControlPage()),
                 ),
                 _drawerTile(
                   context,

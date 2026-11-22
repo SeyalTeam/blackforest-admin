@@ -11,7 +11,7 @@ import 'admin_chat_page.dart';
 import 'live_call_screen.dart';
 import 'live_call_service.dart';
 
-const String _chatApiBaseUrl = 'https://admin.theblackforestcakes.com/api';
+const String _chatApiBaseUrl = 'https://blackforest.vseyal.com/api';
 
 enum ContactBookTab {
   contacts,
