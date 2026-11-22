@@ -69,12 +69,16 @@ class _CashDrawerControlPageState extends State<CashDrawerControlPage> {
 
       // Fetch Accountant drawer access state
       try {
-        final accRes = await ApiService.get('/branches/toggle-cashdrawer-access?branchId=accountant', token: token);
+        var accRes = await ApiService.get('/branches/toggle-cashdrawer-access?branchId=accountant', token: token);
+        if (accRes.statusCode == 404 || accRes.statusCode != 200) {
+          accRes = await ApiService.get('/globals/payment-settings', token: token);
+        }
         if (accRes.statusCode == 200) {
           final accData = jsonDecode(accRes.body);
           if (mounted) {
             setState(() {
-              _isAccountantDrawerEnabled = accData['isCashDrawerEnabled'] == true;
+              _isAccountantDrawerEnabled = accData['isCashDrawerEnabled'] == true ||
+                  accData['isAccountantCashDrawerEnabled'] == true;
             });
           }
         }
@@ -172,7 +176,7 @@ class _CashDrawerControlPageState extends State<CashDrawerControlPage> {
 
     try {
       final token = await _getToken();
-      final res = await ApiService.post(
+      var res = await ApiService.post(
         '/branches/toggle-cashdrawer-access',
         token: token,
         body: {
@@ -180,6 +184,28 @@ class _CashDrawerControlPageState extends State<CashDrawerControlPage> {
           'enabled': newValue,
         },
       );
+
+      // Fallback 1: Direct POST to global payment-settings
+      if (res.statusCode == 404 || res.statusCode != 200) {
+        res = await ApiService.post(
+          '/globals/payment-settings',
+          token: token,
+          body: {
+            'isAccountantCashDrawerEnabled': newValue,
+          },
+        );
+      }
+
+      // Fallback 2: Direct PATCH to global payment-settings
+      if (res.statusCode == 404 || res.statusCode != 200) {
+        res = await ApiService.patch(
+          '/globals/payment-settings',
+          token: token,
+          body: {
+            'isAccountantCashDrawerEnabled': newValue,
+          },
+        );
+      }
 
       if (res.statusCode == 200) {
         if (mounted) {
